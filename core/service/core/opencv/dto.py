@@ -38,6 +38,26 @@ class MatchResult:
 
 
 @dataclass
+class CompareResult:
+    """Structured image comparison result.
+
+    Attributes:
+        changed_ratio: Fraction of pixels differing beyond pixel_tolerance in [0.0, 1.0].
+        changed_pixels: Number of differing pixels.
+        total_pixels: Total number of pixels compared.
+        pixel_tolerance: Per-channel absolute difference tolerance used.
+        max_changed_ratio: Maximum allowed changed_ratio for within_tolerance.
+        within_tolerance: True if changed_ratio <= max_changed_ratio.
+    """
+    changed_ratio: float
+    changed_pixels: int
+    total_pixels: int
+    pixel_tolerance: int
+    max_changed_ratio: float
+    within_tolerance: bool
+
+
+@dataclass
 class Region:
     """Half-open integer ROI (x1, y1, x2, y2) with positive area."""
     x1: int
