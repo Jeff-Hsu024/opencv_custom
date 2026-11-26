@@ -27,6 +27,7 @@ from vision_app.store import (
     InvalidFrameIdError,
     OutOfBoundsError,
 )
+from vision_app.waits import WaitService
 
 
 class _CliParser(argparse.ArgumentParser):
@@ -138,6 +139,25 @@ def _build_parser() -> _CliParser:
     p_key.add_argument("--device", required=True, help="Device serial or 'desktop'")
     p_key.add_argument("--key", required=True, help="Key name or code")
     p_key.add_argument("--json", action="store_true", help="Output JSON")
+
+    p_wait = sub.add_parser("wait", help="Wait for screen change, stability, or image match")
+    p_wait.add_argument("--device", required=True, help="Device serial or 'desktop'")
+    wait_mode = p_wait.add_mutually_exclusive_group(required=True)
+    wait_mode.add_argument("--changed", action="store_true", help="Wait until screen/ROI changes")
+    wait_mode.add_argument("--stable", action="store_true", help="Wait until screen/ROI stabilizes")
+    wait_mode.add_argument("--image", dest="image_target", default=None, help="Wait until named asset appears")
+    p_wait.add_argument("--baseline", default=None, help="Optional baseline frame ID for --changed")
+    p_wait.add_argument("--region", default=None, help="Optional ROI X1,Y1,X2,Y2")
+    p_wait.add_argument("--timeout", type=float, default=10.0, help="Timeout in seconds")
+    p_wait.add_argument("--interval", type=float, default=0.5, help="Polling interval in seconds")
+    p_wait.add_argument("--stable-duration", type=float, default=1.0, help="Required stable duration in seconds")
+    p_wait.add_argument("--max-captures", type=int, default=100, help="Maximum captures before timeout")
+    p_wait.add_argument("--pixel-tolerance", type=int, default=0, help="Per-channel pixel tolerance")
+    p_wait.add_argument("--max-changed-ratio", type=float, default=0.0, help="Max changed ratio for --stable")
+    p_wait.add_argument("--min-changed-ratio", type=float, default=0.01, help="Min changed ratio for --changed")
+    p_wait.add_argument("--threshold", type=float, default=0.8, help="Match threshold for --image")
+    p_wait.add_argument("--color-mode", default="gray", choices=["gray", "bgr"], help="Color mode for --image")
+    p_wait.add_argument("--json", action="store_true", help="Output JSON")
 
     return parser
 
@@ -326,6 +346,66 @@ def run_cli(
                 {
                     "ok": True,
                     "command": args.command,
+                    "device": args.device,
+                    "result": result,
+                }
+            )
+            return 0
+
+        if args.command == "wait":
+            waits = WaitService(
+                store=obs.store,
+                platform_factory=obs._platform_factory,
+            )
+            region = _parse_region(args.region) if args.region is not None else None
+            try:
+                if args.changed:
+                    result = waits.wait_changed(
+                        args.device,
+                        baseline_frame_id=args.baseline,
+                        region=region,
+                        timeout=args.timeout,
+                        interval=args.interval,
+                        max_captures=args.max_captures,
+                        pixel_tolerance=args.pixel_tolerance,
+                        min_changed_ratio=args.min_changed_ratio,
+                    )
+                elif args.stable:
+                    result = waits.wait_stable(
+                        args.device,
+                        region=region,
+                        timeout=args.timeout,
+                        interval=args.interval,
+                        stable_duration=args.stable_duration,
+                        max_captures=args.max_captures,
+                        pixel_tolerance=args.pixel_tolerance,
+                        max_changed_ratio=args.max_changed_ratio,
+                    )
+                else:
+                    result = waits.wait_image(
+                        args.device,
+                        target_name=args.image_target,
+                        region=region,
+                        timeout=args.timeout,
+                        interval=args.interval,
+                        max_captures=args.max_captures,
+                        threshold=args.threshold,
+                        color_mode=args.color_mode,
+                    )
+            except (InvalidAssetNameError, InvalidFrameIdError, ValueError) as exc:
+                if isinstance(exc, (DeviceMismatchError, OutOfBoundsError)):
+                    code = "DEVICE_MISMATCH" if isinstance(exc, DeviceMismatchError) else "OUT_OF_BOUNDS"
+                    raise OperationError(code=code, message=str(exc), exit_code=3) from exc
+                raise UsageError(str(exc)) from exc
+            except FrameNotFoundError as exc:
+                raise OperationError(code="FRAME_NOT_FOUND", message=str(exc), exit_code=3) from exc
+            except AssetNotFoundError as exc:
+                raise OperationError(code="ASSET_NOT_FOUND", message=str(exc), exit_code=3) from exc
+
+            _emit_json(
+                {
+                    "ok": True,
+                    "command": "wait",
                     "device": args.device,
                     "result": result,
                 }
