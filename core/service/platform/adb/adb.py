@@ -1,9 +1,26 @@
 """
 ADB 處理器 - 執行 ADB 命令
 """
+from dataclasses import dataclass
 import subprocess
-from typing import Optional
+from typing import Optional, Sequence
 from .adb_command import AdbCommand
+
+
+@dataclass(frozen=True)
+class AdbProcessResult:
+    """Typed result for an ADB subprocess invocation."""
+
+    argv: list[str]
+    returncode: int
+    stdout: str
+    stderr: str
+    timed_out: bool = False
+    error: Optional[str] = None
+
+    @property
+    def ok(self) -> bool:
+        return self.returncode == 0 and not self.timed_out and self.error is None
 
 
 
@@ -23,6 +40,59 @@ class Adb:
         from .adb_command import AdbCommand
         # 借用 AdbCommand 的路徑解析邏輯，但去掉尾端空格
         return AdbCommand.DEVICE_LIST._get_adb_platform().strip()
+
+    def run_argv(
+        self,
+        argv: Sequence[str],
+        *,
+        timeout: Optional[float] = 30.0,
+        serial: Optional[str] = None,
+    ) -> AdbProcessResult:
+        """Execute an ADB command using explicit argv without shell interpolation."""
+        cmd = [str(part) for part in argv]
+        if not cmd:
+            raise ValueError("argv must not be empty")
+
+        target_serial = serial if serial is not None else self.device_id
+        if target_serial and "-s" not in cmd:
+            cmd[1:1] = ["-s", target_serial]
+
+        try:
+            result = subprocess.run(
+                cmd,
+                shell=False,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+            )
+            return AdbProcessResult(
+                argv=cmd,
+                returncode=result.returncode,
+                stdout=result.stdout or "",
+                stderr=result.stderr or "",
+            )
+        except subprocess.TimeoutExpired as exc:
+            stdout = exc.stdout if isinstance(exc.stdout, str) else (exc.stdout.decode("utf-8", errors="replace") if exc.stdout else "")
+            stderr = exc.stderr if isinstance(exc.stderr, str) else (exc.stderr.decode("utf-8", errors="replace") if exc.stderr else "")
+            return AdbProcessResult(
+                argv=cmd,
+                returncode=-1,
+                stdout=stdout,
+                stderr=stderr,
+                timed_out=True,
+                error=f"Command timed out after {timeout}s",
+            )
+        except OSError as exc:
+            return AdbProcessResult(
+                argv=cmd,
+                returncode=-1,
+                stdout="",
+                stderr=str(exc),
+                timed_out=False,
+                error=str(exc),
+            )
 
     def exec(self, command: str) -> str:
         """
@@ -60,23 +130,24 @@ class Adb:
             print(f"Error executing command: {e}")
             return f"something error : {e}"
     
-    def get_snapshot(self, device_id: str) -> Optional[bytes]:
+    def get_snapshot(self, device_id: str, timeout: Optional[float] = 10.0) -> Optional[bytes]:
         """
         取得 Android 裝置截圖
         
         Args:
             device_id: ADB 裝置 ID
+            timeout: 命令超時秒數
             
         Returns:
             截圖位元組陣列，失敗時返回 None
         """
         try:
-            command = AdbCommand.SCREEN_CAP.get_command_with_device(device_id)
+            argv = AdbCommand.SCREEN_CAP.get_argv(device_id=device_id)
             result = subprocess.run(
-                command,
-                shell=True,
+                argv,
+                shell=False,
                 capture_output=True,
-                timeout=10  # 添加超時
+                timeout=timeout,
             )
             if result.returncode != 0:
                 print(f"截圖命令失敗，返回碼: {result.returncode}")
