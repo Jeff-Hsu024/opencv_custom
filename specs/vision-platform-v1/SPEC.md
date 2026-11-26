@@ -49,3 +49,6 @@ Discover actual NB extension/transport contract before implementation. MCP uses 
 
 ## Non-goals / gates
 No game-specific workflow, agent planner, OCR model download, arbitrary shell MCP, GUI redesign, screen streaming or further Git history rewriting. Baseline plus new tests; real NB read-only screenshot and crop first; verify serial 127.0.0.1:16480 only, do not touch other devices, accounts, desktop inputs or restart daemon. Mutating E2E uses controlled test screen with scoped action. Separate real/mocked evidence; see ACCEPTANCE.md and TICKETS.json.
+
+## Mandatory dispatch discipline
+All implementation workers must read and comply with DISPATCH-CONTRACT.md before editing or reporting worker_done. The coordinator independently verifies every delivery before integrating and dispatching dependents.
