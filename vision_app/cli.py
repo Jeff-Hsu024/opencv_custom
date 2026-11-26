@@ -21,6 +21,7 @@ from vision_app.assets import (
 )
 from vision_app.observation import ObservationService, OperationError, UsageError
 from vision_app.discovery import DiscoveryService
+from vision_app.asset_revisions import AssetRevisionService
 from vision_app.store import (
     DeviceMismatchError,
     FrameNotFoundError,
@@ -78,7 +79,8 @@ def _build_parser() -> _CliParser:
     parser.add_argument('--session', default=os.environ.get('VISION_SESSION_ID'))
     sub = parser.add_subparsers(dest="command", required=True)
     phase9 = sub.add_parser("phase9", help="Phase 9 request-file API")
-    phase9.add_argument("phase9_operation", choices=["android-devices"])
+    phase9.add_argument("phase9_operation", choices=["android-devices", "asset-revision-register",
+                                                     "asset-revision-resolve"])
     phase9.add_argument("--request", required=True, help="UTF-8 JSON request file")
     transition = sub.add_parser('transition', help='Recorded one-click transition')
     transition.add_argument('transition_action',choices=['execute','inspect'])
@@ -568,6 +570,11 @@ def run_cli(argv=None, *, service=None):
             except (OSError, UnicodeError, ValueError):
                 _emit_json(DiscoveryService._error('INVALID_ARGUMENT', 'Cannot read a valid UTF-8 JSON request'))
                 return 2
+            if args.phase9_operation != 'android-devices':
+                operation = args.phase9_operation.replace('-', '_')
+                payload, exit_code = AssetRevisionService(store).invoke(operation, request)
+                _emit_json(payload)
+                return exit_code
             payload, exit_code = DiscoveryService(service or ObservationService(store=store)).invoke(request)
             _emit_json(payload)
             return exit_code

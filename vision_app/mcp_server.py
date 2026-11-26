@@ -28,6 +28,11 @@ from vision_app.assets import (
 )
 from vision_app.observation import ObservationService, OperationError, UsageError
 from vision_app.discovery import ANDROID_DEVICES_SCHEMA, DiscoveryService
+from vision_app.asset_revisions import (
+    ASSET_REVISION_REGISTER_SCHEMA,
+    ASSET_REVISION_RESOLVE_SCHEMA,
+    AssetRevisionService,
+)
 from vision_app.store import (
     DeviceMismatchError,
     FrameNotFoundError,
@@ -313,6 +318,12 @@ def _tool_definitions() -> List[Dict[str, Any]]:
     definitions.append({"name": "vision_android_devices",
                         "description": "Strict read-only online Android discovery; failures differ from empty results.",
                         "inputSchema": ANDROID_DEVICES_SCHEMA})
+    definitions.append({"name": "vision_asset_revision_register",
+                        "description": "Register an immutable asset revision in an explicit device (and optional session) scope.",
+                        "inputSchema": ASSET_REVISION_REGISTER_SCHEMA})
+    definitions.append({"name": "vision_asset_revision_resolve",
+                        "description": "Resolve the last committed asset revision for an exact device/session scope and name; no fallback.",
+                        "inputSchema": ASSET_REVISION_RESOLVE_SCHEMA})
     return definitions
 
 
@@ -373,6 +384,12 @@ class VisionMcpServer:
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         if name == 'vision_android_devices':
             payload, _ = DiscoveryService(self.obs).invoke({} if arguments is None else arguments)
+            result = self._text_tool_result(payload)
+            result['isError'] = not payload['ok']
+            return result
+        if name in ('vision_asset_revision_register', 'vision_asset_revision_resolve'):
+            operation = name.removeprefix('vision_')
+            payload, _ = AssetRevisionService(self.store).invoke(operation, {} if arguments is None else arguments)
             result = self._text_tool_result(payload)
             result['isError'] = not payload['ok']
             return result

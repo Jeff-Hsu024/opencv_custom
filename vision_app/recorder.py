@@ -4,8 +4,6 @@ from __future__ import annotations
 import hashlib
 import math
 import json
-import os
-import shutil
 import sqlite3
 import time
 import uuid
@@ -13,6 +11,7 @@ from contextlib import contextmanager, closing
 from pathlib import Path
 from typing import Any
 
+from vision_app.metadata import metadata_transaction
 from vision_app.store import FrameStore, StoreError, protect_new_frames
 
 OPERATIONS = frozenset(("snapshot", "crop", "resize", "assets_register", "find",
@@ -160,7 +159,7 @@ class Recorder:
         allowed = {"pause": ("active", "paused"), "resume": ("paused", "active"),
                    "stop": (("active", "paused"), "stopped")}
         before, after = allowed[action]
-        with workspace_lock(self.store), self.db() as db:
+        with workspace_lock(self.store), metadata_transaction(self.store), self.db() as db:
             session = self._session(db, sid)
             if session["status"] not in ((before,) if isinstance(before, str) else before):
                 raise RecorderError("Invalid session transition")
@@ -205,27 +204,53 @@ class Recorder:
         if not name or not isinstance(name, str):
             return
         try:
-            asset = AssetRegistry(self.store.store_dir).get(name)
+            # One committed alias: metadata and bytes are never a mixed pair.
+            asset, data, _ = AssetRegistry(self.store.store_dir).snapshot(name)
         except StoreError:
             return
         if asset.device_id is not None and asset.device_id != device:
             raise RecorderError("Asset source device differs from session",code="SESSION_SCOPE_MISMATCH")
         self._pin(asset.source_frame_id, device, evidence)
         src = Path(asset.image_path)
-        if not src.resolve().is_relative_to((self.store.store_dir / "assets").resolve()) or not src.is_file():
+        if not src.resolve().is_relative_to((self.store.store_dir / "assets").resolve()):
             return
-        digest = hashlib.sha256(src.read_bytes()).hexdigest()
-        dest = self.store.store_dir / "recorded_assets" / (digest + ".png")
-        dest.parent.mkdir(exist_ok=True)
-        if not dest.exists():
-            try:
-                os.link(src, dest)
-            except OSError:
-                shutil.copyfile(src, dest)
+        digest = hashlib.sha256(data).hexdigest()
         item = {**asset.to_dict(), "sha256": digest,
-                "retained_path": str(dest.relative_to(self.store.store_dir))}
+                "retained_path": self._retain_bytes(digest, data)}
         if item not in evidence["assets"]:
             evidence["assets"].append(item)
+
+    def _retain_bytes(self, digest, data):
+        dest = self.store.store_dir / "recorded_assets" / (digest + ".png")
+        dest.parent.mkdir(exist_ok=True)
+        if dest.exists():
+            if hashlib.sha256(dest.read_bytes()).hexdigest() != digest:
+                raise RecorderError("Retained asset bytes do not match digest",code="STORE_ERROR")
+        else:
+            from vision_app.store import _atomic_write_bytes
+            try:
+                _atomic_write_bytes(dest, data)
+            except OSError:
+                if not dest.exists() or hashlib.sha256(dest.read_bytes()).hexdigest() != digest:
+                    raise
+        return str(dest.relative_to(self.store.store_dir))
+
+    def retain_asset_revision(self, revision_id, device, evidence, *, session_id=None):
+        """C03 seam: pin one exact immutable revision and retain its digest.
+
+        Scope is device-wide or exactly the given session; never a global alias.
+        Returns the evidence item appended for the same event.
+        """
+        from vision_app.asset_revisions import AssetRevisionStore
+        revisions = AssetRevisionStore(self.store.store_dir, frame_store=self.store)
+        with revisions.pin(revision_id, device=device, session_id=session_id) as pinned:
+            rev = pinned.revision
+            self._pin(rev["source_frame_id"], device, evidence)
+            item = {**rev, "sha256": rev["png_sha256"],
+                    "retained_path": self._retain_bytes(rev["png_sha256"], pinned.png_bytes)}
+        if item not in evidence["assets"]:
+            evidence["assets"].append(item)
+        return item
 
     def _ref(self, rid, device, evidence):
         from vision_app.assets import RefRegistry
