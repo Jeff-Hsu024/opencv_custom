@@ -251,41 +251,45 @@ class LifecycleService:
     def select(self,family_id,run_id):
         """Read-only recommendation from a fresh frame. Never clicks or resumes."""
         with workspace_lock(self.store):
-            with self.rec.db() as db:
-                f=self._family(db,family_id)
-                require(f["active_version"] is not None,"Family is disabled")
-                v=self._version(db,family_id,f["active_version"])
-                routes=[dict(r) for r in db.execute("SELECT * FROM workflow_routes WHERE family_id=? AND parent_version=? AND enabled=1 ORDER BY route_id",
-                                                    (family_id,v["version"]))]
-            failed=self.rt._load("runs",run_id)
-            binding=self.rt._binding(failed["binding_id"])
-            require(all(binding[k]==failed[k] for k in ("workflow_id","device","profile")),"Failure binding mismatch")
-            require(failed["status"]=="needs_agent" and failed["workflow_id"]==v["workflow_id"]
-                    and failed["device"]==f["device"] and failed["profile"]==f["profile"],"Run is not failed active version")
-            if failed["action_outcome"]!="not_attempted" or (failed.get("reason") or {}).get("code")!="PRECONDITION_FAILED":
-                return {"status":"manual_review","reason":"Uncertain action outcome or unsupported failure type","run_id":run_id,"selected":None}
-            self._check_version(v)
-            d,t=self.rt._definition(v["workflow_id"],f["device"],f["profile"])
-            frame,img=self.rt._capture(f["device"],f["profile"],d,lambda _:None)
-            parent=self.rt._classify(img,d,t)
-            base={"run_id":run_id,"family_id":family_id,"generation":f["generation"],"frame_id":frame.frame_id,
-                  "parent_state":parent,"selected":None,"automatic_execution":False}
-            if parent["ambiguous"]:return {**base,"status":"manual_review","reason":"Ambiguous parent state"}
-            candidates=[]
-            for r in routes:
-                p,q=self._qualified_route(r)
-                require(p["parent_workflow_id"]==v["workflow_id"],"Route parent changed")
-                child,ct=self.rt._definition(r["child_workflow_id"],f["device"],f["profile"])
-                if child["geometry"]!=d["geometry"]:continue
-                state=self.rt._classify(img,child,ct)
-                if not state["ambiguous"] and state["state"]==child["initial_state"] and parent["state"]==p["anchor"]["parent_classification"]["state"]:
-                    m=self.rt._matches(img,child["steps"][0]["action"],ct)
-                    if len(m)==1:
-                        candidates.append({"route_id":r["route_id"],"workflow_id":r["child_workflow_id"],
-                                           "qualification_id":q["qualification_id"],"destination_state":p["destination_state"],
-                                           "target_score":m[0].score})
-            if len(candidates)==1:return {**base,"status":"selected","selected":candidates[0],"candidates":candidates}
-            return {**base,"status":"no_match" if not candidates else "ambiguous","candidates":candidates}
+            return self._select_locked(family_id,run_id)
+
+    def _select_locked(self,family_id,run_id):
+        with self.rec.db() as db:
+            f=self._family(db,family_id)
+            require(f["active_version"] is not None,"Family is disabled")
+            v=self._version(db,family_id,f["active_version"])
+            routes=[dict(r) for r in db.execute("SELECT * FROM workflow_routes WHERE family_id=? AND parent_version=? AND enabled=1 ORDER BY route_id",
+                                                (family_id,v["version"]))]
+        failed=self.rt._load("runs",run_id)
+        binding=self.rt._binding(failed["binding_id"])
+        require(all(binding[k]==failed[k] for k in ("workflow_id","device","profile")),"Failure binding mismatch")
+        require(failed["status"]=="needs_agent" and failed["workflow_id"]==v["workflow_id"]
+                and failed["device"]==f["device"] and failed["profile"]==f["profile"],"Run is not failed active version")
+        if failed["action_outcome"]!="not_attempted" or (failed.get("reason") or {}).get("code")!="PRECONDITION_FAILED":
+            return {"status":"manual_review","reason":"Uncertain action outcome or unsupported failure type","run_id":run_id,"selected":None}
+        self._check_version(v)
+        d,t=self.rt._definition(v["workflow_id"],f["device"],f["profile"])
+        frame,img=self.rt._capture(f["device"],f["profile"],d,lambda _:None)
+        parent=self.rt._classify(img,d,t)
+        base={"run_id":run_id,"family_id":family_id,"generation":f["generation"],"frame_id":frame.frame_id,
+              "parent_state":parent,"selected":None,"automatic_execution":False}
+        if parent["ambiguous"]:return {**base,"status":"manual_review","reason":"Ambiguous parent state"}
+        candidates=[]
+        for r in routes:
+            p,q=self._qualified_route(r)
+            require(p["parent_workflow_id"]==v["workflow_id"],"Route parent changed")
+            child,ct=self.rt._definition(r["child_workflow_id"],f["device"],f["profile"])
+            if child["geometry"]!=d["geometry"]:continue
+            state=self.rt._classify(img,child,ct)
+            if not state["ambiguous"] and state["state"]==child["initial_state"] and parent["state"]==p["anchor"]["parent_classification"]["state"]:
+                m=self.rt._matches(img,child["steps"][0]["action"],ct)
+                if len(m)==1:
+                    candidates.append({"route_id":r["route_id"],"workflow_id":r["child_workflow_id"],
+                                       "qualification_id":q["qualification_id"],"destination_state":p["destination_state"],
+                                       "target_score":m[0].score})
+        if len(candidates)==1:return {**base,"status":"selected","selected":candidates[0],"candidates":candidates}
+        return {**base,"status":"no_match" if not candidates else "ambiguous","candidates":candidates}
+
 
     def inspect(self,family_id,limit=20,after=0,parent_version=None):
         self.rec._page(limit,after)

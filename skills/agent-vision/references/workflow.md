@@ -42,3 +42,6 @@ Use the failure handoff as a bounded context, not a command to replay. Check ori
 
 ## Lifecycle and recovery reuse
 Publish a reviewed live-qualified version as a named family; explicitly activate it with the current generation. Preserve version lineage and audit history. Link recovery routes only to the exact qualified parent. Selection uses fresh evidence, never historic coordinates, and only recommends a unique matching route. Treat uncertain action effects as manual review. A disabled family or route rejects new Runtime execution; prior run IDs still return original receipts. Qualify and explicitly execute the selected child, verify returned state, then independently decide whether the original task should resume. No automatic rollback or retry.
+
+## Deterministic task orchestration
+For known tasks, prefer the single task entry over manual per-step or per-child calls. On eligible first-step precondition failure, explicitly enabled auto_recover selects a unique known recovery route from a fresh frame, runs it, checks the parent's initial guard, and restarts the full task once. Any prior primary action, uncertain effect, ambiguous/missing route or failed recovery/restart stops for Agent review. Recovery alone is not task completion. No automatic discovery, promotion or LLM invocation.

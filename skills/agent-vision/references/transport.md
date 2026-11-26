@@ -132,3 +132,12 @@ CLI:
     vision lifecycle history --family NAME
     vision lifecycle list
 Registry lives in recorder.sqlite; immutable workflow and run evidence remain separate.
+
+## Task Orchestrator Phase 7
+MCP vision_task_execute {family_id,task_id,expected_generation,auto_recover?}; vision_task_inspect {task_id}; vision_task_list {limit?,after?}. auto_recover defaults false. Task terminal statuses: completed, needs_agent, interrupted. Each child has a deterministic distinct runtime run ID; task journal in STORE/orchestrator/tasks/TASK_ID.json. Readback never resumes; inspect child journals if interrupted. CLI:
+    vision task execute --family NAME --task-id TASK_ID --generation CURRENT --auto-recover
+    vision task inspect --task-id TASK_ID
+    vision task list
+Exit 0 only for completed execution; 3 for noncompleted. Generation pin and workspace lock cover entire synchronous task. Existing runtime bounds are per-step, not a task wall-clock timeout.
+
+Transport timeout: a long synchronous MCP task may outlast the connector request. Inspect the original task ID (CLI or MCP); do not generate a new ID or assume success/failure. If still running, the journal may belong to a live or interrupted writer; same-ID execute under the workspace lock is readback/reconciliation only once the previous writer releases the lock. Use CLI for tasks expected to exceed the connector timeout.

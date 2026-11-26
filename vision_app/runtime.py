@@ -200,97 +200,101 @@ class WorkflowRuntime:
 
     def run(self,binding_id,run_id):
         with workspace_lock(self.store):
-            path=self._path("runs",run_id)
-            if path.exists():
-                old=self._load("runs",run_id)
-                require(old["binding_id"]==binding_id,"Run ID already bound to another request")
-                # Lock acquired: an unfinished receipt has no active writer. Never replay it.
-                if old["status"]=="running":
-                    old["status"]="interrupted"
-                    old["reason"]={"code":"INTERRUPTED","message":"Previous process ended without terminal receipt; inspect actual state before any new action."}
-                    old["finished_at"]=time.time()
-                    self._persist(old)
-                return {**self._summary(old),"duplicate_request":True}
-            b=self._binding(binding_id)
-            device,profile,wid=b["device"],b["profile"],b["workflow_id"]
-            run={"run_id":run_id,"workflow_id":wid,"binding_id":binding_id,"device":device,"profile":profile,
-                 "status":"running","started_at":time.time(),"finished_at":None,"current_step":None,
-                 "last_frame_id":None,"last_confirmed_state":None,"reason":None,
-                 "action_outcome":"not_attempted","completed_steps":0,"steps":[],"frames":[]}
+            return self._run_locked(binding_id,run_id)
+
+    def _run_locked(self,binding_id,run_id):
+        path=self._path("runs",run_id)
+        if path.exists():
+            old=self._load("runs",run_id)
+            require(old["binding_id"]==binding_id,"Run ID already bound to another request")
+            # Lock acquired: an unfinished receipt has no active writer. Never replay it.
+            if old["status"]=="running":
+                old["status"]="interrupted"
+                old["reason"]={"code":"INTERRUPTED","message":"Previous process ended without terminal receipt; inspect actual state before any new action."}
+                old["finished_at"]=time.time()
+                self._persist(old)
+            return {**self._summary(old),"duplicate_request":True}
+        b=self._binding(binding_id)
+        device,profile,wid=b["device"],b["profile"],b["workflow_id"]
+        run={"run_id":run_id,"workflow_id":wid,"binding_id":binding_id,"device":device,"profile":profile,
+             "status":"running","started_at":time.time(),"finished_at":None,"current_step":None,
+             "last_frame_id":None,"last_confirmed_state":None,"reason":None,
+             "action_outcome":"not_attempted","completed_steps":0,"steps":[],"frames":[]}
+        self._persist(run)
+        def observe(fid):
+            run["frames"].append(fid)
+            run["last_frame_id"]=fid
             self._persist(run)
-            def observe(fid):
-                run["frames"].append(fid)
-                run["last_frame_id"]=fid
+        try:
+            from vision_app.lifecycle import LifecycleService
+            LifecycleService(self.store, runtime=self).guard_run(wid,device,profile)
+            d,templates=self._definition(wid,device,profile)
+            for step in d["steps"]:
+                rec={"step_id":step["id"],"from":step["from"],"to":step["to"],"status":"observing",
+                     "pre_frame_id":None,"post_frame_id":None,"target":None,"action_receipt":None,
+                     "post_observations":[]}
+                run["steps"].append(rec)
+                run["current_step"]=step["id"]
+                run["action_outcome"]="not_attempted"
                 self._persist(run)
-            try:
-                from vision_app.lifecycle import LifecycleService
-                LifecycleService(self.store, runtime=self).guard_run(wid,device,profile)
-                d,templates=self._definition(wid,device,profile)
-                for step in d["steps"]:
-                    rec={"step_id":step["id"],"from":step["from"],"to":step["to"],"status":"observing",
-                         "pre_frame_id":None,"post_frame_id":None,"target":None,"action_receipt":None,
-                         "post_observations":[]}
-                    run["steps"].append(rec)
-                    run["current_step"]=step["id"]
-                    run["action_outcome"]="not_attempted"
+                f,img=self._capture(device,profile,d,observe)
+                rec["pre_frame_id"]=f.frame_id
+                classification=self._classify(img,d,templates)
+                rec["pre_state"]=classification
+                check(classification["state"]==step["from"] and not classification["ambiguous"],
+                      "PRECONDITION_FAILED","Expected state is not uniquely recognized",classification)
+                run["last_confirmed_state"]=step["from"]
+                m=self._target(img,step,templates)
+                ref=self.refs.save(_map_match_to_ref(f,"workflow_"+step["id"],m))
+                rec["target"]={"ref_id":ref.ref_id,"frame_id":f.frame_id,"score":m.score,
+                               "device_bbox":list(ref.device_bbox),"template_sha256":step["action"]["template"]["sha256"]}
+                self._profile(device,profile)
+                age=step["action"]["max_ref_age_seconds"]
+                check(0<=time.time()-f.timestamp<=age,"FRAME_STALE","Live pre-frame expired before click")
+                rec["status"]="action_pending"
+                run["action_outcome"]="unknown"
+                self._persist(run)
+                receipt=self.actions.click(device,ref_id=ref.ref_id,max_age_seconds=age)
+                rec["action_receipt"]=receipt
+                rec["status"]="verifying"
+                run["action_outcome"]="executed_unverified"
+                self._persist(run)
+                deadline=self.clock()+step["postcondition"]["timeout_seconds"]
+                for _ in range(MAX_CAPTURES):
+                    if self.clock()>deadline:
+                        break
+                    post,pimg=self._capture(device,profile,d,observe)
+                    state=self._classify(pimg,d,templates)
+                    rec["post_observations"].append({"frame_id":post.frame_id,**state})
                     self._persist(run)
-                    f,img=self._capture(device,profile,d,observe)
-                    rec["pre_frame_id"]=f.frame_id
-                    classification=self._classify(img,d,templates)
-                    rec["pre_state"]=classification
-                    check(classification["state"]==step["from"] and not classification["ambiguous"],
-                          "PRECONDITION_FAILED","Expected state is not uniquely recognized",classification)
-                    run["last_confirmed_state"]=step["from"]
-                    m=self._target(img,step,templates)
-                    ref=self.refs.save(_map_match_to_ref(f,"workflow_"+step["id"],m))
-                    rec["target"]={"ref_id":ref.ref_id,"frame_id":f.frame_id,"score":m.score,
-                                   "device_bbox":list(ref.device_bbox),"template_sha256":step["action"]["template"]["sha256"]}
-                    self._profile(device,profile)
-                    age=step["action"]["max_ref_age_seconds"]
-                    check(0<=time.time()-f.timestamp<=age,"FRAME_STALE","Live pre-frame expired before click")
-                    rec["status"]="action_pending"
-                    run["action_outcome"]="unknown"
-                    self._persist(run)
-                    receipt=self.actions.click(device,ref_id=ref.ref_id,max_age_seconds=age)
-                    rec["action_receipt"]=receipt
-                    rec["status"]="verifying"
-                    run["action_outcome"]="executed_unverified"
-                    self._persist(run)
-                    deadline=self.clock()+step["postcondition"]["timeout_seconds"]
-                    for _ in range(MAX_CAPTURES):
-                        if self.clock()>deadline:
-                            break
-                        post,pimg=self._capture(device,profile,d,observe)
-                        state=self._classify(pimg,d,templates)
-                        rec["post_observations"].append({"frame_id":post.frame_id,**state})
+                    if self.clock()>deadline:
+                        break
+                    check(not state["ambiguous"],"POST_STATE_AMBIGUOUS","Ambiguous live post-state",state)
+                    if state["state"]==step["to"]:
+                        rec["status"]="verified"
+                        rec["post_frame_id"]=post.frame_id
+                        run["last_confirmed_state"]=step["to"]
+                        run["completed_steps"]+=1
+                        run["action_outcome"]="verified"
                         self._persist(run)
-                        if self.clock()>deadline:
-                            break
-                        check(not state["ambiguous"],"POST_STATE_AMBIGUOUS","Ambiguous live post-state",state)
-                        if state["state"]==step["to"]:
-                            rec["status"]="verified"
-                            rec["post_frame_id"]=post.frame_id
-                            run["last_confirmed_state"]=step["to"]
-                            run["completed_steps"]+=1
-                            run["action_outcome"]="verified"
-                            self._persist(run)
-                            break
-                        check(state["state"] in (None,step["from"]),"UNEXPECTED_STATE","Unexpected known destination state",state)
-                        remaining=deadline-self.clock()
-                        if remaining>0:
-                            self.sleep(min(POLL_SECONDS,remaining))
-                    check(rec["status"]=="verified","POSTCONDITION_TIMEOUT","Destination guard not verified within wait budget")
-                run["status"]="completed"
-                run["current_step"]=None
-            except Exception as exc:
-                run["status"]="needs_agent"
-                run["reason"]={"code":getattr(exc,"code","RUNTIME_ERROR"),"message":str(exc),
-                               "details":getattr(exc,"details",{})}
-                if run["steps"] and run["steps"][-1]["status"]!="verified":
-                    run["steps"][-1]["status"]="needs_agent"
-            run["finished_at"]=time.time()
-            self._persist(run)
-            return self._summary(run)
+                        break
+                    check(state["state"] in (None,step["from"]),"UNEXPECTED_STATE","Unexpected known destination state",state)
+                    remaining=deadline-self.clock()
+                    if remaining>0:
+                        self.sleep(min(POLL_SECONDS,remaining))
+                check(rec["status"]=="verified","POSTCONDITION_TIMEOUT","Destination guard not verified within wait budget")
+            run["status"]="completed"
+            run["current_step"]=None
+        except Exception as exc:
+            run["status"]="needs_agent"
+            run["reason"]={"code":getattr(exc,"code","RUNTIME_ERROR"),"message":str(exc),
+                           "details":getattr(exc,"details",{})}
+            if run["steps"] and run["steps"][-1]["status"]!="verified":
+                run["steps"][-1]["status"]="needs_agent"
+        run["finished_at"]=time.time()
+        self._persist(run)
+        return self._summary(run)
+
 
     def inspect(self,run_id):
         run=self._load("runs",run_id)
