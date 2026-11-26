@@ -1,0 +1,279 @@
+{
+  "schema_version": "1.0",
+  "baseline": "e1b132f",
+  "status": "planned",
+  "rules": [
+    "Dependencies pass first; serialize overlapping file edits",
+    "Tests accompany each ticket; attach observed evidence",
+    "Core cannot import application/CLI/MCP",
+    "P1 and P2 are separate, not P0 gates",
+    "No implementation in this planning task"
+  ],
+  "tickets": [
+    {
+      "id": "CORE-01",
+      "title": "Color capture and decode",
+      "priority": "P0",
+      "depends_on": [],
+      "status": "TODO",
+      "scope": "adb_platform.py; mat_utility.py; tests",
+      "deliverables": "Explicit BGR decoder; preserve legacy grayscale; audit capture consumers.",
+      "acceptance": "Synthetic color PNG; ADB/Robot BGR shape/dtype; legacy decode; failure."
+    },
+    {
+      "id": "CORE-02",
+      "title": "Region and crop validation",
+      "priority": "P0",
+      "depends_on": [],
+      "status": "TODO",
+      "scope": "dto.py; mat_utility.py; tests",
+      "deliverables": "General Region and OcrRegion compatibility; half-open ROI; copy crop.",
+      "acceptance": "Full/edge/invalid/inverted/OOB ROI; nested crop; source unchanged."
+    },
+    {
+      "id": "CORE-03",
+      "title": "Pure resize, encode, save",
+      "priority": "P0",
+      "depends_on": [
+        "CORE-01",
+        "CORE-02"
+      ],
+      "status": "TODO",
+      "scope": "mat_utility.py; tests",
+      "deliverables": "Resize by size/scale; PNG round trip, Unicode save; validation.",
+      "acceptance": "Color PNG preserved; dimensions; invalid args; Unicode path; no device dependency."
+    },
+    {
+      "id": "CORE-04",
+      "title": "Platform region observation",
+      "priority": "P0",
+      "depends_on": [
+        "CORE-01",
+        "CORE-02",
+        "CORE-03"
+      ],
+      "status": "TODO",
+      "scope": "platform_service.py; script_interface.py; tests",
+      "deliverables": "snapshot_region/save_snapshot/snapshot_regions delegate pure operations.",
+      "acceptance": "Exactly one capture; correct crop/save; failure; old methods intact."
+    },
+    {
+      "id": "CORE-05",
+      "title": "Match compatibility and structured result",
+      "priority": "P0",
+      "depends_on": [
+        "CORE-01",
+        "CORE-02"
+      ],
+      "status": "TODO",
+      "scope": "open_cv_service.py; dto.py; tests",
+      "deliverables": "Explicit gray/BGR; structured score/bbox/center; preserve legacy MatchPattern.",
+      "acceptance": "Color fixtures; invalid template/threshold; bounds and score; legacy tests."
+    },
+    {
+      "id": "CORE-06",
+      "title": "Multi-match and ROI mapping",
+      "priority": "P0",
+      "depends_on": [
+        "CORE-05"
+      ],
+      "status": "TODO",
+      "scope": "open_cv_service.py; platform_service.py; tests",
+      "deliverables": "Bounded find_all, deterministic NMS; supplied image; full-screen offset.",
+      "acceptance": "Overlapping/multiple matches; no-match; limit; ordering; ROI and one capture."
+    },
+    {
+      "id": "CORE-07",
+      "title": "Template OCR regression",
+      "priority": "P0",
+      "depends_on": [
+        "CORE-01",
+        "CORE-02"
+      ],
+      "status": "TODO",
+      "scope": "ocr/*; open_cv_service.py; tests",
+      "deliverables": "Convert at OCR boundary; validate; prevent non-terminating loop; preserve API.",
+      "acceptance": "BGR/gray same result; empty templates; constant/zero-threshold edge; bounded."
+    },
+    {
+      "id": "CORE-08",
+      "title": "Generic compare and polling",
+      "priority": "P0",
+      "depends_on": [
+        "CORE-01",
+        "CORE-02"
+      ],
+      "status": "TODO",
+      "scope": "open_cv_service.py; platform_service.py; tests",
+      "deliverables": "Changed-pixel ratio/tolerance; monotonic wait_image; no agent state.",
+      "acceptance": "Known diff ratios; invalid shape; fake clock timeout and bounded polling."
+    },
+    {
+      "id": "CORE-09",
+      "title": "ADB typed process results",
+      "priority": "P0",
+      "depends_on": [],
+      "status": "TODO",
+      "scope": "adb.py; adb_command.py; adb_key_code.py; adb_platform.py; tests",
+      "deliverables": "Typed argv, exit code, timeout and explicit serial; raw exec compatibility.",
+      "acceptance": "Nonzero without error text; warning on success; timeout; literal arguments; serial; start_app regression."
+    },
+    {
+      "id": "CORE-10",
+      "title": "Generic action capabilities",
+      "priority": "P1",
+      "depends_on": [
+        "CORE-09"
+      ],
+      "status": "TODO",
+      "scope": "platform_service.py; adb_platform.py; robot_platform.py; tests",
+      "deliverables": "Long press when supported; explicit unsupported; safe desktop defaults.",
+      "acceptance": "Mock actions and duration; invalid/unsupported; failsafe; no real input."
+    },
+    {
+      "id": "CORE-11",
+      "title": "Independent Core acceptance",
+      "priority": "P0",
+      "depends_on": [
+        "CORE-04",
+        "CORE-06",
+        "CORE-07",
+        "CORE-08",
+        "CORE-09"
+      ],
+      "status": "TODO",
+      "scope": "core/test; evidence",
+      "deliverables": "Regression and dependency boundary; NB read-only snapshot/crop if online.",
+      "acceptance": "Baseline + new suite; actual dimensions/color/ROI; no device mutation; blockers distinguished."
+    },
+    {
+      "id": "PKG-01",
+      "title": "Installable package and headless imports",
+      "priority": "P0",
+      "depends_on": [
+        "CORE-11"
+      ],
+      "status": "TODO",
+      "scope": "pyproject.toml; package; entry.py; requirements; docs",
+      "deliverables": "Optional desktop extra, lazy imports, legacy wrappers.",
+      "acceptance": "Fresh venv install; ADB import without pyautogui; old entry/script tests."
+    },
+    {
+      "id": "PKG-02",
+      "title": "GUI compatibility",
+      "priority": "P0",
+      "depends_on": [
+        "PKG-01"
+      ],
+      "status": "TODO",
+      "scope": "server; CI; run_dev.bat; docs",
+      "deliverables": "Wails/Go integration paths; official installer retained; no redesign.",
+      "acceptance": "Go tests/build when available; Python legacy smoke; explicit toolchain blocker."
+    },
+    {
+      "id": "CLI-01",
+      "title": "Application session/frame store",
+      "priority": "P0",
+      "depends_on": [
+        "PKG-01"
+      ],
+      "status": "TODO",
+      "scope": "new application package; tests",
+      "deliverables": "Persistent bounded workspace/device scoped frames; composable transforms.",
+      "acceptance": "Across processes; nested crop/resize; traversal and wrong-device rejection; atomic storage."
+    },
+    {
+      "id": "CLI-02",
+      "title": "Observation CLI and export",
+      "priority": "P0",
+      "depends_on": [
+        "CLI-01"
+      ],
+      "status": "TODO",
+      "scope": "new CLI; application; tests",
+      "deliverables": "devices/snapshot/crop/resize/capabilities, JSON and exit conventions.",
+      "acceptance": "Actual subprocess; parse stdout; PNG file/dimensions; usage exit 2; single capture."
+    },
+    {
+      "id": "CLI-03",
+      "title": "Assets and matching refs",
+      "priority": "P0",
+      "depends_on": [
+        "CLI-01",
+        "CORE-06"
+      ],
+      "status": "TODO",
+      "scope": "application asset registry; CLI; tests",
+      "deliverables": "Register/list/match/all on named assets and frame; scoped refs.",
+      "acceptance": "Persistence; safe names; no-match; correct bbox/score/device."
+    },
+    {
+      "id": "CLI-04",
+      "title": "Action refs and coordinate mapping",
+      "priority": "P0",
+      "depends_on": [
+        "CLI-02",
+        "CLI-03",
+        "CORE-09"
+      ],
+      "status": "TODO",
+      "scope": "application; CLI; tests",
+      "deliverables": "Click frame point/ref, swipe/type/key; freshness/bounds/serial; receipt.",
+      "acceptance": "Exact mapping of resized crop; stale/mismatch reject; timeout status; no retries."
+    },
+    {
+      "id": "CLI-05",
+      "title": "State waits and verification",
+      "priority": "P0",
+      "depends_on": [
+        "CLI-02",
+        "CORE-08"
+      ],
+      "status": "TODO",
+      "scope": "application; CLI; tests",
+      "deliverables": "Changed/stable/image waits with ROI, baseline, timeout; generic compare.",
+      "acceptance": "Fake clock/noisy ROI/stable/timeout; bounded captures; separate action status."
+    },
+    {
+      "id": "MCP-01",
+      "title": "MCP adapter and image delivery",
+      "priority": "P0",
+      "depends_on": [
+        "CLI-02",
+        "CLI-03",
+        "CLI-04",
+        "CLI-05"
+      ],
+      "status": "TODO",
+      "scope": "MCP interface; application; tests",
+      "deliverables": "Discover actual Queqiao NB contract; shared methods; image content + metadata.",
+      "acceptance": "Discovery/schema; PNG MIME+bytes; actual visible image; scoped errors."
+    },
+    {
+      "id": "E2E-01",
+      "title": "Controlled MuMu acceptance",
+      "priority": "P0",
+      "depends_on": [
+        "MCP-01",
+        "PKG-02"
+      ],
+      "status": "TODO",
+      "scope": "acceptance evidence; controlled fixture",
+      "deliverables": "Verify serial; capture/crop/register/match; scoped test target tap and verify.",
+      "acceptance": "Actual image, correct coordinates, one intended action and postcondition; no other device/account/desktop effects."
+    },
+    {
+      "id": "OPT-01",
+      "title": "Optional performance extensions",
+      "priority": "P2",
+      "depends_on": [
+        "CORE-06",
+        "CORE-07"
+      ],
+      "status": "TODO",
+      "scope": "OpenCV; benchmarks",
+      "deliverables": "Profile first; bounded invalidating cache, optional separate color/multiscale design.",
+      "acceptance": "Benchmark, invalidation, accuracy; no mandatory model dependency."
+    }
+  ]
+}
