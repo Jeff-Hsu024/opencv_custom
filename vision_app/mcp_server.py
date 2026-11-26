@@ -27,6 +27,7 @@ from vision_app.assets import (
     StaleRefError,
 )
 from vision_app.observation import ObservationService, OperationError, UsageError
+from vision_app.discovery import ANDROID_DEVICES_SCHEMA, DiscoveryService
 from vision_app.store import (
     DeviceMismatchError,
     FrameNotFoundError,
@@ -309,6 +310,9 @@ def _tool_definitions() -> List[Dict[str, Any]]:
                          max_changed_ratio={"type":"number","minimum":0,"maximum":1,"default":0},
                          stable_duration={"type":"number","minimum":0,"default":1},
                          color_mode={"type":"string","enum":["gray","bgr"],"default":"gray"})
+    definitions.append({"name": "vision_android_devices",
+                        "description": "Strict read-only online Android discovery; failures differ from empty results.",
+                        "inputSchema": ANDROID_DEVICES_SCHEMA})
     return definitions
 
 
@@ -367,6 +371,11 @@ class VisionMcpServer:
         }
 
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        if name == 'vision_android_devices':
+            payload, _ = DiscoveryService(self.obs).invoke({} if arguments is None else arguments)
+            result = self._text_tool_result(payload)
+            result['isError'] = not payload['ok']
+            return result
         args = dict(arguments or {})
         try:
             def query(scope,action,service):

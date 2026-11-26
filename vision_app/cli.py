@@ -20,6 +20,7 @@ from vision_app.assets import (
     StaleRefError,
 )
 from vision_app.observation import ObservationService, OperationError, UsageError
+from vision_app.discovery import DiscoveryService
 from vision_app.store import (
     DeviceMismatchError,
     FrameNotFoundError,
@@ -76,6 +77,9 @@ def _build_parser() -> _CliParser:
     )
     parser.add_argument('--session', default=os.environ.get('VISION_SESSION_ID'))
     sub = parser.add_subparsers(dest="command", required=True)
+    phase9 = sub.add_parser("phase9", help="Phase 9 request-file API")
+    phase9.add_argument("phase9_operation", choices=["android-devices"])
+    phase9.add_argument("--request", required=True, help="UTF-8 JSON request file")
     transition = sub.add_parser('transition', help='Recorded one-click transition')
     transition.add_argument('transition_action',choices=['execute','inspect'])
     transition.add_argument('--transition-id',required=True)
@@ -558,6 +562,15 @@ def run_cli(argv=None, *, service=None):
         return _run_cli(argv, service=service)
     try:
         store = service.store if service else FrameStore(Path(args.store_dir))
+        if args.command == 'phase9':
+            try:
+                request = json.loads(Path(args.request).read_text(encoding='utf-8'))
+            except (OSError, UnicodeError, ValueError):
+                _emit_json(DiscoveryService._error('INVALID_ARGUMENT', 'Cannot read a valid UTF-8 JSON request'))
+                return 2
+            payload, exit_code = DiscoveryService(service or ObservationService(store=store)).invoke(request)
+            _emit_json(payload)
+            return exit_code
         if args.command in ('task','recovery','runtime','workflow','record'):
             mode=args.response_mode;detail_id=args.detail_id
             action=getattr(args,args.command+'_action')

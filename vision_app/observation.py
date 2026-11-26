@@ -120,6 +120,11 @@ class ObservationService:
         result.append({"device_id": "desktop", "platform": "desktop"})
         return result
 
+    def android_devices(self) -> Dict[str, Any]:
+        """Strict discovery; legacy devices retains its permissive response."""
+        from vision_app.discovery import android_devices
+        return android_devices(self._platform_factory)
+
     def capabilities(self, device_id: str = "adb") -> Dict[str, Any]:
         """Return capability metadata for the specified device or platform."""
         try:
