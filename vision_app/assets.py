@@ -19,6 +19,7 @@ from service.core.opencv.dto import MatchResult, Region
 from service.core.opencv.mat_utility import MatUtility
 from service.core.opencv.open_cv_service import OpenCvService
 from vision_app.asset_revisions import AssetRevisionStore, canonical, revision_id_for
+from vision_app.epochs import DeviceEpochs
 from vision_app.metadata import metadata_transaction
 from vision_app.store import (
     DeviceMismatchError,
@@ -344,9 +345,12 @@ class RefRegistry:
         validate_ref_id(ref_id)
         return self.refs_dir / f"{ref_id}.json"
 
-    def save(self, ref: ScopedRef) -> ScopedRef:
+    def save(self, ref: ScopedRef, *, session_id: Optional[str] = None) -> ScopedRef:
         """Persist a scoped reference atomically."""
-        _atomic_write_json(self._ref_path(ref.ref_id), ref.to_dict())
+        path = self._ref_path(ref.ref_id)
+        with metadata_transaction(self.root_dir):
+            DeviceEpochs(self.root_dir).publish_ref_stamp(ref, session_id=session_id, exists=path.exists())
+            _atomic_write_json(path, ref.to_dict())
         return ref
 
     def get(self, ref_id: str) -> ScopedRef:
@@ -443,6 +447,7 @@ class MatchingService:
         max_results: int = 10,
         iou_threshold: float = 0.5,
         color_mode: str = "gray",
+        session_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Match a named asset against a stored frame and return scoped refs."""
         frame = self.store.get_frame(frame_id)
@@ -470,7 +475,7 @@ class MatchingService:
         scoped_refs: List[Dict[str, Any]] = []
         for match in raw_matches:
             ref = _map_match_to_ref(frame, target, match)
-            self.refs.save(ref)
+            self.refs.save(ref, session_id=session_id)
             scoped_refs.append(ref.to_dict())
 
         return {

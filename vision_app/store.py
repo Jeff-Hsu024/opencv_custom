@@ -17,6 +17,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 
+from vision_app.coordinator import Owner
+from vision_app.epochs import DeviceEpochs
 from vision_app.transforms import CoordinateTransform
 from vision_app.metadata import FileLock, metadata_transaction
 
@@ -243,6 +245,7 @@ class FrameStore:
         rotation: Optional[int] = None,
         protected: bool = False,
         timestamp: Optional[float] = None,
+        device_owner: Optional[Owner] = None,
     ) -> FrameRecord:
         """Persist a BGR uint8 image and its metadata atomically, then run bounded cleanup."""
         if not device_id or not isinstance(device_id, str):
@@ -296,6 +299,11 @@ class FrameStore:
             _atomic_write_bytes(abs_path, encoded.tobytes())
             with metadata_transaction(self):
                 records = self._load_index()
+                # Publish the stamp before the JSON pointer. A crash here can
+                # leave an unusable ID, never a visible capture missing its stamp.
+                DeviceEpochs(self).publish_frame_stamp(
+                    fid, device_id, owner=device_owner, parent_id=parent_id,
+                )
                 records[fid] = record
                 self._save_index(records)
                 state = self._lifetimes()

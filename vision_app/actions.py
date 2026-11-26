@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import subprocess
 import time
+from contextlib import nullcontext
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from vision_app.assets import RefRegistry, StaleRefError
+from vision_app.coordinator import ClaimError, Owner
+from vision_app.epochs import ActionIntent, DeviceEpochs
+from vision_app.metadata import canonical_store
 from vision_app.observation import OperationError, UsageError, _default_platform_factory
 from vision_app.store import DeviceMismatchError, FrameStore, OutOfBoundsError
 
@@ -71,7 +75,10 @@ class ActionService:
         platform_factory: Optional[Callable[[str], Any]] = None,
     ) -> None:
         self.store = store
+        self.epochs = DeviceEpochs(store)
         self.ref_registry = ref_registry or RefRegistry(store.store_dir)
+        if canonical_store(self.ref_registry.root_dir) != self.epochs.root:
+            raise ValueError("Reference registry must use the action Store")
         self._platform_factory = platform_factory or _default_platform_factory
 
     def _get_platform(self, device_id: str) -> Any:
@@ -90,6 +97,9 @@ class ActionService:
         point: Optional[Tuple[int, int]] = None,
         ref_id: Optional[str] = None,
         max_age_seconds: Optional[float] = None,
+        device_owner: Optional[Owner] = None,
+        session_id: Optional[str] = None,
+        intent: Optional[ActionIntent] = None,
     ) -> Dict[str, Any]:
         """Click a frame-local point or a scoped reference on the target device."""
         using_frame = frame_id is not None or point is not None
@@ -104,16 +114,27 @@ class ActionService:
 
         if max_age_seconds is not None and max_age_seconds <= 0:
             raise UsageError(f"max_age_seconds must be positive, got {max_age_seconds}")
+        if intent is not None and (ref_id is None or max_age_seconds is None):
+            raise UsageError("Guarded click requires a reference and max age")
 
+        with self.epochs.device_owner(device_id, legacy=intent is None, owner=device_owner) as owner:
+            if owner is None:
+                raise OperationError("DEVICE_BUSY", f"Device {device_id} is busy", retryable=True)
+            return self._click(owner, device_id, frame_id, point, ref_id, max_age_seconds, session_id, intent)
+
+    def _click(self, owner, device_id, frame_id, point, ref_id, max_age_seconds, session_id, intent):
         now = time.time()
 
-        if using_ref:
-            assert ref_id is not None
+        if ref_id is not None:
             ref = self.ref_registry.validate(
                 ref_id,
                 device_id=device_id,
                 frame_store=self.store,
             )
+            try:
+                self.epochs.guard_ref(owner, ref.ref_id, device_id, session_id=session_id, legacy=intent is None)
+            except ClaimError as exc:
+                raise OperationError(exc.code, str(exc)) from exc
             if max_age_seconds is not None and (now - ref.created_at) > max_age_seconds:
                 raise StaleRefError(
                     f"Reference {ref_id} is stale (age {now - ref.created_at:.2f}s > {max_age_seconds}s)"
@@ -148,8 +169,16 @@ class ActionService:
                 "transform": frame.transform.to_dict(),
             }
 
-        platform = self._get_platform(device_id)
-        _execute_platform_call("click", device_id, lambda: bool(platform.click(dx, dy)))
+        pin = (self.store.pin_frames([source_meta["frame_id"]], device_id=device_id)
+               if intent is not None else nullcontext())
+        with pin:
+            platform = self._get_platform(device_id)
+            if intent is None:
+                self.epochs.advance_raw(owner, device_id)
+            else:
+                self.epochs.begin_intent(owner, intent.request_owner, intent.request_id,
+                                         intent.step_id, intent.pending_receipt)
+            _execute_platform_call("click", device_id, lambda: bool(platform.click(dx, dy)))
 
         return {
             "action": "click",
@@ -169,6 +198,7 @@ class ActionService:
         end: Tuple[int, int],
         duration_ms: int = 500,
         frame_id: Optional[str] = None,
+        device_owner: Optional[Owner] = None,
     ) -> Dict[str, Any]:
         """Swipe from start to end coordinates on the target device."""
         if duration_ms <= 0:
@@ -194,12 +224,8 @@ class ActionService:
                     f"Swipe coordinates must be non-negative, got ({dx1}, {dy1}) -> ({dx2}, {dy2})"
                 )
 
-        platform = self._get_platform(device_id)
-        _execute_platform_call(
-            "swipe",
-            device_id,
-            lambda: bool(platform.swipe(dx1, dy1, dx2, dy2, duration=duration_ms)),
-        )
+        self._raw("swipe", device_id, device_owner,
+                  lambda platform: platform.swipe(dx1, dy1, dx2, dy2, duration=duration_ms))
 
         return {
             "action": "swipe",
@@ -212,13 +238,12 @@ class ActionService:
             "executed_at": time.time(),
         }
 
-    def type_text(self, device_id: str, *, text: str) -> Dict[str, Any]:
+    def type_text(self, device_id: str, *, text: str, device_owner: Optional[Owner] = None) -> Dict[str, Any]:
         """Type text on the target device."""
         if text == "":
             raise UsageError("Text must not be empty")
 
-        platform = self._get_platform(device_id)
-        _execute_platform_call("type", device_id, lambda: bool(platform.type_text(text)))
+        self._raw("type", device_id, device_owner, lambda platform: platform.type_text(text))
 
         return {
             "action": "type",
@@ -229,13 +254,12 @@ class ActionService:
             "executed_at": time.time(),
         }
 
-    def press_key(self, device_id: str, *, key: str) -> Dict[str, Any]:
+    def press_key(self, device_id: str, *, key: str, device_owner: Optional[Owner] = None) -> Dict[str, Any]:
         """Send a key event on the target device."""
         if not key or not key.strip():
             raise UsageError("Key must not be empty")
 
-        platform = self._get_platform(device_id)
-        _execute_platform_call("key", device_id, lambda: bool(platform.key_event(key)))
+        self._raw("key", device_id, device_owner, lambda platform: platform.key_event(key))
 
         return {
             "action": "key",
@@ -245,3 +269,11 @@ class ActionService:
             "key": key,
             "executed_at": time.time(),
         }
+
+    def _raw(self, action, device_id, device_owner, call):
+        with self.epochs.device_owner(device_id, legacy=True, owner=device_owner) as owner:
+            if owner is None:
+                raise OperationError("DEVICE_BUSY", f"Device {device_id} is busy", retryable=True)
+            platform = self._get_platform(device_id)
+            self.epochs.advance_raw(owner, device_id)
+            _execute_platform_call(action, device_id, lambda: bool(call(platform)))

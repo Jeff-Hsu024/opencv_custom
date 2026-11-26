@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 
+from vision_app.coordinator import Owner, OwnerCoordinator
 from vision_app.store import FrameRecord, FrameStore, OutOfBoundsError, StoreError
 from vision_app.transforms import CoordinateTransform
 
@@ -145,10 +146,14 @@ class ObservationService:
         *,
         region: Optional[Tuple[int, int, int, int]] = None,
         out: Optional[str] = None,
+        device_owner: Optional[Owner] = None,
     ) -> Dict[str, Any]:
         """Capture a single frame from device_id, optionally crop, and optionally export."""
         if not device_id or not device_id.strip():
             raise UsageError("Device serial/id must not be empty")
+
+        if device_owner is not None:
+            OwnerCoordinator(self.store)._require_owner(device_owner, device_id, "device")
 
         try:
             platform = self._platform_factory(device_id)
@@ -194,6 +199,7 @@ class ObservationService:
             source_width=src_w,
             source_height=src_h,
             transform=transform,
+            device_owner=device_owner,
         )
 
         artifact = _export_png(out_image, out) if out else _artifact_for_record(self.store, rec)
