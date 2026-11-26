@@ -23,10 +23,15 @@ dev = [
     "pytest>=7.0",
 ]
 
+[project.scripts]
+vision = "vision_app.cli:main"
+vision-mcp = "vision_app.mcp_server:main"
+
 [tool.setuptools]
-package-dir = {"" = "core"}
+package-dir = {"" = "core", "vision_app" = "vision_app"}
 py-modules = ["entry", "main", "run_script", "find_game_package"]
 
 [tool.setuptools.packages.find]
-where = ["core"]
-include = ["service*", "script*"]
+where = ["core", "."]
+include = ["service*", "script*", "vision_app*"]
+exclude = ["vision_app.test*", "service.test*", "script.test*"]

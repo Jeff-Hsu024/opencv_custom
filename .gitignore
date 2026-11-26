@@ -103,3 +103,6 @@ bridge_test.png
 .env
 .env.*
 !.env.example
+
+# Local vision runtime frames, assets and references
+.vision_store/
