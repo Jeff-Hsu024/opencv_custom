@@ -84,9 +84,9 @@ class TestPlatformServiceBase:
         platform.find_image = MagicMock(return_value=None)
         
         import time
-        start = time.time()
+        start = time.monotonic()
         result = platform.wait_image("missing.png", timeout=1, frequency=0.1)
-        duration = time.time() - start
+        duration = time.monotonic() - start
         
         assert result is None
         assert duration >= 1.0
