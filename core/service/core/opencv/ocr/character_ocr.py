@@ -22,19 +22,24 @@ class CharacterOCR(MatchOCRAdaptor):
         Returns:
             辨識出的字串
         """
+        self._validate_ocr_inputs(target_img, threshold)
         templates = self.load_template_mat_map(ocr_templates_path)
         
         if not templates:
             return ""
         
+        target_gray = self._to_gray(target_img)
         results: List[Tuple[str, float]] = []  # (character, x)
         
         for character, template in templates.items():
+            if template is None or template.size == 0:
+                continue
+            template_gray = self._to_gray(template)
             # 確保模板尺寸不超過目標影像
-            if template.shape[0] > target_img.shape[0] or template.shape[1] > target_img.shape[1]:
+            if template_gray.shape[0] > target_gray.shape[0] or template_gray.shape[1] > target_gray.shape[1]:
                 continue
             
-            res = cv2.matchTemplate(target_img, template, cv2.TM_CCOEFF_NORMED)
+            res = cv2.matchTemplate(target_gray, template_gray, cv2.TM_CCOEFF_NORMED)
             
             # 將 >= threshold 的位置設為 255，其餘設為 0
             _, mask = cv2.threshold(res, threshold, 255, cv2.THRESH_BINARY)
