@@ -47,7 +47,7 @@ from vision_app.responses import schema_for, validate as validate_response, proj
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "vision-mcp"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.2.0"
 
 
 def _error_payload(exc: Exception) -> Dict[str, Any]:

@@ -1,10 +1,10 @@
 # Verified transport and CLI reference
 
-Phase 7 interface is the frozen installed NB baseline. Phase 8 adds the interfaces in [interface.md](interface.md); discover actual deployed version before use. Tool names and schemas can evolve: discover actual tools each session. Read only the section for your current task.
+Agent Vision 0.2.0 is the Phase 8.1 release (61 MCP tools). See [interface.md](interface.md); discover actual deployed version before use. Tool names and schemas can evolve: discover actual tools each session. Read only the section for your current task.
 
 ## ChatGPT / Queqiao NB — official deployment
 
-The following existing server and CLI are the frozen official environment, **not** the candidate. For Phase 8.1 qualification use the isolated recipe below.
+The following server and CLI are the official NB release deployment. For independent validation, use an explicit isolated store as described below.
 
 Use the installed Queqiao NB extension tool, workspaceId=develop. Discover via:
 - extension(operation="list")
@@ -34,12 +34,12 @@ The current MCP proxy wraps downstream content as JSON: result.result.content en
 |---|---|
 | vision_devices | {} |
 | vision_capabilities | device (optional; use explicit target) |
-| vision_snapshot | device, optional region |
+| vision_snapshot | device, optional region, return_image |
 | vision_crop | frame_id, region |
 | vision_resize | frame_id, scale |
 | vision_assets_register | name, frame_id, optional region |
 | vision_assets_list | {} |
-| vision_find | frame_id, target, optional all, threshold |
+| vision_find | frame_id, target, optional all, threshold, max_results, color_mode |
 | vision_click | device and ref OR frame_id+point, optional max_age_seconds |
 | vision_swipe | device, from_point, to_point, optional duration_ms |
 | vision_type | device, text |
@@ -148,23 +148,23 @@ Transport timeout: a long synchronous MCP task may outlast the connector request
 
 Phase 8 annotation/checkpoint keys, transition options, response modes, asset pagination and image forwarding: [interface.md](interface.md).
 
-## Isolated candidate launch (NB)
-Use this for an explicitly requested candidate qualification, not routine official use.
+## Isolated release validation (NB)
+For explicitly requested independent validation, use the release checkout and a NEW store, not the official store.
 ```powershell
-Set-Location C:\Users\jeffh\Downloads\develop\opencv_custom_recovery\phase8-agent-interface
+Set-Location C:\Users\jeffh\Downloads\develop\opencv_custom_recovery\clean-working
 git rev-parse HEAD
 git status --short --branch
-$py = (Resolve-Path ../phase8-venv/Scripts/python.exe).Path
+$py = (Resolve-Path ../acceptance-20261126/fresh-venv/Scripts/python.exe).Path
 & $py -c "import sys,vision_app; print(sys.executable); print(vision_app.__file__)"
 $env:PYTHONPATH = "core;."
 # Use a NEW uniquely named qualification directory, not a historical store:
 $env:VISION_STORE_DIR = Join-Path (Split-Path (Get-Location).Path -Parent) ("fresh-phase81-" + [guid]::NewGuid().ToString("N") + "/store")
 # Verify native MCP tool discovery; output is text JSON, no image payload:
 '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | & $py -m vision_app.mcp_server
-& ../phase8-venv/Scripts/vision.exe --help
-& ../phase8-venv/Scripts/vision.exe runtime --help
+& ../acceptance-20261126/fresh-venv/Scripts/vision.exe --help
+& ../acceptance-20261126/fresh-venv/Scripts/vision.exe runtime --help
 ```
-Compare HEAD with the qualification target supplied by the caller; verify module file belongs to the candidate checkout. Phase 8.1 exposes 61 tools (including vision_runtime_probe_profile); official Phase 7 deployment had 57. Candidate MCP and CLI must use the same explicit absolute isolated store. For a persistent native server, run that same python -m vision_app.mcp_server executable with the same cwd, PYTHONPATH and VISION_STORE_DIR and use JSON-RPC stdio. Do not redirect official Queqiao server or install over the official skill. Read candidate skill from its repository. A tool count is not a substitute for exact version check.
+Compare HEAD with the release or qualification target supplied by the caller; verify module file belongs to the intended checkout. Agent Vision 0.2.0 exposes 61 tools (including vision_runtime_probe_profile); frozen Phase 7 had 57. Validation MCP and CLI must use the same explicit absolute isolated store. For a persistent native server, run that same python -m vision_app.mcp_server executable with the same cwd, PYTHONPATH and VISION_STORE_DIR and use JSON-RPC stdio. Do not redirect official Queqiao server or install over the official skill. Read the skill from the intended checkout. A tool count is not a substitute for exact version check.
 
 ## Typed image forwarding
 Native MCP response: use response.result.content after JSON-RPC envelope. Do not assume the first block is text.

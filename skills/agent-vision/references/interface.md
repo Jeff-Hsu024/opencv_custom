@@ -1,4 +1,4 @@
-# Phase 8 Agent Interface (candidate, including 8.1)
+# Agent Vision 0.2.0 — Phase 8 / 8.1 interface
 
 Discover actual deployed tools before use. Known registered tasks still prefer vision_task_execute. For new UI exploration, open an explicit Recorder session and learn the target using real pixels. A transition is a locked one-click observation/action composition, not a rollback transaction.
 

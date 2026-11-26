@@ -5,6 +5,8 @@ description: Use Vision Platform to observe and operate Android/desktop UI, resu
 
 # Agent Vision
 
+Release 0.2.0 (Phase 8.1). Discover the deployed tool contract before use.
+
 Use the installed application tools, not a blind coordinate macro. The LLM is the explorer of unknown UI; deterministic execution is preferred for known tasks. Keep all state in the same workspace store.
 
 ## Choose the entry point
