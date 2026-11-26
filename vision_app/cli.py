@@ -9,14 +9,24 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from vision_app.actions import ActionService
 from vision_app.assets import (
     AssetNotFoundError,
     AssetRegistry,
     InvalidAssetNameError,
+    InvalidRefIdError,
     MatchingService,
+    RefNotFoundError,
+    StaleRefError,
 )
 from vision_app.observation import ObservationService, OperationError, UsageError
-from vision_app.store import FrameNotFoundError, FrameStore, InvalidFrameIdError
+from vision_app.store import (
+    DeviceMismatchError,
+    FrameNotFoundError,
+    FrameStore,
+    InvalidFrameIdError,
+    OutOfBoundsError,
+)
 
 
 class _CliParser(argparse.ArgumentParser):
@@ -35,6 +45,17 @@ def _parse_region(raw: str) -> Tuple[int, int, int, int]:
     except ValueError as exc:
         raise UsageError(f"Region coordinates must be integers, got {raw!r}") from exc
     return x1, y1, x2, y2
+
+
+def _parse_point(raw: str, *, label: str = "Point") -> Tuple[int, int]:
+    parts = [p.strip() for p in raw.split(",")]
+    if len(parts) != 2:
+        raise UsageError(f"{label} must be X,Y, got {raw!r}")
+    try:
+        x, y = (int(p) for p in parts)
+    except ValueError as exc:
+        raise UsageError(f"{label} coordinates must be integers, got {raw!r}") from exc
+    return x, y
 
 
 def _build_parser() -> _CliParser:
@@ -91,6 +112,32 @@ def _build_parser() -> _CliParser:
     p_find.add_argument("--max-results", type=int, default=10, help="Maximum matches for --all")
     p_find.add_argument("--color-mode", default="gray", choices=["gray", "bgr"], help="Color mode")
     p_find.add_argument("--json", action="store_true", help="Output JSON")
+
+    p_click = sub.add_parser("click", help="Click a frame point or scoped reference")
+    p_click.add_argument("--device", required=True, help="Device serial or 'desktop'")
+    p_click.add_argument("--frame", default=None, help="Source frame ID")
+    p_click.add_argument("--point", default=None, help="Frame-local point X,Y")
+    p_click.add_argument("--ref", default=None, help="Scoped reference ID")
+    p_click.add_argument("--max-age", type=float, default=None, help="Optional max age in seconds")
+    p_click.add_argument("--json", action="store_true", help="Output JSON")
+
+    p_swipe = sub.add_parser("swipe", help="Swipe between two points on a device")
+    p_swipe.add_argument("--device", required=True, help="Device serial or 'desktop'")
+    p_swipe.add_argument("--from", dest="from_point", required=True, help="Start point X,Y")
+    p_swipe.add_argument("--to", dest="to_point", required=True, help="End point X,Y")
+    p_swipe.add_argument("--duration", type=int, default=500, help="Swipe duration in ms")
+    p_swipe.add_argument("--frame", default=None, help="Optional frame ID for local coordinates")
+    p_swipe.add_argument("--json", action="store_true", help="Output JSON")
+
+    p_type = sub.add_parser("type", help="Type text on a device")
+    p_type.add_argument("--device", required=True, help="Device serial or 'desktop'")
+    p_type.add_argument("--text", required=True, help="Text to type")
+    p_type.add_argument("--json", action="store_true", help="Output JSON")
+
+    p_key = sub.add_parser("key", help="Send a key event on a device")
+    p_key.add_argument("--device", required=True, help="Device serial or 'desktop'")
+    p_key.add_argument("--key", required=True, help="Key name or code")
+    p_key.add_argument("--json", action="store_true", help="Output JSON")
 
     return parser
 
@@ -225,6 +272,61 @@ def run_cli(
                     "ok": True,
                     "command": "find",
                     "device": result["device_id"],
+                    "result": result,
+                }
+            )
+            return 0
+
+        if args.command in {"click", "swipe", "type", "key"}:
+            actions = ActionService(
+                store=obs.store,
+                platform_factory=obs._platform_factory,
+            )
+            try:
+                if args.command == "click":
+                    point = _parse_point(args.point, label="Point") if args.point is not None else None
+                    result = actions.click(
+                        args.device,
+                        frame_id=args.frame,
+                        point=point,
+                        ref_id=args.ref,
+                        max_age_seconds=args.max_age,
+                    )
+                elif args.command == "swipe":
+                    start = _parse_point(args.from_point, label="From")
+                    end = _parse_point(args.to_point, label="To")
+                    result = actions.swipe(
+                        args.device,
+                        start=start,
+                        end=end,
+                        duration_ms=args.duration,
+                        frame_id=args.frame,
+                    )
+                elif args.command == "type":
+                    result = actions.type_text(args.device, text=args.text)
+                else:
+                    result = actions.press_key(args.device, key=args.key)
+            except (InvalidFrameIdError, InvalidRefIdError, ValueError) as exc:
+                if isinstance(exc, (DeviceMismatchError, StaleRefError, OutOfBoundsError)):
+                    code = (
+                        "DEVICE_MISMATCH"
+                        if isinstance(exc, DeviceMismatchError)
+                        else "STALE_REF"
+                        if isinstance(exc, StaleRefError)
+                        else "OUT_OF_BOUNDS"
+                    )
+                    raise OperationError(code=code, message=str(exc), exit_code=3) from exc
+                raise UsageError(str(exc)) from exc
+            except FrameNotFoundError as exc:
+                raise OperationError(code="FRAME_NOT_FOUND", message=str(exc), exit_code=3) from exc
+            except RefNotFoundError as exc:
+                raise OperationError(code="REF_NOT_FOUND", message=str(exc), exit_code=3) from exc
+
+            _emit_json(
+                {
+                    "ok": True,
+                    "command": args.command,
+                    "device": args.device,
                     "result": result,
                 }
             )

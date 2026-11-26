@@ -1,5 +1,6 @@
 """Application layer for persistent frame/session store and coordinate transforms."""
 
+from vision_app.actions import ActionService
 from vision_app.assets import (
     AssetNotFoundError,
     AssetRecord,
@@ -24,6 +25,7 @@ from vision_app.store import (
 from vision_app.transforms import CoordinateTransform
 
 __all__ = [
+    "ActionService",
     "AssetNotFoundError",
     "AssetRecord",
     "AssetRegistry",
