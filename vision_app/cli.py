@@ -32,6 +32,7 @@ from vision_app.recorder import Recorder, OPERATIONS, workspace_lock
 from vision_app.workflow import WorkflowBuilder
 from vision_app.runtime import WorkflowRuntime
 from vision_app.recovery import RecoveryService
+from vision_app.lifecycle import LifecycleService
 
 
 class _CliParser(argparse.ArgumentParser):
@@ -72,6 +73,22 @@ def _build_parser() -> _CliParser:
     )
     parser.add_argument('--session', default=os.environ.get('VISION_SESSION_ID'))
     sub = parser.add_subparsers(dest="command", required=True)
+    lifecycle = sub.add_parser('lifecycle', help='Workflow registry and recovery routing')
+    lifecycle.add_argument('lifecycle_action', choices=['register','activate','disable','rollback','link','route-status','inspect','history','list','select'])
+    lifecycle.add_argument('--family', dest='family_id')
+    lifecycle.add_argument('--workflow', dest='workflow_id')
+    lifecycle.add_argument('--run-id')
+    lifecycle.add_argument('--version', type=int)
+    lifecycle.add_argument('--parent-version', type=int)
+    lifecycle.add_argument('--generation', dest='expected_generation', type=int)
+    lifecycle.add_argument('--reason')
+    lifecycle.add_argument('--proposal', dest='proposal_id')
+    lifecycle.add_argument('--qualification', dest='qualification_id')
+    lifecycle.add_argument('--route', dest='route_id')
+    lifecycle.add_argument('--enabled', choices=['true','false'])
+    lifecycle.add_argument('--limit', type=int)
+    lifecycle.add_argument('--after', type=int)
+    lifecycle.add_argument('--json', action='store_true')
     recovery = sub.add_parser('recovery', help='Evidence-bound recovery and replanning')
     recovery.add_argument('recovery_action', choices=['open','inspect','propose','proposal','verify','list'])
     recovery.add_argument('--run-id')
@@ -506,6 +523,12 @@ def run_cli(argv=None, *, service=None):
         return _run_cli(argv, service=service)
     try:
         store = service.store if service else FrameStore(Path(args.store_dir))
+        if args.command == 'lifecycle':
+            params={k:v for k,v in vars(args).items() if k in ('family_id','workflow_id','run_id','version','parent_version','expected_generation','reason','proposal_id','qualification_id','route_id','enabled','limit','after') and v is not None}
+            if 'enabled' in params: params['enabled']=params['enabled']=='true'
+            result=LifecycleService(store,runtime=WorkflowRuntime(store,observation=service)).query(args.lifecycle_action.replace('-','_'),**params)
+            _emit_json({'ok':True,'result':result})
+            return 0
         if args.command == 'recovery':
             params = {k:v for k,v in vars(args).items() if k in ('run_id','case_id','proposal_id','kind','destination_state','reconciliation','plan','limit','after') and v is not None}
             for k in ('reconciliation','plan'):
@@ -550,7 +573,7 @@ def run_cli(argv=None, *, service=None):
         with workspace_lock(store):
             return _run_cli(argv, service=service, parsed=args)
     except Exception as exc:
-        _emit_json({'ok':False,'error':{'code':getattr(exc,'code','RUNTIME_ERROR') if args.command == 'runtime' else ('RECOVERY_ERROR' if args.command == 'recovery' else ('WORKFLOW_ERROR' if args.command == 'workflow' else 'RECORDER_ERROR')),'message':str(exc)}})
+        _emit_json({'ok':False,'error':{'code':getattr(exc,'code','RUNTIME_ERROR') if args.command == 'runtime' else ('LIFECYCLE_ERROR' if args.command == 'lifecycle' else ('RECOVERY_ERROR' if args.command == 'recovery' else ('WORKFLOW_ERROR' if args.command == 'workflow' else 'RECORDER_ERROR'))),'message':str(exc)}})
         return 3
 
 

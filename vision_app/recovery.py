@@ -245,61 +245,68 @@ class RecoveryService:
     def verify(self, proposal_id, run_id):
         """Link a later completed child run; never run or promote anything."""
         with workspace_lock(self.store):
-            p=self._proposal(proposal_id)
-            payload=p["payload"]
-            require("rp_"+seal(payload)==proposal_id,"Proposal integrity mismatch")
-            case=self._case(p["case_id"])
-            require(payload["case_id"]==case["case_id"] and payload["recovery_session_id"]==case["session_id"]
-                    and payload["failed_run_id"]==case["run_id"]
-                    and payload["failed_run_sha256"]==case["payload"]["failed_run_sha256"]
-                    and payload["parent_workflow_id"]==case["payload"]["parent_workflow_id"],
-                    "Proposal lineage mismatch")
-            _,parent,templates=self._parent(case)
-            self.builder._validate(payload["child_workflow_id"])
-            # Anchor evidence and annotation must still agree, including later semantic disputes.
-            events,anns=self.builder._events(case["session_id"])
-            anchor=payload["anchor"]
-            require(seal(events[anchor["event_id"]])==anchor["event_sha256"],"Anchor event changed")
-            aid=payload["reconciliation"]["annotation_id"]
-            ann=anns[aid]
-            require(seal(ann)==anchor["annotation_sha256"],"Anchor annotation changed")
-            require(not any(a["event_id"]==anchor["event_id"] and a["timestamp"]>ann["timestamp"]
-                            and a["annotation"].get("verification") in ("FAIL","UNKNOWN") for a in anns.values()),
-                    "Later annotation disputes anchor")
-            _,_,sha=self._frame(anchor["frame_id"],payload["device"])
-            require(sha==anchor["frame_sha256"],"Anchor frame changed")
-            run=self.runtime._load("runs",run_id)
-            require(run["status"]=="completed" and run["workflow_id"]==payload["child_workflow_id"]
-                    and run["device"]==payload["device"] and run["profile"]==payload["profile"]
-                    and run["started_at"]>=p["created_at"],"Need later completed child run on original profile")
-            binding=self.runtime._binding(run["binding_id"])
-            require(binding["workflow_id"]==run["workflow_id"] and binding["profile"]==run["profile"]
-                    and binding["device"]==run["device"],"Child binding mismatch")
-            child=self.builder.inspect(run["workflow_id"])["definition"]
-            require(run["completed_steps"]==len(child["steps"])==len(run["steps"])
-                    and run["last_confirmed_state"]==child["final_state"]
-                    and all(s["status"]=="verified" for s in run["steps"]),"Incomplete child run")
-            first=run["steps"][0]["pre_frame_id"]
-            _,start,start_sha=self._classify(first,case,parent,templates)
-            require(not start["ambiguous"] and start["state"]==anchor["parent_classification"]["state"],
-                    "Live recovery starting state differs from anchor")
-            _,end,end_sha=self._classify(run["last_frame_id"],case,parent,templates)
-            require(end["state"]==payload["destination_state"] and not end["ambiguous"],
-                    "Live recovery endpoint differs from parent state")
-            qualification={"proposal_id":proposal_id,"run_id":run_id,"run_sha256":seal(run),
-                           "child_workflow_id":run["workflow_id"],"parent_workflow_id":parent["workflow_id"],
-                           "first_frame_id":first,"first_frame_sha256":start_sha,
-                           "final_frame_id":run["last_frame_id"],"final_frame_sha256":end_sha,
-                           "parent_state":end["state"],"status":"live_pass",
-                           "automatic_resume":False,"automatic_promotion":False}
-            qid="rq_"+seal(qualification)
-            with self.rec.db() as db:
-                existing=db.execute("SELECT qualification_id FROM recovery_qualifications WHERE proposal_id=? AND run_id=?",
-                                    (proposal_id,run_id)).fetchone()
-                require(not existing or existing["qualification_id"]==qid,"Existing live qualification changed")
+            return self._verify_locked(proposal_id, run_id)
+
+    def _verify_locked(self, proposal_id, run_id, *, persist=True):
+        p=self._proposal(proposal_id)
+        payload=p["payload"]
+        require("rp_"+seal(payload)==proposal_id,"Proposal integrity mismatch")
+        case=self._case(p["case_id"])
+        require(payload["case_id"]==case["case_id"] and payload["recovery_session_id"]==case["session_id"]
+                and payload["failed_run_id"]==case["run_id"]
+                and payload["failed_run_sha256"]==case["payload"]["failed_run_sha256"]
+                and payload["parent_workflow_id"]==case["payload"]["parent_workflow_id"],
+                "Proposal lineage mismatch")
+        _,parent,templates=self._parent(case)
+        self.builder._validate(payload["child_workflow_id"])
+        # Anchor evidence and annotation must still agree, including later semantic disputes.
+        events,anns=self.builder._events(case["session_id"])
+        anchor=payload["anchor"]
+        require(seal(events[anchor["event_id"]])==anchor["event_sha256"],"Anchor event changed")
+        aid=payload["reconciliation"]["annotation_id"]
+        ann=anns[aid]
+        require(seal(ann)==anchor["annotation_sha256"],"Anchor annotation changed")
+        require(not any(a["event_id"]==anchor["event_id"] and a["timestamp"]>ann["timestamp"]
+                        and a["annotation"].get("verification") in ("FAIL","UNKNOWN") for a in anns.values()),
+                "Later annotation disputes anchor")
+        _,_,sha=self._frame(anchor["frame_id"],payload["device"])
+        require(sha==anchor["frame_sha256"],"Anchor frame changed")
+        run=self.runtime._load("runs",run_id)
+        require(run["status"]=="completed" and run["workflow_id"]==payload["child_workflow_id"]
+                and run["device"]==payload["device"] and run["profile"]==payload["profile"]
+                and run["started_at"]>=p["created_at"],"Need later completed child run on original profile")
+        binding=self.runtime._binding(run["binding_id"])
+        require(binding["workflow_id"]==run["workflow_id"] and binding["profile"]==run["profile"]
+                and binding["device"]==run["device"],"Child binding mismatch")
+        child=self.builder.inspect(run["workflow_id"])["definition"]
+        require(run["completed_steps"]==len(child["steps"])==len(run["steps"])
+                and run["last_confirmed_state"]==child["final_state"]
+                and all(s["status"]=="verified" for s in run["steps"]),"Incomplete child run")
+        first=run["steps"][0]["pre_frame_id"]
+        _,start,start_sha=self._classify(first,case,parent,templates)
+        require(not start["ambiguous"] and start["state"]==anchor["parent_classification"]["state"],
+                "Live recovery starting state differs from anchor")
+        _,end,end_sha=self._classify(run["last_frame_id"],case,parent,templates)
+        require(end["state"]==payload["destination_state"] and not end["ambiguous"],
+                "Live recovery endpoint differs from parent state")
+        qualification={"proposal_id":proposal_id,"run_id":run_id,"run_sha256":seal(run),
+                       "child_workflow_id":run["workflow_id"],"parent_workflow_id":parent["workflow_id"],
+                       "first_frame_id":first,"first_frame_sha256":start_sha,
+                       "final_frame_id":run["last_frame_id"],"final_frame_sha256":end_sha,
+                       "parent_state":end["state"],"status":"live_pass",
+                       "automatic_resume":False,"automatic_promotion":False}
+        qid="rq_"+seal(qualification)
+        with self.rec.db() as db:
+            existing=db.execute("SELECT qualification_id FROM recovery_qualifications WHERE proposal_id=? AND run_id=?",
+                                (proposal_id,run_id)).fetchone()
+            require(not existing or existing["qualification_id"]==qid,"Existing live qualification changed")
+            if persist:
                 db.execute("INSERT OR IGNORE INTO recovery_qualifications VALUES (?,?,?,?,?)",
                            (qid,proposal_id,run_id,time.time(),canonical(qualification).decode()))
-                return self._row(db,"recovery_qualifications","qualification_id",qid)
+            else:
+                require(existing is not None,"Live qualification is not registered")
+            return self._row(db,"recovery_qualifications","qualification_id",qid)
+
 
     def list(self, limit=20, after=0):
         self.rec._page(limit,after)

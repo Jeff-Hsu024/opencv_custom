@@ -116,3 +116,19 @@ CLI:
     vision recovery verify --proposal PROPOSAL_ID --run-id CHILD_RUN_ID
     vision recovery list
 Recovery rows live in recorder.sqlite; the parent/child workflow bundles and failed/completed runtime journals stay in their existing stores. Parent is never overwritten. A child proposal is an offline candidate until live verification; even then no automatic default selection.
+
+## Lifecycle Phase 6
+
+MCP vision_lifecycle_register {family_id,workflow_id,run_id,expected_generation,reason,parent_version?}; activate/rollback {family_id,version,expected_generation,reason}; disable {family_id,expected_generation,reason}; link {family_id,parent_version,proposal_id,qualification_id,expected_generation,reason}; route_status {family_id,route_id,enabled,expected_generation,reason}; select {family_id,run_id}; inspect {family_id,limit?,after?,parent_version?}; history {family_id,limit?,after?}; list {limit?,after?}. Start generation=0, increment each mutation; stale writes fail. Inspect parent_version explicitly to see nonactive routes. Read-only selector returns status selected/no_match/ambiguous/manual_review and fresh frame; no clicks or promotion.
+CLI:
+    vision lifecycle register --family NAME --workflow WF_ID --run-id COMPLETED_RUN --generation 0 --reason REVIEW
+    vision lifecycle activate --family NAME --version 1 --generation 1 --reason REVIEW
+    vision lifecycle link --family NAME --parent-version 1 --proposal RP --qualification RQ --generation 2 --reason REVIEW
+    vision lifecycle select --family NAME --run-id FAILED_RUN
+    vision lifecycle route-status --family NAME --route ROUTE_ID --enabled false --generation N --reason REVIEW
+    vision lifecycle rollback --family NAME --version N --generation CURRENT --reason REVIEW
+    vision lifecycle disable --family NAME --generation CURRENT --reason REVIEW
+    vision lifecycle inspect --family NAME
+    vision lifecycle history --family NAME
+    vision lifecycle list
+Registry lives in recorder.sqlite; immutable workflow and run evidence remain separate.

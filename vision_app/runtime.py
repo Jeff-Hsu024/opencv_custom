@@ -223,6 +223,8 @@ class WorkflowRuntime:
                 run["last_frame_id"]=fid
                 self._persist(run)
             try:
+                from vision_app.lifecycle import LifecycleService
+                LifecycleService(self.store, runtime=self).guard_run(wid,device,profile)
                 d,templates=self._definition(wid,device,profile)
                 for step in d["steps"]:
                     rec={"step_id":step["id"],"from":step["from"],"to":step["to"],"status":"observing",
