@@ -17,10 +17,43 @@ class MatchPattern:
 
 
 @dataclass
-class OcrRegion:
-    """OCR 區域定義"""
-    x1: int  # 左上角 x
-    y1: int  # 左上角 y
-    x2: int  # 右下角 x
-    y2: int  # 右下角 y
+class Region:
+    """Half-open integer ROI (x1, y1, x2, y2) with positive area."""
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+
+    def __post_init__(self) -> None:
+        for name, val in (("x1", self.x1), ("y1", self.y1), ("x2", self.x2), ("y2", self.y2)):
+            if not isinstance(val, int) or isinstance(val, bool):
+                raise ValueError(f"Region.{name} must be an integer, got {type(val).__name__}")
+        if self.x1 < 0 or self.y1 < 0:
+            raise ValueError(f"Region coordinates must be non-negative: ({self.x1}, {self.y1}, {self.x2}, {self.y2})")
+        if self.x2 <= self.x1 or self.y2 <= self.y1:
+            raise ValueError(f"Region must have positive area (x2 > x1 and y2 > y1): ({self.x1}, {self.y1}, {self.x2}, {self.y2})")
+
+    @property
+    def width(self) -> int:
+        return self.x2 - self.x1
+
+    @property
+    def height(self) -> int:
+        return self.y2 - self.y1
+
+    @property
+    def area(self) -> int:
+        return self.width * self.height
+
+    def validate_bounds(self, width: int, height: int) -> None:
+        """Validate that this region fits within [0, width) x [0, height)."""
+        if self.x2 > width or self.y2 > height:
+            raise ValueError(
+                f"Region ({self.x1}, {self.y1}, {self.x2}, {self.y2}) out of bounds for size ({width}, {height})"
+            )
+
+
+@dataclass
+class OcrRegion(Region):
+    """OCR 區域定義 (Region 相容別名)"""
 

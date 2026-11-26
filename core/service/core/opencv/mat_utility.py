@@ -85,24 +85,45 @@ class MatUtility:
         return decoded
     
     @staticmethod
+    def crop(source: np.ndarray, region) -> np.ndarray:
+        """
+        Crop a half-open Region (x1, y1, x2, y2) from source Mat, returning an independent copy.
+        """
+        if not isinstance(source, np.ndarray) or source.ndim not in (2, 3) or source.size == 0:
+            raise ValueError("source must be a non-empty 2D or 3D numpy.ndarray")
+        if region is None:
+            raise ValueError("region must not be None")
+
+        x1, y1, x2, y2 = region.x1, region.y1, region.x2, region.y2
+        for name, val in (("x1", x1), ("y1", y1), ("x2", x2), ("y2", y2)):
+            if not isinstance(val, int) or isinstance(val, bool):
+                raise ValueError(f"region.{name} must be an integer, got {type(val).__name__}")
+
+        if x1 < 0 or y1 < 0:
+            raise ValueError(f"region coordinates must be non-negative: ({x1}, {y1}, {x2}, {y2})")
+        if x2 <= x1 or y2 <= y1:
+            raise ValueError(f"region must have positive area (x2 > x1 and y2 > y1): ({x1}, {y1}, {x2}, {y2})")
+
+        h, w = source.shape[:2]
+        if x2 > w or y2 > h:
+            raise ValueError(f"region ({x1}, {y1}, {x2}, {y2}) out of bounds for image size ({w}, {h})")
+
+        return source[y1:y2, x1:x2].copy()
+
+    @staticmethod
     def slice_region_mat(source_path: str, region) -> np.ndarray:
         """
         從來源影像中切片指定區域
         
         Args:
             source_path: 來源影像路徑
-            region: OcrRegion 物件
+            region: Region 或 OcrRegion 物件
             
         Returns:
-            切片後的 Mat
+            切片後的 Mat (獨立複本)
         """
         source = MatUtility.get_mat_from_file_with_mask(source_path)
-        x1, y1 = region.x1, region.y1
-        x2, y2 = region.x2, region.y2
-        width = abs(x2 - x1)
-        height = abs(y2 - y1)
-        
-        return source[y1:y1+height, x1:x1+width]
+        return MatUtility.crop(source, region)
     
     @staticmethod
     def slice_region_mat_from_source(source: np.ndarray, region) -> np.ndarray:
@@ -111,17 +132,12 @@ class MatUtility:
         
         Args:
             source: 來源 Mat
-            region: OcrRegion 物件
+            region: Region 或 OcrRegion 物件
             
         Returns:
-            切片後的 Mat
+            切片後的 Mat (獨立複本)
         """
-        x1, y1 = region.x1, region.y1
-        x2, y2 = region.x2, region.y2
-        width = abs(x2 - x1)
-        height = abs(y2 - y1)
-        
-        return source[y1:y1+height, x1:x1+width]
+        return MatUtility.crop(source, region)
     
     @staticmethod
     def save_slice_region_mat(source_path: str, region, file_name: str) -> None:
