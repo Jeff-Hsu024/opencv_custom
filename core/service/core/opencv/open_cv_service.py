@@ -3,7 +3,8 @@ OpenCV 服務 - 提供影像匹配與 OCR 功能
 """
 import cv2
 import numpy as np
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
+from .cache import BoundedImageCache, compute_image_digest
 from .mat_utility import MatUtility
 from .dto import CompareResult, MatchPattern, MatchResult, OcrRegion
 from .ocr.character_ocr import CharacterOCR
@@ -13,9 +14,10 @@ from .ocr.pattern_ocr import PatternOCR
 class OpenCvService:
     """OpenCV 服務類別"""
     
-    def __init__(self):
+    def __init__(self, cache_max_entries: int = 0):
         self.character_ocr = CharacterOCR()
         self.pattern_ocr = PatternOCR()
+        self.cache = BoundedImageCache(max_entries=cache_max_entries)
     
     def find_match(self, source: np.ndarray, target: np.ndarray) -> MatchPattern:
         """
@@ -68,6 +70,27 @@ class OpenCvService:
             return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
         return img
 
+    @staticmethod
+    def _to_hsv(img: np.ndarray, name: str) -> np.ndarray:
+        bgr = OpenCvService._to_bgr(img, name)
+        return cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+
+    def _convert_color(self, img: np.ndarray, color_mode: str, name: str) -> np.ndarray:
+        if self.cache.max_entries > 0:
+            key = ("color", color_mode, compute_image_digest(img))
+            cached = self.cache.get(key)
+            if cached is not None:
+                return cached
+        if color_mode == "gray":
+            converted = self._to_gray(img)
+        elif color_mode == "bgr":
+            converted = self._to_bgr(img, name)
+        else:
+            converted = self._to_hsv(img, name)
+        if self.cache.max_entries > 0:
+            self.cache.put(key, converted)
+        return converted
+
     def _prepare_and_match(
         self,
         source: np.ndarray,
@@ -78,8 +101,8 @@ class OpenCvService:
         """Validate inputs, convert color space, and compute TM_SQDIFF_NORMED score map."""
         if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not (0.0 <= float(threshold) <= 1.0):
             raise ValueError(f"threshold must be a float in [0.0, 1.0], got {threshold!r}")
-        if color_mode not in ("gray", "bgr"):
-            raise ValueError(f"color_mode must be 'gray' or 'bgr', got {color_mode!r}")
+        if color_mode not in ("gray", "bgr", "hsv"):
+            raise ValueError(f"color_mode must be 'gray', 'bgr', or 'hsv', got {color_mode!r}")
 
         self._validate_image(source, "source")
         self._validate_image(target, "target")
@@ -91,12 +114,8 @@ class OpenCvService:
                 f"target size ({tw}x{th}) cannot exceed source size ({sw}x{sh})"
             )
 
-        if color_mode == "gray":
-            src_mat = self._to_gray(source)
-            tgt_mat = self._to_gray(target)
-        else:
-            src_mat = self._to_bgr(source, "source")
-            tgt_mat = self._to_bgr(target, "target")
+        src_mat = self._convert_color(source, color_mode, "source")
+        tgt_mat = self._convert_color(target, color_mode, "target")
 
         result = cv2.matchTemplate(src_mat, tgt_mat, cv2.TM_SQDIFF_NORMED)
         return result, int(tw), int(th)
@@ -130,6 +149,63 @@ class OpenCvService:
         x2, y2 = x1 + tw, y1 + th
         center = (x1 + tw / 2.0, y1 + th / 2.0)
         return MatchResult(score=score, bbox=(x1, y1, x2, y2), center=center)
+
+    def match_template_multiscale(
+        self,
+        source: np.ndarray,
+        target: np.ndarray,
+        scales: Sequence[float] = (0.8, 0.9, 1.0, 1.1, 1.2),
+        threshold: float = 0.8,
+        color_mode: str = "gray",
+    ) -> Optional[MatchResult]:
+        """Match target across multiple scale factors and return the best MatchResult.
+
+        Args:
+            source: Source image array.
+            target: Target template image array.
+            scales: Sequence of positive scale factors to evaluate.
+            threshold: Minimum similarity score in [0.0, 1.0] (higher is better).
+            color_mode: Explicit color space for matching: 'gray', 'bgr', or 'hsv'.
+
+        Returns:
+            Best MatchResult with populated scale if score >= threshold, else None.
+        """
+        if not scales:
+            raise ValueError("scales must be a non-empty sequence of positive numbers")
+        self._validate_image(source, "source")
+        self._validate_image(target, "target")
+        sh, sw = source.shape[:2]
+        th, tw = target.shape[:2]
+
+        best: Optional[MatchResult] = None
+        for raw_scale in scales:
+            if isinstance(raw_scale, bool) or not isinstance(raw_scale, (int, float)) or float(raw_scale) <= 0.0:
+                raise ValueError(f"Each scale must be a positive number, got {raw_scale!r}")
+            scale = float(raw_scale)
+            scaled_w = max(1, int(round(tw * scale)))
+            scaled_h = max(1, int(round(th * scale)))
+            if scaled_w > sw or scaled_h > sh:
+                continue
+            if scale == 1.0:
+                scaled_target = target
+            else:
+                interp = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_LINEAR
+                scaled_target = cv2.resize(target, (scaled_w, scaled_h), interpolation=interp)
+
+            candidate = self.match_template(
+                source,
+                scaled_target,
+                threshold=threshold,
+                color_mode=color_mode,
+            )
+            if candidate is not None and (best is None or candidate.score > best.score):
+                best = MatchResult(
+                    score=candidate.score,
+                    bbox=candidate.bbox,
+                    center=candidate.center,
+                    scale=scale,
+                )
+        return best
 
     def find_all(
         self,
