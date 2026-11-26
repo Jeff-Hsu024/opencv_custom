@@ -7,13 +7,34 @@ from typing import Optional, Tuple
 
 @dataclass
 class MatchPattern:
-    """影像匹配結果"""
-    similar: float  # 相似度 (0-1)
+    """影像匹配結果 (legacy)
+
+    Attributes:
+        similar: TM_SQDIFF_NORMED distance in [0.0, 1.0] (lower is better; 0.0 = exact match).
+        point: Center coordinates (x, y) of the best match.
+    """
+    similar: float  # 相似度距離 (0-1, 越小越相似)
     point: Tuple[float, float]  # 匹配點座標 (x, y)
-    
+
     def get_similar(self) -> float:
-        """取得相似度 (轉換為 1.0 - similar)"""
+        """取得相似度 (轉換為 1.0 - similar，越大越相似，範圍 0.0..1.0)"""
         return 1.0 - self.similar
+
+
+@dataclass
+class MatchResult:
+    """Structured template match result.
+
+    Attributes:
+        score: Normalized similarity score in [0.0, 1.0] (higher is better).
+        bbox: Half-open integer bounding box (x1, y1, x2, y2).
+        center: Center coordinates (x, y) of the matched region.
+        scale: Optional scale factor used during matching.
+    """
+    score: float
+    bbox: Tuple[int, int, int, int]
+    center: Tuple[float, float]
+    scale: Optional[float] = None
 
 
 @dataclass
