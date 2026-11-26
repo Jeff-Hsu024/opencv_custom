@@ -134,9 +134,9 @@ class ActionService:
                 raise DeviceMismatchError(
                     f"Frame {frame_id} belongs to device {frame.device_id!r}, expected {device_id!r}"
                 )
-            if max_age_seconds is not None and (now - frame.created_at) > max_age_seconds:
+            if max_age_seconds is not None and (now - frame.timestamp) > max_age_seconds:
                 raise StaleRefError(
-                    f"Frame {frame_id} is stale (age {now - frame.created_at:.2f}s > {max_age_seconds}s)"
+                    f"Frame {frame_id} is stale (age {now - frame.timestamp:.2f}s > {max_age_seconds}s)"
                 )
             lx, ly = _validate_local_point(point[0], point[1], frame.width, frame.height, label="local point")
             dx, dy = frame.transform.map_point(lx, ly)

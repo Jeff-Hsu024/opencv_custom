@@ -264,6 +264,7 @@ def _tool_definitions() -> List[Dict[str, Any]]:
                 "properties": {
                     "device": {"type": "string"},
                     "mode": {"type": "string", "enum": ["changed", "stable", "image"]},
+                    "baseline_frame_id": {"type": "string"},
                     "target": {"type": "string"},
                     "region": region_schema,
                     "timeout": {"type": "number", "exclusiveMinimum": 0, "default": 10.0},
@@ -375,17 +376,17 @@ class VisionMcpServer:
                 if not asset_name or not frame_id:
                     raise UsageError("name and frame_id are required")
                 region = _parse_region_arg(args.get("region"))
-                res = self.assets.register(
+                res = self.assets.register_from_frame(
                     str(asset_name),
-                    str(frame_id),
                     self.store,
+                    str(frame_id),
                     region=region,
                 )
-                return self._text_tool_result({"ok": True, "asset": res})
+                return self._text_tool_result({"ok": True, "asset": res.to_dict()})
 
             if name == "vision_assets_list":
                 items = self.assets.list_assets()
-                return self._text_tool_result({"ok": True, "assets": items})
+                return self._text_tool_result({"ok": True, "assets": [item.to_dict() for item in items]})
 
             if name == "vision_find":
                 frame_id = args.get("frame_id")
@@ -426,8 +427,8 @@ class VisionMcpServer:
                 to_pt = _parse_point_arg(args.get("to_point"), "to_point")
                 res = self.actions.swipe(
                     str(device),
-                    from_pt,
-                    to_pt,
+                    start=from_pt,
+                    end=to_pt,
                     duration_ms=int(args.get("duration_ms", 300)),
                 )
                 return self._text_tool_result({"ok": True, **res})
@@ -437,7 +438,7 @@ class VisionMcpServer:
                 text = args.get("text")
                 if not device or text is None:
                     raise UsageError("device and text are required")
-                res = self.actions.type_text(str(device), str(text))
+                res = self.actions.type_text(str(device), text=str(text))
                 return self._text_tool_result({"ok": True, **res})
 
             if name == "vision_key":
@@ -445,7 +446,7 @@ class VisionMcpServer:
                 key = args.get("key")
                 if not device or not key:
                     raise UsageError("device and key are required")
-                res = self.actions.key(str(device), str(key))
+                res = self.actions.press_key(str(device), key=str(key))
                 return self._text_tool_result({"ok": True, **res})
 
             if name == "vision_wait":
@@ -458,11 +459,12 @@ class VisionMcpServer:
                 poll_interval = float(args.get("poll_interval", 0.2))
                 if mode == "changed":
                     res = self.waits.wait_changed(
-                        str(device), region=region, timeout=timeout, poll_interval=poll_interval
+                        str(device), baseline_frame_id=args.get("baseline_frame_id"),
+                        region=region, timeout=timeout, interval=poll_interval
                     )
                 elif mode == "stable":
                     res = self.waits.wait_stable(
-                        str(device), region=region, timeout=timeout, poll_interval=poll_interval
+                        str(device), region=region, timeout=timeout, interval=poll_interval
                     )
                 elif mode == "image":
                     target = args.get("target")
@@ -470,10 +472,10 @@ class VisionMcpServer:
                         raise UsageError("target is required when mode='image'")
                     res = self.waits.wait_image(
                         str(device),
-                        str(target),
+                        target_name=str(target),
                         region=region,
                         timeout=timeout,
-                        poll_interval=poll_interval,
+                        interval=poll_interval,
                         threshold=float(args.get("threshold", 0.8)),
                     )
                 else:

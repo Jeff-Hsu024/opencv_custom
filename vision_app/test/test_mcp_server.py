@@ -35,10 +35,10 @@ class _FakePlatform:
         self.clicks.append((x, y))
         return True
 
-    def swipe(self, x1: int, y1: int, x2: int, y2: int, duration_ms: int = 300) -> bool:
+    def swipe(self, x1: int, y1: int, x2: int, y2: int, duration: int = 300) -> bool:
         return True
 
-    def input_text(self, text: str) -> bool:
+    def type_text(self, text: str) -> bool:
         return True
 
     def key_event(self, key: str) -> bool:
@@ -175,3 +175,39 @@ def test_mcp_stdio_subprocess_roundtrip(tmp_path: Path) -> None:
     devices_payload = json.loads(lines[2]["result"]["content"][0]["text"])
     assert devices_payload["ok"] is True
     assert any(d["device_id"] == "desktop" for d in devices_payload["devices"])
+
+
+def test_mcp_asset_action_and_wait_adapter_contract(tmp_path: Path) -> None:
+    device = "127.0.0.1:16480"
+    fake = _FakePlatform(_sample_bgr())
+    server = VisionMcpServer(store_dir=tmp_path / "store", platform_factory=lambda _d: fake)
+
+    def call(name, args):
+        result = server.call_tool(name, args)
+        assert not result["isError"], result
+        return json.loads(next(c["text"] for c in result["content"] if c["type"] == "text"))
+
+    snap = call("vision_snapshot", {"device": device})
+    fid = snap["frame"]["frame_id"]
+    crop = call("vision_crop", {"frame_id": fid, "region": [50, 30, 150, 100]})
+    asset = call("vision_assets_register", {"name": "marker", "frame_id": crop["frame"]["frame_id"]})
+    assert asset["asset"]["name"] == "marker"
+    assert call("vision_assets_list", {})["assets"][0]["name"] == "marker"
+    matched = call("vision_find", {"frame_id": fid, "target": "marker", "threshold": 0.98})
+    assert matched["count"] == 1
+    ref = matched["matches"][0]["ref_id"]
+    assert call("vision_click", {"device": device, "ref": ref, "max_age_seconds": 30})["status"] == "executed"
+    assert call("vision_click", {"device": device, "frame_id": fid, "point": [100, 65], "max_age_seconds": 30})["status"] == "executed"
+    assert len(fake.clicks) == 2
+    assert call("vision_swipe", {"device": device, "from_point": [1, 2], "to_point": [3, 4]})["status"] == "executed"
+    assert call("vision_type", {"device": device, "text": "test"})["status"] == "executed"
+    assert call("vision_key", {"device": device, "key": "4"})["status"] == "executed"
+    assert call("vision_wait", {"device": device, "mode": "image", "target": "marker", "timeout": 2})["verified"]
+    clock = [100.0]
+    server.waits._clock = lambda: clock[0]
+    def advance(seconds):
+        clock[0] += seconds
+    server.waits._sleeper = advance
+    assert call("vision_wait", {"device": device, "mode": "stable", "timeout": 2, "poll_interval": 0.5})["verified"]
+    fake._image = np.full_like(fake._image, 255)
+    assert call("vision_wait", {"device": device, "mode": "changed", "baseline_frame_id": fid, "timeout": 2})["verified"]
