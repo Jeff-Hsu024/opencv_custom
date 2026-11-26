@@ -36,6 +36,7 @@ from vision_app.store import (
     StoreError,
 )
 from vision_app.waits import WaitService
+from vision_app.recorder import Recorder, OPERATIONS, workspace_lock, record_tool_definitions
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "vision-mcp"
@@ -109,7 +110,7 @@ def _tool_definitions() -> List[Dict[str, Any]]:
         "maxItems": 2,
         "description": "2D integer coordinates [x, y]",
     }
-    return [
+    definitions = [
         {
             "name": "vision_devices",
             "description": "List available ADB devices and the local desktop target.",
@@ -276,6 +277,10 @@ def _tool_definitions() -> List[Dict[str, Any]]:
             },
         },
     ]
+    for tool in definitions:
+        if tool['name'].removeprefix('vision_') in OPERATIONS:
+            tool['inputSchema']['properties']['session_id'] = {'type':'string', 'description':'Explicit active recording session'}
+    return definitions + record_tool_definitions()
 
 
 class VisionMcpServer:
@@ -333,6 +338,32 @@ class VisionMcpServer:
         }
 
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        args = dict(arguments or {})
+        try:
+            if name.startswith('vision_record_'):
+                action = name.removeprefix('vision_record_').replace('_','-')
+                result = Recorder(self.store).query(action, **args)
+                return self._text_tool_result({'ok':True,'result':result})
+            operation = name.removeprefix('vision_')
+            sid = args.pop('session_id', None)
+            if sid is not None and operation in OPERATIONS:
+                original = []
+                def invoke():
+                    response = self._call_tool(name,args)
+                    original.append(response)
+                    return json.loads(next(c['text'] for c in response['content'] if c['type']=='text'))
+                receipt = Recorder(self.store).execute(sid, operation, args, invoke)
+                result = self._text_tool_result(receipt)
+                result['isError'] = not receipt.get('ok',False)
+                if not result['isError'] and original:
+                    result['content'] = [c for c in original[0]['content'] if c['type']=='image'] + result['content']
+                return result
+            with workspace_lock(self.store):
+                return self._call_tool(name,args)
+        except Exception as exc:
+            return {'content':[{'type':'text','text':json.dumps({'ok':False,'error':_error_payload(exc)})}],'isError':True}
+
+    def _call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         args = arguments or {}
         try:
             if name == "vision_devices":
@@ -570,6 +601,9 @@ class VisionMcpServer:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    # MCP stdio is UTF-8 regardless of Windows console/ACP defaults.
+    sys.stdin.reconfigure(encoding="utf-8", errors="strict")
+    sys.stdout.reconfigure(encoding="utf-8", errors="strict")
     store_dir = os.environ.get("VISION_STORE_DIR", ".vision_store")
     server = VisionMcpServer(store_dir=store_dir)
     server.serve_stdio()

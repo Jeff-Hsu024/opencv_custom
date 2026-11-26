@@ -21,3 +21,7 @@ Use a high-confidence known target in a known page. A 1.0 score only means the p
 ## Controlled POC
 
 Choose reversible navigation with no persistent settings change. Verify original app/page, navigate at least two pages using newly learned targets, validate each postcondition and return to original app/page. Report actual frame IDs and scores. A successful POC is not evidence of unattended game-specific automation, robust UI recovery or performance at scale. Test those separately on the intended application.
+
+## Recorder and handoff
+
+Checkpoint explicit state, verified postconditions, completed_steps, unresolved_issues, next_step and evidence-linked event ID. Use resume_context instead of replaying the whole conversation or raw log. Verify fresh state before acting. Inspect failed/timeout/pending events separately; no automatic retry. Recorder is a faithful exploration memory, not a workflow builder or runtime.

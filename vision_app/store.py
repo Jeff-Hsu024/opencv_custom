@@ -8,6 +8,7 @@ import re
 import tempfile
 import time
 import uuid
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -16,6 +17,8 @@ import cv2
 import numpy as np
 
 from vision_app.transforms import CoordinateTransform
+
+protect_new_frames = ContextVar('protect_new_frames', default=False)
 
 _FRAME_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
@@ -205,7 +208,7 @@ class FrameStore:
             parent_id=parent_id,
             transform=transform or CoordinateTransform(),
             rotation=rotation,
-            protected=protected,
+            protected=protected or protect_new_frames.get(),
         )
 
         records = self._load_index()
@@ -311,12 +314,12 @@ class FrameStore:
                 del records[fid]
                 removed.append(fid)
 
-        # 2. Enforce max_frames across unprotected frames (oldest first)
+        # 2. Bound the transient cache; protected evidence is outside its budget.
         unprotected = sorted(
             (rec for rec in records.values() if not rec.protected),
             key=lambda r: r.timestamp,
         )
-        excess = len(records) - self.max_frames
+        excess = len(unprotected) - self.max_frames
         for rec in unprotected:
             if excess <= 0:
                 break

@@ -28,6 +28,7 @@ from vision_app.store import (
     OutOfBoundsError,
 )
 from vision_app.waits import WaitService
+from vision_app.recorder import Recorder, OPERATIONS, workspace_lock
 
 
 class _CliParser(argparse.ArgumentParser):
@@ -66,7 +67,22 @@ def _build_parser() -> _CliParser:
         default=os.environ.get("VISION_STORE_DIR", ".vision_store"),
         help="Workspace-local frame store directory",
     )
+    parser.add_argument('--session', default=os.environ.get('VISION_SESSION_ID'))
     sub = parser.add_subparsers(dest="command", required=True)
+    record = sub.add_parser('record', help='Persistent exploration recorder')
+    record.add_argument('record_action', choices=['start','status','pause','resume','stop','list','inspect','summary','events','event','annotate','checkpoint','annotations','history','resume-context','latest-checkpoint'])
+    record.add_argument('--session', dest='record_session')
+    record.add_argument('--name')
+    record.add_argument('--goal')
+    record.add_argument('--device')
+    record.add_argument('--event', dest='event_id')
+    record.add_argument('--annotation', help='JSON object; do not include secrets')
+    record.add_argument('--limit', type=int)
+    record.add_argument('--after', type=int)
+    record.add_argument('--operation')
+    record.add_argument('--status')
+    record.add_argument('--kind')
+    record.add_argument('--json', action='store_true')
 
     p_devices = sub.add_parser("devices", help="List available devices")
     p_devices.add_argument("--json", action="store_true", help="Output JSON")
@@ -163,22 +179,26 @@ def _build_parser() -> _CliParser:
 
 
 def _emit_json(payload: Dict[str, Any]) -> None:
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    sys.stdout.write(json.dumps(payload, ensure_ascii=True) + "\n")
     sys.stdout.flush()
 
 
-def run_cli(
+def _run_cli(
     argv: Optional[List[str]] = None,
     *,
     service: Optional[ObservationService] = None,
+    emit=_emit_json,
+    parsed=None,
+    mask_diagnostics=False,
 ) -> int:
     """Execute CLI with given argv and return exit code (0, 2, 3, or 4)."""
+    _emit_json = emit
     parser = _build_parser()
     command_name: Optional[str] = None
     device_name: Optional[str] = None
 
     try:
-        args = parser.parse_args(argv)
+        args = parsed or parser.parse_args(argv)
         command_name = args.command
         device_name = getattr(args, "device", None)
 
@@ -415,7 +435,7 @@ def run_cli(
         raise UsageError(f"Unknown command: {args.command}")
 
     except OperationError as exc:
-        sys.stderr.write(f"[{exc.code}] {exc.message}\n")
+        sys.stderr.write(f"[{exc.code}] " + ("[REDACTED]\n" if mask_diagnostics else f"{exc.message}\n"))
         _emit_json(
             {
                 "ok": False,
@@ -430,7 +450,7 @@ def run_cli(
         )
         return exc.exit_code
     except Exception as exc:
-        sys.stderr.write(f"[INTERNAL_ERROR] {exc}\n")
+        sys.stderr.write("[INTERNAL_ERROR] " + ("[REDACTED]\n" if mask_diagnostics else f"{exc}\n"))
         _emit_json(
             {
                 "ok": False,
@@ -443,6 +463,38 @@ def run_cli(
                 },
             }
         )
+        return 3
+
+
+def run_cli(argv=None, *, service=None):
+    try:
+        args = _build_parser().parse_args(argv)
+    except UsageError:
+        return _run_cli(argv, service=service)
+    try:
+        store = service.store if service else FrameStore(Path(args.store_dir))
+        if args.command == 'record':
+            data = {k: v for k, v in vars(args).items() if k in ('name','goal','device','event_id','annotation','limit','after','operation','status','kind') and v is not None}
+            if 'annotation' in data:
+                data['annotation'] = json.loads(data['annotation'])
+            result = Recorder(store).query(args.record_action, session_id=args.record_session or args.session, **data)
+            _emit_json({'ok': True, 'result': result})
+            return 0
+        operation = 'assets_register' if args.command == 'assets' and args.assets_command == 'register' else args.command
+        if args.session is not None and operation in OPERATIONS:
+            inputs = {k:v for k,v in vars(args).items() if k not in ('store_dir','session','command','json','assets_command')}
+            receipt = []
+            codes = []
+            def invoke():
+                codes.append(_run_cli(argv, service=service, parsed=args, emit=receipt.append, mask_diagnostics=operation=="type"))
+                return receipt[0]
+            result = Recorder(store).execute(args.session, operation, inputs, invoke)
+            _emit_json(result)
+            return codes[0] if result.get('ok') and codes else (codes[0] if codes and codes[0] else 3)
+        with workspace_lock(store):
+            return _run_cli(argv, service=service, parsed=args)
+    except Exception as exc:
+        _emit_json({'ok':False,'error':{'code':'RECORDER_ERROR','message':str(exc)}})
         return 3
 
 

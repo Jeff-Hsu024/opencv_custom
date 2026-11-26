@@ -26,3 +26,9 @@ If MCP is unavailable, try the installed CLI with a workspace-local store and na
 ## Reporting
 
 Distinguish observed PASS, action executed but unverified, FAILED, BLOCKED, and NOT_ATTEMPTED. State device, target, operation, score/coordinates if relevant, verification and side effects. Preserve evidence outside tracked source. Do not claim generalized game automation or independent agent benchmark success from a single controlled navigation POC.
+
+## Persistent exploration (Recorder Phase 2)
+
+For multi-step exploration, start a Recorder session with explicit device, name and goal. Pass the returned session_id to EVERY supported Vision operation (CLI --session before command, or VISION_SESSION_ID; MCP session_id in arguments). Never rely on a global active session. Recorder automatically stores receipts, errors, frame and asset evidence; no separate log call is necessary. Check event_id and sequence. Recording without an explicit ID is disabled; paused/stopped sessions reject bound operations.
+
+Annotate visually verified postconditions, purpose, state, uncertainty and next step using the actual event ID. Keep execution success separate from semantic PASS/FAIL/UNKNOWN. Checkpoint before context compaction or handoff. At resume, query resume_context, inspect relevant event details and assets, and observe fresh pixels before any action. A pending event has unknown outcome: do not blindly replay it. Never include secrets in annotations or capture sensitive UI unnecessarily; type inputs/errors are masked, but screenshots may contain sensitive information.

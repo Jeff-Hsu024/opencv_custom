@@ -69,3 +69,16 @@ vision --store-dir <workspace-store> wait --device <serial> --changed --baseline
 vision --store-dir <workspace-store> wait --device <serial> --image <postcondition-asset> --timeout 5 --json
 ```
 Run --help for each command. CLI exit 0 success, 2 usage, 3 operation error, 4 timeout. JSON stdout, diagnostics stderr. Image artifact path must be read using a real image tool if visual reasoning is needed. Do not use raw ADB for normal typed Vision actions. ADB can be used for verified device setup/foreground activity inspection or explicit app launch where the current Vision API has no equivalent.
+
+## Recorder Phase 2
+
+Discover vision_record_* via the MCP adapter. Start with vision_record_start {name,goal,device}; use returned session_id with snapshot/crop/resize/assets_register/find/click/swipe/type/key/wait. For lifecycle: vision_record_status/pause/resume/stop {session_id}; vision_record_list {limit?,after?}. For inspection: vision_record_summary/inspect, vision_record_events {session_id,limit?,after?,operation?,status?}, vision_record_event {session_id,event_id}, vision_record_history, vision_record_annotations, vision_record_latest_checkpoint, vision_record_resume_context {session_id,limit?}. Annotation/checkpoint: {session_id,event_id,annotation:{state,verification,next_step,...}}. No automatic semantic success. Use the same store dir across processes.
+
+CLI examples (global --session precedes ordinary commands):
+    vision --store-dir <store> record start --name exploration --goal "Inspect two pages" --device <serial>
+    vision --store-dir <store> --session <id> snapshot --device <serial> --json
+    vision --store-dir <store> record events --session <id> --limit 10 --status failed
+    vision --store-dir <store> record event --session <id> --event <event-id>
+    vision --store-dir <store> record checkpoint --session <id> --event <event-id> --annotation <JSON>
+    vision --store-dir <store> record resume-context --session <id>
+The recorder DB and protected evidence remain in the store; do not delete the store to reset transient data. Session IDs are not authentication credentials. A bound operation with invalid device/frame scope is recorded as failed and not executed. Invalid CLI syntax rejected before dispatch is not an operation receipt.
