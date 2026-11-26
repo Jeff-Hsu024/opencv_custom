@@ -36,6 +36,8 @@ C01 PASS: commit 2c41d15361f5d2b68ba0b79af72184ce53a13938. Coordinator inspected
 
 C02 task task_4a19ccfc98c7 independently observed ready and native worker-start submitted in existing worktree. Receipt pending. All writes serialized; no other implementation task started. C01 dispatch ctx_79c24bd7acd4 settled successfully.
 
+C02 native receipt: dispatch ctx_485ea10ad788, terminal term_bba22ca7-0fd4-4dcf-8743-17d9f03f6cfb, outcome_unknown/turn_start_unobserved. Wake msg_rest_d046b362c5fa9d6b1a1a2948 prescribed Enter-only recovery if draft confirmed. worker-read confirmed live worker with original draft; Enter-only accepted. No brief resend or new dispatch. C02 execution and PASS remain unconfirmed pending native wake.
+
 C01 dispatch: ctx_79c24bd7acd4, terminal term_1d878337-c444-41bd-8cef-b6d810d9fb3b. Native start returned outcome_unknown; wake msg_rest_abf9d2ecbb1af8c2fad27271 explicitly prescribed draft-only recovery. worker-read confirmed live worker with unsent original draft; Enter-only accepted. Await native wake; C01 implementation/PASS unconfirmed. No duplicate task or brief resend.
 
 - C00: task_ac79f0fdd976
