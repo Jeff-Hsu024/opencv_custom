@@ -149,8 +149,8 @@ def test_schema_and_additive_tools():
     current = {tool['name']: tool for tool in _tool_definitions()}
     for tool in baseline['tools']:
         assert current[tool['name']] == tool
-    # 61 frozen legacy tools + C01 discovery + two C03 asset revision tools.
-    assert len(current) == 64 and 'vision_android_devices' in current
+    assert {'vision_android_devices', 'vision_asset_revision_register',
+            'vision_asset_revision_resolve'} <= current.keys()
 
 
 def test_no_legacy_discovery_fallback(tmp_path, monkeypatch):

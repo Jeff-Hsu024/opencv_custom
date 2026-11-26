@@ -205,7 +205,8 @@ class Recorder:
             return
         try:
             # One committed alias: metadata and bytes are never a mixed pair.
-            asset, data, _ = AssetRegistry(self.store.store_dir).snapshot(name)
+            registry = AssetRegistry(self.store.store_dir)
+            asset, data, revision_id = registry.snapshot(name)
         except StoreError:
             return
         if asset.device_id is not None and asset.device_id != device:
@@ -217,6 +218,8 @@ class Recorder:
         digest = hashlib.sha256(data).hexdigest()
         item = {**asset.to_dict(), "sha256": digest,
                 "retained_path": self._retain_bytes(digest, data)}
+        if revision_id is not None:
+            item["asset_revision_id"] = revision_id
         if item not in evidence["assets"]:
             evidence["assets"].append(item)
 
@@ -244,10 +247,13 @@ class Recorder:
         from vision_app.asset_revisions import AssetRevisionStore
         revisions = AssetRevisionStore(self.store.store_dir, frame_store=self.store)
         with revisions.pin(revision_id, device=device, session_id=session_id) as pinned:
-            rev = pinned.revision
-            self._pin(rev["source_frame_id"], device, evidence)
-            item = {**rev, "sha256": rev["png_sha256"],
-                    "retained_path": self._retain_bytes(rev["png_sha256"], pinned.png_bytes)}
+            return self._retain_pinned_asset(pinned, device, evidence)
+
+    def _retain_pinned_asset(self, pinned, device, evidence):
+        rev = pinned.revision
+        self._pin(rev["source_frame_id"], device, evidence)
+        item = {**rev, "sha256": rev["png_sha256"],
+                "retained_path": self._retain_bytes(rev["png_sha256"], pinned.png_bytes)}
         if item not in evidence["assets"]:
             evidence["assets"].append(item)
         return item
@@ -282,12 +288,14 @@ class Recorder:
     def execute(self, sid, operation, inputs, invoke):
         """Invoke once; payload is normalized adapter JSON, never MCP image content."""
         with workspace_lock(self.store):
-            return self._execute_locked(sid, operation, inputs, invoke)
+            return self._execute_locked(sid, operation, inputs, invoke, check_ref_session=True)
 
-    def _execute_locked(self, sid, operation, inputs, invoke):
+    def _execute_locked(self, sid, operation, inputs, invoke, *,
+                        pinned_asset=None, check_ref_session=False):
         eid, now = _id("evt"), time.time()
         evidence = {"frames": [], "assets": [], "references": []}
-        with self.db() as db:
+        with metadata_transaction(self.store), self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
             session = self._session(db, sid)
             if session["status"] != "active":
                 raise RecorderError("Session is not active",code="SESSION_INACTIVE")
@@ -300,16 +308,31 @@ class Recorder:
         result, error, status = None, None, "failed"
         token = protect_new_frames.set(True)
         try:
+            asset_revision_id = None
             if inputs.get("device") is not None and inputs["device"] != device:
                 raise RecorderError("Operation device differs from session",code="SESSION_SCOPE_MISMATCH")
             if operation == "find" and inputs.get("max_results", 10) > 100:
                 raise RecorderError("Recorded find max_results must be <= 100")
+            if check_ref_session and operation == "click" and isinstance(inputs.get("ref"), str):
+                from vision_app.epochs import DeviceEpochs
+                epochs = DeviceEpochs(self.store)
+                binding = epochs.ref_binding(inputs["ref"])
+                stamp = epochs.ref_epoch(inputs["ref"])
+                if (binding is not None and (binding["device"], binding["session_id"]) != (device, sid)
+                        or stamp is not None and (stamp.device, stamp.session_id) != (device, sid)):
+                    raise RecorderError("Reference belongs to a different session", code="SCOPE_MISMATCH")
+                if binding is not None:
+                    asset_revision_id = binding["revision_id"]
             self._relations(inputs, device, evidence)
+            if pinned_asset is not None:
+                self._retain_pinned_asset(pinned_asset, device, evidence)
+            elif asset_revision_id is not None:
+                self.retain_asset_revision(asset_revision_id, device, evidence, session_id=sid)
             if operation == "assets_register":
                 self._asset(inputs.get("name"), device, evidence)
-            if operation in ("find", "wait"):
+            if operation in ("find", "wait") and pinned_asset is None:
                 self._asset(inputs.get("target") or inputs.get("image_target"), device, evidence)
-            with self.db() as db:
+            with metadata_transaction(self.store), self.db() as db:
                 db.execute("UPDATE events SET evidence=? WHERE event_id=?",(_json(evidence),eid))
             result = invoke()
             error = result.get("error") if not result.get("ok", False) else None
@@ -337,7 +360,7 @@ class Recorder:
         if operation == "type" and error:
             error = {"code": error.get("code"), "message": "[REDACTED type error]"}
             result = {"ok": False, "error": error}
-        with self.db() as db:
+        with metadata_transaction(self.store), self.db() as db:
             db.execute("UPDATE events SET completed_at=?,status=?,result=?,error=?,evidence=? WHERE event_id=?",
                        (time.time(), status, _json(_clean(result)), _json(_clean(error)),
                         _json(evidence), eid))

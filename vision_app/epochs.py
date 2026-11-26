@@ -77,12 +77,36 @@ class DeviceEpochs(RequestLedger):
                              (os.path.normcase(ref_id),)).fetchone()
             return RefEpoch(*row) if row else None
 
-    def publish_ref_stamp(self, ref, *, session_id, exists):
+    def ref_revision(self, ref_id):
+        binding = self.ref_binding(ref_id)
+        return binding["revision_id"] if binding else None
+
+    def ref_binding(self, ref_id):
+        with self.transaction() as db:
+            self._ref_binding_table(db)
+            row = db.execute("SELECT device, session_id, revision_id FROM ref_binding WHERE ref_id = ?",
+                             (os.path.normcase(ref_id),)).fetchone()
+            return dict(row) if row else None
+
+    @staticmethod
+    def _ref_binding_table(db):
+        db.execute("CREATE TABLE IF NOT EXISTS ref_binding "
+                   "(ref_id TEXT PRIMARY KEY, device TEXT NOT NULL, session_id TEXT, revision_id TEXT)")
+
+    def publish_ref_stamp(self, ref, *, session_id, exists, revision_id=None):
         with self.transaction() as db:
             self._ref_table(db)
             key = os.path.normcase(ref.ref_id)
             if db.execute("SELECT 1 FROM ref_epoch WHERE ref_id = ?", (key,)).fetchone():
                 raise ClaimError("ID_RESERVED", ref.ref_id)
+            self._ref_binding_table(db)
+            if db.execute("SELECT 1 FROM ref_binding WHERE ref_id = ?", (key,)).fetchone():
+                raise ClaimError("ID_RESERVED", ref.ref_id)
+            if revision_id is not None or session_id is not None:
+                if exists:
+                    raise ClaimError("ID_RESERVED", ref.ref_id)
+                db.execute("INSERT INTO ref_binding VALUES (?, ?, ?, ?)",
+                           (key, ref.device_id, session_id, revision_id))
             self._frame_table(db)
             frame = db.execute("SELECT device, epoch FROM frame_epoch WHERE frame_id = ?",
                                (os.path.normcase(ref.frame_id),)).fetchone()
@@ -100,6 +124,9 @@ class DeviceEpochs(RequestLedger):
         stamp = self.ref_epoch(ref_id)
         if stamp is None:
             if legacy:
+                binding = self.ref_binding(ref_id)
+                if binding and (binding["device"], binding["session_id"]) != (device, session_id):
+                    raise ClaimError("SCOPE_MISMATCH", ref_id)
                 return None
             raise ClaimError("REF_UNVERSIONED", ref_id)
         if (stamp.device, stamp.session_id) != (device, session_id):

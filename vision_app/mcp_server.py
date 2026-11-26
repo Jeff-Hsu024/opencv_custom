@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, TextIO, Tuple
 
 from vision_app.actions import ActionService
+from vision_app.primitives import PrimitiveService, SCHEMAS as PRIMITIVE_SCHEMAS
 from vision_app.assets import (
     AssetNotFoundError,
     AssetRegistry,
@@ -324,6 +325,12 @@ def _tool_definitions() -> List[Dict[str, Any]]:
     definitions.append({"name": "vision_asset_revision_resolve",
                         "description": "Resolve the last committed asset revision for an exact device/session scope and name; no fallback.",
                         "inputSchema": ASSET_REVISION_RESOLVE_SCHEMA})
+    descriptions = {
+        "scoped_find": "Find matches on a stored frame using an exact scoped asset revision.",
+        "guarded_click": "Dispatch one epoch-checked reference click with a durable action ID.",
+    }
+    definitions.extend({"name": f"vision_{op}", "description": descriptions[op], "inputSchema": schema}
+                       for op, schema in PRIMITIVE_SCHEMAS.items())
     return definitions
 
 
@@ -382,6 +389,13 @@ class VisionMcpServer:
         }
 
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        operation = name.removeprefix("vision_")
+        if name.startswith("vision_") and operation in PRIMITIVE_SCHEMAS:
+            primitive = PrimitiveService(self.obs, matcher=self.matcher, actions=self.actions)
+            payload, _ = primitive.invoke(operation, {} if arguments is None else arguments)
+            result = self._text_tool_result(payload)
+            result["isError"] = not payload["ok"]
+            return result
         if name == 'vision_android_devices':
             payload, _ = DiscoveryService(self.obs).invoke({} if arguments is None else arguments)
             result = self._text_tool_result(payload)
@@ -434,7 +448,7 @@ class VisionMcpServer:
             if sid is not None and operation in OPERATIONS:
                 original = []
                 def invoke():
-                    response = self._call_tool(name,args)
+                    response = self._call_tool(name,args,session_id=sid)
                     original.append(response)
                     return json.loads(next(c['text'] for c in response['content'] if c['type']=='text'))
                 receipt = Recorder(self.store).execute(sid, operation, args, invoke)
@@ -448,7 +462,7 @@ class VisionMcpServer:
         except Exception as exc:
             return {'content':[{'type':'text','text':json.dumps({'ok':False,'error':_error_payload(exc)})}],'isError':True}
 
-    def _call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None, *, session_id=None) -> Dict[str, Any]:
         args = arguments or {}
         try:
             if name in ("vision_snapshot","vision_crop","vision_resize"):
@@ -519,6 +533,7 @@ class VisionMcpServer:
                     find_all=bool(args.get("all", False)),
                     threshold=float(args.get("threshold", 0.8)),
                     max_results=args.get("max_results",10),color_mode=args.get("color_mode","gray"),
+                    session_id=session_id,
                 )
                 return self._text_tool_result({"ok": True, **res})
 
@@ -537,6 +552,7 @@ class VisionMcpServer:
                     point=point,
                     ref_id=args.get("ref"),
                     max_age_seconds=args.get("max_age_seconds"),
+                    session_id=session_id,
                 )
                 return self._text_tool_result({"ok": True, **res})
 

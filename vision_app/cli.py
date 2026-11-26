@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from vision_app.actions import ActionService
+from vision_app.primitives import PrimitiveService, SCHEMAS as PRIMITIVE_SCHEMAS
 from vision_app.assets import (
     AssetNotFoundError,
     AssetRegistry,
@@ -80,7 +81,8 @@ def _build_parser() -> _CliParser:
     sub = parser.add_subparsers(dest="command", required=True)
     phase9 = sub.add_parser("phase9", help="Phase 9 request-file API")
     phase9.add_argument("phase9_operation", choices=["android-devices", "asset-revision-register",
-                                                     "asset-revision-resolve"])
+                                                     "asset-revision-resolve",
+                                                     *(op.replace("_", "-") for op in PRIMITIVE_SCHEMAS)])
     phase9.add_argument("--request", required=True, help="UTF-8 JSON request file")
     transition = sub.add_parser('transition', help='Recorded one-click transition')
     transition.add_argument('transition_action',choices=['execute','inspect'])
@@ -390,6 +392,7 @@ def _run_cli(
                     threshold=args.threshold,
                     max_results=args.max_results,
                     color_mode=args.color_mode,
+                    session_id=args.session,
                 )
             except (InvalidAssetNameError, InvalidFrameIdError, ValueError) as exc:
                 raise UsageError(str(exc)) from exc
@@ -421,6 +424,7 @@ def _run_cli(
                         point=point,
                         ref_id=args.ref,
                         max_age_seconds=args.max_age,
+                        session_id=args.session,
                     )
                 elif args.command == "swipe":
                     start = _parse_point(args.from_point, label="From")
@@ -572,7 +576,11 @@ def run_cli(argv=None, *, service=None):
                 return 2
             if args.phase9_operation != 'android-devices':
                 operation = args.phase9_operation.replace('-', '_')
-                payload, exit_code = AssetRevisionService(store).invoke(operation, request)
+                if operation in PRIMITIVE_SCHEMAS:
+                    primitive = PrimitiveService(service or ObservationService(store=store))
+                    payload, exit_code = primitive.invoke(operation, request)
+                else:
+                    payload, exit_code = AssetRevisionService(store).invoke(operation, request)
                 _emit_json(payload)
                 return exit_code
             payload, exit_code = DiscoveryService(service or ObservationService(store=store)).invoke(request)

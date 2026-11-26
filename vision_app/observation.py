@@ -152,9 +152,14 @@ class ObservationService:
         if not device_id or not device_id.strip():
             raise UsageError("Device serial/id must not be empty")
 
-        if device_owner is not None:
-            OwnerCoordinator(self.store)._require_owner(device_owner, device_id, "device")
+        with OwnerCoordinator(self.store).device_owner(
+            device_id, legacy=True, owner=device_owner
+        ) as owner:
+            if owner is None:
+                raise OperationError("DEVICE_BUSY", f"Device {device_id} is busy", retryable=True)
+            return self._snapshot(device_id, region, out, owner)
 
+    def _snapshot(self, device_id, region, out, device_owner):
         try:
             platform = self._platform_factory(device_id)
             image = platform.snapshot()

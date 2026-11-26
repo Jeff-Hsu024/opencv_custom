@@ -265,9 +265,13 @@ class AssetRegistry:
     def load_image(self, name: str) -> np.ndarray:
         """Load the BGR image for a registered asset."""
         record, data, _ = self.snapshot(name)
+        return self.decode(data, f"{name}: {record.image_path}")
+
+    @staticmethod
+    def decode(data, label):
         img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
         if img is None:
-            raise AssetNotFoundError(f"Failed to decode asset image for {name}: {record.image_path}")
+            raise AssetNotFoundError(f"Failed to decode asset image for {label}")
         return img
 
     def list_assets(self) -> List[AssetRecord]:
@@ -345,11 +349,13 @@ class RefRegistry:
         validate_ref_id(ref_id)
         return self.refs_dir / f"{ref_id}.json"
 
-    def save(self, ref: ScopedRef, *, session_id: Optional[str] = None) -> ScopedRef:
+    def save(self, ref: ScopedRef, *, session_id: Optional[str] = None, revision_id=None) -> ScopedRef:
         """Persist a scoped reference atomically."""
         path = self._ref_path(ref.ref_id)
         with metadata_transaction(self.root_dir):
-            DeviceEpochs(self.root_dir).publish_ref_stamp(ref, session_id=session_id, exists=path.exists())
+            DeviceEpochs(self.root_dir).publish_ref_stamp(
+                ref, session_id=session_id, exists=path.exists(), revision_id=revision_id
+            )
             _atomic_write_json(path, ref.to_dict())
         return ref
 
@@ -450,10 +456,17 @@ class MatchingService:
         session_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Match a named asset against a stored frame and return scoped refs."""
-        frame = self.store.get_frame(frame_id)
-        source_img = self.store.load_image(frame_id)
-        template_img = self.assets.load_image(target)
+        with self.store.pin_frames([frame_id]) as (frame,):
+            asset, data, revision_id = self.assets.snapshot(target)
+            return self.match_frame(frame, target, self.assets.decode(data, f"{target}: {asset.image_path}"),
+                                    find_all=find_all, threshold=threshold, max_results=max_results,
+                                    iou_threshold=iou_threshold, color_mode=color_mode,
+                                    session_id=session_id, revision_id=revision_id)
 
+    def match_frame(self, frame, target, template_img, *, find_all=True, threshold=0.8,
+                    max_results=10, iou_threshold=0.5, color_mode="gray",
+                    session_id=None, revision_id=None):
+        source_img = self.store.load_image(frame.frame_id)
         if find_all:
             raw_matches = self.opencv.find_all(
                 source_img,
@@ -475,7 +488,7 @@ class MatchingService:
         scoped_refs: List[Dict[str, Any]] = []
         for match in raw_matches:
             ref = _map_match_to_ref(frame, target, match)
-            self.refs.save(ref, session_id=session_id)
+            self.refs.save(ref, session_id=session_id, revision_id=revision_id)
             scoped_refs.append(ref.to_dict())
 
         return {

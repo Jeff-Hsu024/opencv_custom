@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import numpy as np
 
 from vision_app.assets import AssetRegistry
+from vision_app.coordinator import Owner, OwnerCoordinator
 from vision_app.observation import (
     OperationError,
     UsageError,
@@ -59,6 +60,7 @@ class _WaitObservation:
         self.region, self.start = region, start
         self.image, self.timestamp, self.captures = None, None, 0
         self.role = None
+        self.owner = None
 
     def capture(self, platform, role="sample"):
         image = self.service._capture(platform, self.device)
@@ -70,7 +72,18 @@ class _WaitObservation:
 
     def persist(self):
         return self.service.store.save_frame(device_id=self.device, image=self.image,
-                                             timestamp=self.timestamp)
+                                             timestamp=self.timestamp, device_owner=self.owner)
+
+    @contextmanager
+    def observe(self, device_owner):
+        with OwnerCoordinator(self.service.store).device_owner(
+            self.device, legacy=True, owner=device_owner
+        ) as owner:
+            if owner is None:
+                raise OperationError("DEVICE_BUSY", f"Device {self.device} is busy", retryable=True)
+            self.owner = owner
+            with self.retain_on_failure():
+                yield
 
     @contextmanager
     def retain_on_failure(self):
@@ -186,6 +199,7 @@ class WaitService:
         max_captures: int = 100,
         pixel_tolerance: int = 0,
         min_changed_ratio: float = 0.01,
+        device_owner: Optional[Owner] = None,
     ) -> Dict[str, Any]:
         """Wait until the screen (or ROI) changes relative to a baseline."""
         from service.core.opencv.open_cv_service import OpenCvService
@@ -199,7 +213,7 @@ class WaitService:
         start = self._clock()
         deadline = start + timeout_f
         obs = _WaitObservation(self,device_id,"changed",region,start)
-        with obs.retain_on_failure():
+        with obs.observe(device_owner):
             platform = self._get_platform(device_id)
             captures = 0
 
@@ -276,6 +290,7 @@ class WaitService:
         max_captures: int = 100,
         pixel_tolerance: int = 0,
         max_changed_ratio: float = 0.0,
+        device_owner: Optional[Owner] = None,
     ) -> Dict[str, Any]:
         """Wait until the screen (or ROI) remains within tolerance for stable_duration."""
         from service.core.opencv.open_cv_service import OpenCvService
@@ -289,7 +304,7 @@ class WaitService:
         start = self._clock()
         deadline = start + timeout_f
         obs = _WaitObservation(self,device_id,"stable",region,start)
-        with obs.retain_on_failure():
+        with obs.observe(device_owner):
             platform = self._get_platform(device_id)
 
             prev_full = obs.capture(platform, "fresh_baseline")
@@ -356,6 +371,7 @@ class WaitService:
         max_captures: int = 100,
         threshold: float = 0.8,
         color_mode: str = "gray",
+        device_owner: Optional[Owner] = None,
     ) -> Dict[str, Any]:
         """Wait until a registered asset template is matched on the device."""
         from service.core.opencv.open_cv_service import OpenCvService
@@ -366,7 +382,7 @@ class WaitService:
         start = self._clock()
         deadline = start + timeout_f
         obs = _WaitObservation(self,device_id,"image",region,start)
-        with obs.retain_on_failure():
+        with obs.observe(device_owner):
             platform = self._get_platform(device_id)
             captures = 0
 
