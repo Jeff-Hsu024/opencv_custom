@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from typing import List, Optional, Tuple, Union
 from .mat_utility import MatUtility
-from .dto import MatchPattern, MatchResult, OcrRegion
+from .dto import CompareResult, MatchPattern, MatchResult, OcrRegion
 from .ocr.character_ocr import CharacterOCR
 from .ocr.pattern_ocr import PatternOCR
 
@@ -198,6 +198,57 @@ class OpenCvService:
                     )
                 )
         return kept
+
+    def compare_images(
+        self,
+        image_a: np.ndarray,
+        image_b: np.ndarray,
+        pixel_tolerance: int = 0,
+        max_changed_ratio: float = 0.0,
+    ) -> CompareResult:
+        """Compare two images pixel-by-pixel and report changed-pixel ratio and tolerance.
+
+        Args:
+            image_a: First image array (2D or 3D with 1, 3, or 4 channels).
+            image_b: Second image array with identical shape to image_a.
+            pixel_tolerance: Non-negative per-channel absolute difference tolerance.
+            max_changed_ratio: Maximum allowed changed-pixel ratio in [0.0, 1.0].
+
+        Returns:
+            CompareResult with changed_ratio, counts, tolerance, and within_tolerance.
+        """
+        if isinstance(pixel_tolerance, bool) or not isinstance(pixel_tolerance, int) or pixel_tolerance < 0:
+            raise ValueError(f"pixel_tolerance must be a non-negative integer, got {pixel_tolerance!r}")
+        if (
+            isinstance(max_changed_ratio, bool)
+            or not isinstance(max_changed_ratio, (int, float))
+            or not (0.0 <= float(max_changed_ratio) <= 1.0)
+        ):
+            raise ValueError(f"max_changed_ratio must be a float in [0.0, 1.0], got {max_changed_ratio!r}")
+
+        self._validate_image(image_a, "image_a")
+        self._validate_image(image_b, "image_b")
+        if image_a.shape != image_b.shape:
+            raise ValueError(f"Image shapes must match: {image_a.shape} != {image_b.shape}")
+
+        diff = np.abs(image_a.astype(np.int16) - image_b.astype(np.int16))
+        if diff.ndim == 3:
+            changed_mask = np.any(diff > pixel_tolerance, axis=2)
+        else:
+            changed_mask = diff > pixel_tolerance
+
+        changed_pixels = int(np.count_nonzero(changed_mask))
+        total_pixels = int(image_a.shape[0] * image_a.shape[1])
+        changed_ratio = changed_pixels / total_pixels
+        max_ratio_f = float(max_changed_ratio)
+        return CompareResult(
+            changed_ratio=changed_ratio,
+            changed_pixels=changed_pixels,
+            total_pixels=total_pixels,
+            pixel_tolerance=pixel_tolerance,
+            max_changed_ratio=max_ratio_f,
+            within_tolerance=changed_ratio <= max_ratio_f,
+        )
     
     def ocr_character(self, 
                      ocr_templates_path: str, 

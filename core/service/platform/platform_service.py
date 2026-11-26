@@ -183,15 +183,37 @@ class PlatformService(ABC):
             return self.click(int(pos[0]), int(pos[1]))
         return False
 
-    def wait_image(self, image_path: str, timeout: int = 10, frequency: float = 0.5, threshold: float = 0.9, region: Optional["OcrRegion"] = None) -> Optional[Tuple[float, float]]:
-        """等待圖片出現"""
-        start_time = time.time()
-        while time.time() - start_time < timeout:
+    def wait_image(
+        self,
+        image_path: str,
+        timeout: float = 10,
+        frequency: float = 0.5,
+        threshold: float = 0.9,
+        region: Optional["OcrRegion"] = None,
+        max_attempts: Optional[int] = None,
+    ) -> Optional[Tuple[float, float]]:
+        """等待圖片出現 (使用單調時鐘與有界輪詢)"""
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or timeout < 0:
+            raise ValueError(f"timeout must be a non-negative number, got {timeout!r}")
+        if isinstance(frequency, bool) or not isinstance(frequency, (int, float)) or frequency <= 0:
+            raise ValueError(f"frequency must be a positive number, got {frequency!r}")
+        if max_attempts is not None:
+            if isinstance(max_attempts, bool) or not isinstance(max_attempts, int) or max_attempts < 1:
+                raise ValueError(f"max_attempts must be a positive integer, got {max_attempts!r}")
+
+        deadline = time.monotonic() + float(timeout)
+        attempts = 0
+        while True:
+            if max_attempts is not None and attempts >= max_attempts:
+                return None
+            attempts += 1
             pos = self.find_image(image_path, region, threshold)
-            if pos:
+            if pos is not None:
                 return pos
-            time.sleep(frequency)
-        return None
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            time.sleep(min(float(frequency), remaining))
 
     def wait_click_image(self, image_path: str, timeout: int = 10, frequency: float = 0.5, threshold: float = 0.9, region: Optional["OcrRegion"] = None) -> bool:
         """等待圖片出現並點擊"""
