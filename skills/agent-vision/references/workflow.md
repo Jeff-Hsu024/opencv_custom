@@ -1,4 +1,6 @@
-# Visual workflow and acceptance
+# Visual workflow playbook
+
+Read only the section relevant to the current task. Use [transport](transport.md) for exact CLI/MCP arguments and [builder](builder.md) for a concrete plan.
 
 ## State-driven execution
 
@@ -43,5 +45,20 @@ Use the failure handoff as a bounded context, not a command to replay. Check ori
 ## Lifecycle and recovery reuse
 Publish a reviewed live-qualified version as a named family; explicitly activate it with the current generation. Preserve version lineage and audit history. Link recovery routes only to the exact qualified parent. Selection uses fresh evidence, never historic coordinates, and only recommends a unique matching route. Treat uncertain action effects as manual review. A disabled family or route rejects new Runtime execution; prior run IDs still return original receipts. Qualify and explicitly execute the selected child, verify returned state, then independently decide whether the original task should resume. No automatic rollback or retry.
 
-## Deterministic task orchestration
+## Deterministic task orchestration (preferred for known tasks)
 For known tasks, prefer the single task entry over manual per-step or per-child calls. On eligible first-step precondition failure, explicitly enabled auto_recover selects a unique known recovery route from a fresh frame, runs it, checks the parent's initial guard, and restarts the full task once. Any prior primary action, uncertain effect, ambiguous/missing route or failed recovery/restart stops for Agent review. Recovery alone is not task completion. No automatic discovery, promotion or LLM invocation.
+
+## Result classification and session handoff
+
+| Receipt | Meaning | Next action |
+| --- | --- | --- |
+| operation executed / verified=false | Device input accepted, semantic effect unverified | Observe actual postcondition |
+| offline_pass | Builder historical evidence passed | Qualify and run live |
+| preflight_pass | Device/profile and starting guard checked | Explicit live run |
+| completed (runtime) | All runtime postconditions passed | Register reviewed version if appropriate |
+| live_pass (recovery) | Child route verified against parent endpoint | Explicitly link exact parent |
+| completed (task) | Full primary run completed | Report result |
+| needs_agent / interrupted | Not completed; inspect actual outcome | Inspect task and child run, fresh observation |
+| transport timeout | Transport did not return a result | Inspect the same task/run ID, never create a retry ID blindly |
+
+For a new agent session, share the workspace/store, device, goal and the existing session_id, task_id or run_id. Resume an active/paused Recorder session appropriately; stopped sessions remain immutable for operations. For known tasks use lifecycle list/inspect before executing. Never reconstruct a previous agent's action sequence from chat if structured evidence exists.

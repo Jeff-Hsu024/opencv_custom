@@ -1,55 +1,56 @@
 ---
 name: agent-vision
-description: Operate visual Android or desktop workflows using the installed Vision Platform CLI or Queqiao MCP. Use for screenshot, ROI crop, image templates, scoped references, visual state waits and verified UI navigation, especially when accessibility trees are insufficient. Prefer direct tool calls, not Orca worker orchestration, for interactive UI tasks.
+description: Use Vision Platform to observe and operate Android/desktop UI, resume recorded visual exploration, build and qualify reusable click workflows, manage workflow versions, or execute registered tasks with bounded recovery. Use when a task involves screenshots, OpenCV assets, scoped device actions, Recorder, Workflow Builder, Runtime, Recovery, Lifecycle or Orchestrator through Vision CLI/MCP (including Queqiao NB).
 ---
 
 # Agent Vision
 
-Use Vision Platform as an observation/action loop, not a blind coordinate macro. Core remains generic Python/OpenCV/ADB; agent orchestration lives here. Read references/transport.md for exact interfaces and NB deployment; read references/workflow.md for decision rules.
+Use the installed application tools, not a blind coordinate macro. The LLM is the explorer of unknown UI; deterministic execution is preferred for known tasks. Keep all state in the same workspace store.
 
-## Operational loop
+## Choose the entry point
 
-1. Discover reachable tools and devices; choose the user's intended explicit target. Never silently select desktop or another emulator. On NB, the validated MuMu target is 127.0.0.1:16480; confirm live identity before use. Check capabilities before text entry or unsupported actions.
-2. Observe a real screenshot. Interpret the actual pixels. Determine expected postcondition before acting. If the screen is unfamiliar, inspect the whole frame, then crop relevant regions from that SAME frame (do not recapture just to crop).
-3. Reuse a named visual asset if it matches current app/theme/resolution. Otherwise crop a distinctive static target with context from the actual screen, inspect the crop, then register it. Prefer a stable icon/label; exclude counters, animations and unrelated private content. Names encode app, semantic role, locale/theme when useful. Never treat a template as a semantic accessibility ID.
-4. Find on a fresh frame using a high threshold appropriate to the actual asset (start at 0.98 for same-device exact UI, adjust only with visual evidence). Request all matches when uniqueness is important. Check bbox, score, expected region, device, orientation and frame freshness. No match or multiple plausible targets => observe/crop/disambiguate; never pick arbitrary first. For one-off obvious targets, a frame-local point is acceptable; pass the frame ID, not a global coordinate guess.
-5. Act once with the fresh scoped ref or validated frame-local point. Set a short explicit max age (e.g. 15 seconds for normal interactive navigation). Ref age alone does not establish unchanged UI. If time elapsed, screen rotated, resolution changed or a popup appeared, observe/re-match first. No automatic retry of an ambiguous action. Respect the task's actual scope; don't operate unrelated accounts/apps/settings or physical desktop.
-6. Verify: preserve pre-action frame, use wait changed with baseline_frame_id and meaningful ROI or wait image with a known postcondition asset; wait stable if animations require it. Then inspect a new screenshot or ROI proving the expected state. A changed frame or status=executed is not proof of semantic success. On failure, report observed state and replan; do not blindly repeat.
-7. For multi-step tasks, continue only after the preceding postcondition is verified. Record successful steps, asset IDs, frame IDs, observed outcomes and any uncertainty. Restore previous app/page if the task is a reversible POC and restoration is appropriate. Do not claim full restoration without evidence.
+| Situation | First action |
+| --- | --- |
+| Known task / repeat a registered workflow | `vision_lifecycle_list`, inspect matching family, then `vision_task_execute` |
+| Continue an exploration | `vision_record_resume_context` for the existing session |
+| Unknown task / learn a UI | `vision_record_start`, then fresh recorded snapshot |
+| Convert stopped exploration to reusable workflow | `vision_workflow_candidates`, review evidence, build |
+| Qualify an offline workflow | `vision_runtime_qualify`, then explicit runtime run |
+| Runtime failure with no known recovery | Inspect task/run; `vision_recovery_open` if recovery exploration is appropriate |
+| Manage a reviewed version or route | `vision_lifecycle_inspect`, generation-checked mutation |
 
-## Efficiency and fallback
+Never silently pick a family, device, profile or store. Discover actual tools first. Read [transport](references/transport.md) for exact calls and NB environment. Read [workflow playbook](references/workflow.md) only for the relevant stage; for compilation read [builder plan](references/builder.md).
 
-Use one full screenshot for new screen context, small crops for uncertain details, and structured find results for known targets. Prefer PNG and exact image dimensions; no need for repeated full-frame images after deterministic state recognition. Match known assets in a fresh frame before each state-changing click. Use bounded timeout and poll interval; no unbounded waits or needless sleep. Persist reusable assets; raw coordinates and refs are ephemeral. CLI and MCP use the same application services, but their stores are shared only when explicitly configured to the same directory. No separate OCR model is required to understand readable text in a visual crop.
+## Known task: prefer the single entry
 
-If MCP is unavailable, try the installed CLI with a workspace-local store and native image read. Check actual errors before concluding a capability is unavailable. Never infer the content of an unseen file. If images cannot be rendered, do not claim visual observation. If Android AX is available and reliable it can complement visual observation; do not assume AX support on MuMu. Do not add a new browser/GUI toolchain or duplicate PlatformService.
+1. Inspect the relevant registered family; use its actual active version/device/profile and current generation. Confirm the goal matches the user request.
+2. Call `vision_task_execute` with family_id, caller-generated unique task_<32 lowercase hex> ID, expected_generation, and optional auto_recover (default false). Enable recovery only when a previously qualified recovery and restart are in scope.
+3. Read the domain status, not transport ok. Only completed means the full primary task finished. needs_agent/interrupted require inspection. On transport timeout inspect the same ID, never send a new one as a retry.
+4. Use CLI for longer synchronous runs if MCP request limits are restrictive. No detached task API is provided.
 
-## Reporting
+Automatic recovery is limited to first-step precondition failure before any primary action, a unique enabled exact-version route, verified return to original initial state, then one full restart. No partial-prefix replay, uncertain-action retry or second recovery.
 
-Distinguish observed PASS, action executed but unverified, FAILED, BLOCKED, and NOT_ATTEMPTED. State device, target, operation, score/coordinates if relevant, verification and side effects. Preserve evidence outside tracked source. Do not claim generalized game automation or independent agent benchmark success from a single controlled navigation POC.
+## Unknown UI: record, observe, act, verify
 
-## Persistent exploration (Recorder Phase 2)
+1. Discover devices/capabilities; use an explicit authorized device. NB's validated example is MuMu `127.0.0.1:16480`, not a universal default. Avoid desktop and unrelated emulator instances.
+2. Start or resume a Recorder session. Pass its session_id to every recordable operation (CLI global --session before command). Observe a fresh full screenshot; render actual pixels. A path or base64 text alone is not observation.
+3. Learn stable target assets via ROI crop/register. Find on a fresh frame, request all matches and inspect uniqueness, bbox, score, device and freshness. For a one-off frame point, use frame ID and validated local point; reusable workflows require reference clicks.
+4. Act once. Use short explicit ref age (e.g. 15 seconds); ref age does not prove unchanged UI. No-match, ambiguity or stale state => observe again, never pick an arbitrary target.
+5. Wait for an appropriate visual condition, then inspect actual postcondition pixels. `executed`, match score, exit code 0, or changed pixels alone do not prove task success.
+6. Annotate PASS/FAIL/UNKNOWN on the actual observation event; checkpoint goal, state, steps, evidence, uncertainties and next step. Resume via Inspector, not conversation reconstruction.
 
-For multi-step exploration, start a Recorder session with explicit device, name and goal. Pass the returned session_id to EVERY supported Vision operation (CLI --session before command, or VISION_SESSION_ID; MCP session_id in arguments). Never rely on a global active session. Recorder automatically stores receipts, errors, frame and asset evidence; no separate log call is necessary. Check event_id and sequence. Recording without an explicit ID is disabled; paused/stopped sessions reject bound operations.
+## Compile, qualify, publish
 
-Annotate visually verified postconditions, purpose, state, uncertainty and next step using the actual event ID. Keep execution success separate from semantic PASS/FAIL/UNKNOWN. Checkpoint before context compaction or handoff. At resume, query resume_context, inspect relevant event details and assets, and observe fresh pixels before any action. A pending event has unknown outcome: do not blindly replay it. Never include secrets in annotations or capture sensitive UI unnecessarily; type inputs/errors are masked, but screenshots may contain sensitive information.
+Stop the session, review every action and select explicit connected transitions. [Builder plan](references/builder.md) defines exact required fields. Offline PASS is not live success. Qualify exact Android device/profile, perform controlled live run, then explicitly register and activate reviewed version. No auto promotion. Compiled v1 accepts reference-based clicks only; interactive swipe/type/key/desktop are available where capability permits but cannot be compiled.
 
-## Workflow Builder (Phase 3)
+## Failure and handoff
 
-After exploration, stop the Recorder session. Discover vision_workflow_* and list candidates. Review every action, including failed and pending receipts. Use actual retained frames to define visually distinct state markers; select explicit source snapshot, ROI, matching threshold, and the exact find/click/wait/post-snapshot/PASS annotation chain for each step. Do not convert raw coordinates or stale refs into reusable actions. An excluded action cannot be hidden inside the selected path. Build validates historical state markers, unique targets and evidence hashes offline; it never clicks a device. Inspect and validate the immutable workflow bundle before handoff. Offline PASS is not proof of live repeatability. Runtime and automated recovery are not implemented; bind app identity and requalify live state in the later runtime phase.
+Inspect task and child run. Treat unknown or pending action as unknown, not failed-with-no-effect. Do not replay blindly. Open a linked recovery case when appropriate, fresh full snapshot first, explicit observed-state annotation before actions, record smallest safe route, compile/qualify/run/verify child separately, link to exact parent version only with live qualification. Recovery success is not original-task success. Do not overwrite existing bundle or original failure receipt.
 
-## Deterministic Workflow Runtime (Phase 4)
+## Invariants
 
-For a validated workflow, use vision_runtime_qualify with the exact device and independently observed expected Android foreground package, version code, rotation, system locale and UI mode. Qualification is read-only and checks the initial state and first target; it is not a live run. Then use vision_runtime_run with its binding_id and a caller-generated unique run_<32 lowercase hex> ID. Do not supply historical coordinates. One runtime call performs all deterministic steps, checks fresh guards, matches unique targets and verifies each destination. Same run ID returns the existing receipt and never replays. Do not blindly run a new ID after failure/interruption: inspect the journal and fresh screen; decide recovery separately. Report status=completed only when all destination guards pass; needs_agent/interrupted is not success. Runtime v1 supports same-source Android device and click-only definitions. No autonomous recovery or workflow mutation.
-
-## Recovery and replanning (Phase 5)
-
-When a Runtime run returns needs_agent/interrupted, open vision_recovery_open with its run_id. It returns a stable case_id, sealed failure handoff, and a new linked Recorder session_id. Inspect the actual failure frame and current app/profile; never treat last confirmed state as current state. First take a fresh bound full snapshot and annotate its observed state (PASS, observation) before acting. Explicitly reconcile original action outcome; do not blindly repeat an uncertain action. Learn only the necessary visual target and use a new pre-action frame. Record and verify each recovery transition; stop the session and submit a recovery_route or full replacement proposal using existing Builder plan format. A route returns to a declared known parent state; it is not completion of the original task. Recreate a safe initial condition and qualify/run the child on the original profile with a fresh run ID. Use vision_recovery_verify to link live evidence. Neither proposal nor qualification automatically resumes or promotes a workflow. For uncertain or irreversible effects, stop and report instead of guessing.
-
-## Workflow Lifecycle (Phase 6)
-
-Register a workflow only after a completed, independently verifiable Runtime run. A family is a stable named task on one device/profile; registration creates an immutable numbered version, not an active default. Activate explicitly using the current generation, reason and version. Disable or roll back explicitly; rollback must target a previously active version. Managed inactive versions and disabled recovery children reject new Runtime requests, including old bindings. Unregistered bundles remain available for deliberate qualification and legacy use. Link only a Phase 5 live-qualified recovery proposal to its exact parent version. For PRECONDITION_FAILED with no attempted current action, use vision_lifecycle_select with the failed run ID: it captures a fresh screen, checks parent and candidate guards plus target uniqueness. Only one match is recommended; no match, ambiguity, uncertain outcome or evidence failure requires Agent review. Selection is not execution; qualify and run the selected child explicitly, using a fresh run ID. Never infer original-task completion from recovery.
-
-## Task execution (Phase 7)
-For an already registered task, inspect the active family and current generation, then call vision_task_execute with a unique task_<32 lowercase hex> ID. Set auto_recover=true only when the caller intends one previously qualified recovery and safe full restart. Runtime will use fresh profile/state/target evidence. Recovery is allowed only before any primary action; a route must return to the original initial state. At most primary, recovery, restart; no second recovery, no partial-prefix replay. The task succeeds only if a full primary run completes. For needs_agent/interrupted, inspect task and child run receipts and fresh state; never repeat an uncertain action. Duplicate IDs are readback, not retries. Unknown workflows still require explicit exploration, recording, builder, live qualification, and registration.
-
-A connector timeout is not a runtime outcome. Inspect the same task ID; do not issue a fresh ID to compensate. Use the installed CLI for long synchronous runs when needed.
+- Use explicit task scope, real evidence and fresh pixels; avoid unrelated settings/accounts and irreversible actions without appropriate intent.
+- Discover actual capability before declaring unavailable. Prefer MCP or installed CLI; raw ADB only for verified setup/inspection or capabilities absent from the application API.
+- Do not put secrets in text annotations or capture sensitive UI unnecessarily. Type input is masked in records; screenshots are not automatically redacted.
+- Distinguish transport status, operation outcome, semantic verification, offline PASS, live preflight, live completed run and task completion.
+- Keep existing store intact; immutable bundles and retained evidence are not scratch files. Report blockers and verified side effects. Do not claim unattended production readiness from the navigation POC.
