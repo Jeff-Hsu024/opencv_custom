@@ -28,30 +28,26 @@ class AdbCommand(Enum):
     def _get_adb_platform(self) -> str:
         """取得 ADB 平台路徑"""
         from pathlib import Path
-        
-        # 取得專案根目錄（從當前文件向上找到包含 platform-tools 的目錄）
-        # adb_command.py 在 py-version/service/platform/adb/
-        # 需要向上 4 層到專案根目錄
-        current_file = Path(__file__).resolve()
-        project_root = current_file.parent.parent.parent.parent.parent
-        
-        # 檢查是否存在 platform-tools 目錄
-        platform_tools_dir = project_root / "platform-tools"
-        
-        if os.name == 'nt':  # Windows
-            adb_path = platform_tools_dir / "adb.exe"
-            if adb_path.exists():
-                return f'"{adb_path}" '  # 使用引號處理路徑中的空格
-            else:
-                # 如果找不到，嘗試相對路徑（從專案根目錄）
-                return f'"{project_root / "platform-tools" / "adb.exe"}" '
-        else:  # Linux/Mac
-            adb_path = platform_tools_dir / "adb"
-            if adb_path.exists():
-                return f'"{adb_path}" '
-            else:
-                return f'"{project_root / "platform-tools" / "adb"}" '
-    
+        import shutil
+        import sys
+
+        name = "adb.exe" if os.name == "nt" else "adb"
+        root = Path(__file__).resolve().parents[4]
+        candidates = [root / "platform-tools" / name]
+        if getattr(sys, "frozen", False):
+            candidates.insert(0, Path(sys.executable).resolve().parent / "platform-tools" / name)
+        for key in ("ANDROID_HOME", "ANDROID_SDK_ROOT"):
+            if os.environ.get(key):
+                candidates.append(Path(os.environ[key]) / "platform-tools" / name)
+        for candidate in candidates:
+            if candidate.is_file():
+                return f'"{candidate}" '
+        found = shutil.which("adb")
+        if found:
+            return f'"{found}" '
+        # Keep command construction usable for mock tests; execution fails clearly if absent.
+        return "adb "
+
     def get_command(self) -> str:
         """取得命令字串"""
         return self._get_adb_platform() + self.value

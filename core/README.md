@@ -102,3 +102,9 @@ py-version/
 3. Linux/Mac 使用 `platform-tools/adb`
 4. 確保已安裝 OpenCV 和相關依賴
 
+
+## ADB dependency
+
+From the repository root run `python tools/install_platform_tools.py`. The installer downloads Google Android SDK Platform-Tools for Windows, Linux, or macOS into the ignored `platform-tools/` directory. Run with `--force` to refresh. Alternatively use an existing SDK installation or ADB on PATH.
+
+For GUI development use `run_dev.bat` on Windows or `python tools/install_platform_tools.py && wails dev` on Linux/macOS after installing Go, Node and Wails. Release CI uses the same installer.

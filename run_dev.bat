@@ -1,14 +1,8 @@
 @echo off
-echo Starting AutoScript Platform...
-
-cd server
-start "AutoScript Server" cmd /k "server.exe"
-cd ..
-
-cd frontend
-start "AutoScript Frontend" cmd /k "npm run dev"
-cd ..
-
-echo Platform started!
-echo Backend: http://localhost:12857
-echo Frontend: http://localhost:5173
+cd /d "%~dp0"
+python tools/install_platform_tools.py || exit /b 1
+where wails >nul 2>&1 || (
+    echo Install Wails CLI: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+    exit /b 1
+)
+wails dev

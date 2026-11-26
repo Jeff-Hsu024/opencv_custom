@@ -54,23 +54,8 @@ jobs:
           pyinstaller core/entry.py --onefile --name script-engine
         # Output is in dist/script-engine (or script-engine.exe)
 
-      - name: Download ADB (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          curl -L -o platform-tools.zip https://dl.google.com/android/repository/platform-tools-latest-windows.zip
-          tar -xf platform-tools.zip
-
-      - name: Download ADB (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          curl -L -o platform-tools.zip https://dl.google.com/android/repository/platform-tools-latest-linux.zip
-          unzip -o platform-tools.zip
-
-      - name: Download ADB (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          curl -L -o platform-tools.zip https://dl.google.com/android/repository/platform-tools-latest-darwin.zip
-          unzip -o platform-tools.zip
+      - name: Download official Android Platform-Tools
+        run: python tools/install_platform_tools.py
 
       - name: Build Wails App
         shell: bash

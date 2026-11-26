@@ -56,7 +56,21 @@ func getAdbPath() string {
 
 	// Check platform-tools/adb (Wails Root or bundled)
 	path := resolvePath("platform-tools", adbName)
-	return path
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	for _, key := range []string{"ANDROID_HOME", "ANDROID_SDK_ROOT"} {
+		if root := os.Getenv(key); root != "" {
+			candidate := filepath.Join(root, "platform-tools", adbName)
+			if _, err := os.Stat(candidate); err == nil {
+				return candidate
+			}
+		}
+	}
+	if found, err := exec.LookPath("adb"); err == nil {
+		return found
+	}
+	return adbName
 }
 
 // getPythonCmd attempts to find the best python command (py -3, python, python3)

@@ -44,6 +44,9 @@ jobs:
           cd frontend && npm install
           npx playwright install --with-deps chromium
 
+      - name: Install official Android Platform-Tools
+        run: python tools/install_platform_tools.py
+
       - name: Run Backend Tests (Go)
         run: |
           go install github.com/jstemmer/go-junit-report/v2@latest
@@ -52,7 +55,7 @@ jobs:
 
       - name: Run Core Tests (Python)
         run: |
-          $env:PYTHONPATH="."
+          $env:PYTHONPATH="core;."
           python -m pytest core/test --alluredir=allure-results
 
       - name: Run Frontend Tests (Playwright)

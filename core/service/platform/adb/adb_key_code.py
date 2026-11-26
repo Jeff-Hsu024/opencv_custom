@@ -103,24 +103,5 @@ class AdbKeyCode(Enum):
     
     def get_command(self, device_id: str) -> str:
         """取得按鍵命令字串"""
-        from pathlib import Path
-        
-        # 取得專案根目錄
-        current_file = Path(__file__).resolve()
-        project_root = current_file.parent.parent.parent.parent.parent
-        platform_tools_dir = project_root / "platform-tools"
-        
-        if os.name == 'nt':  # Windows
-            adb_path = platform_tools_dir / "adb.exe"
-            if adb_path.exists():
-                adb_key_code_command_prefix = f'"{adb_path}" -s %s shell input keyevent %s'
-            else:
-                adb_key_code_command_prefix = f'"{project_root / "platform-tools" / "adb.exe"}" -s %s shell input keyevent %s'
-        else:  # Linux/Mac
-            adb_path = platform_tools_dir / "adb"
-            if adb_path.exists():
-                adb_key_code_command_prefix = f'"{adb_path}" -s %s shell input keyevent %s'
-            else:
-                adb_key_code_command_prefix = f'"{project_root / "platform-tools" / "adb"}" -s %s shell input keyevent %s'
-        return adb_key_code_command_prefix % (device_id, self.value)
-
+        from .adb_command import AdbCommand
+        return AdbCommand.DEVICE_LIST._get_adb_platform() + f"-s {device_id} shell input keyevent {self.value}"

@@ -18,7 +18,7 @@ def find_game_package():
     # 獲取當前運行的應用
     print("=== 當前運行的應用 ===")
     try:
-        result = adb.exec('platform-tools\\adb.exe -s emulator-5554 shell dumpsys window windows | findstr mCurrentFocus')
+        result = adb.exec('adb -s emulator-5554 shell dumpsys window windows | findstr mCurrentFocus')
         print(result)
     except Exception as e:
         print(f"Error: {e}")
