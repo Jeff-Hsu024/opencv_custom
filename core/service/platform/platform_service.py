@@ -4,7 +4,7 @@
 import time
 import os
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 import numpy as np
 from pathlib import Path
 
@@ -67,6 +67,23 @@ class PlatformService(ABC):
     def key_event(self, key_code: Union[int, str]) -> bool:
         """模擬按鍵事件 (如 Back, Home, 或鍵盤按鍵)"""
         pass
+
+    def capabilities(self) -> Dict[str, Any]:
+        """Report platform action capabilities and known limitations."""
+        return {
+            "long_press": False,
+            "unicode_text": False,
+        }
+
+    def long_press(self, x: int, y: int, duration: int = 1000) -> bool:
+        """Simulate a long press at (x, y) for duration milliseconds.
+
+        Raises:
+            NotImplementedError: When the platform does not support long press.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support long_press"
+        )
 
     # --- 高階 OpenCV 封裝 (基類直接提供，子類可覆寫) ---
 

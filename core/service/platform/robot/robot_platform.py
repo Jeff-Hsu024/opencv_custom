@@ -17,10 +17,26 @@ from service.core.opencv.dto import MatchPattern
 class RobotPlatform(PlatformService):
     """Robot 平台服務類別 (Desktop)"""
     
-    def __init__(self, open_cv_service: OpenCvService):
+    def __init__(self, open_cv_service: OpenCvService, failsafe: bool = True):
+        """Initialize RobotPlatform.
+
+        Args:
+            open_cv_service: OpenCV service instance.
+            failsafe: Enable pyautogui fail-safe (moving mouse to top-left corner
+                aborts). Enabled by default for safety; pass ``failsafe=False``
+                to explicitly opt out.
+        """
         super().__init__(open_cv_service)
-        # 停用 pyautogui 的安全故障 (自定義腳本可能需要移動到角落)
-        pyautogui.FAILSAFE = False
+        self.failsafe = bool(failsafe)
+        pyautogui.FAILSAFE = self.failsafe
+
+    def capabilities(self) -> dict:
+        """Report Robot platform action capabilities and known limitations."""
+        return {
+            "long_press": False,
+            "unicode_text": False,
+            "failsafe": self.failsafe,
+        }
     
     # --- 平台生命週期 ---
     
@@ -53,6 +69,8 @@ class RobotPlatform(PlatformService):
 
     def swipe(self, x1: int, y1: int, x2: int, y2: int, duration: int = 500) -> bool:
         """模擬拖曳/滑動"""
+        if duration < 0:
+            raise ValueError(f"duration must be non-negative, got {duration}")
         try:
             # duration 轉為秒
             pyautogui.moveTo(x1, y1)

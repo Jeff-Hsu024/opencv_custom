@@ -92,8 +92,27 @@ class AdbPlatform(PlatformService):
             AdbCommand.TAP.get_command_with_device_coords(did, int(x), int(y)),
         ).ok
 
+    def capabilities(self) -> dict:
+        """Report ADB platform action capabilities and known limitations."""
+        return {
+            "long_press": True,
+            "unicode_text": False,
+        }
+
+    def long_press(self, x: int, y: int, duration: int = 1000) -> bool:
+        """Simulate a long press at (x, y) for duration milliseconds via ADB swipe."""
+        if duration <= 0:
+            raise ValueError(f"duration must be positive, got {duration}")
+        did = self._resolve_device()
+        return self._run_command(
+            AdbCommand.SWIPE.get_argv(int(x), int(y), int(x), int(y), int(duration), device_id=did),
+            AdbCommand.SWIPE.get_command_with_device_swipe(did, int(x), int(y), int(x), int(y), int(duration)),
+        ).ok
+
     def swipe(self, x1: int, y1: int, x2: int, y2: int, duration: int = 500) -> bool:
         """模擬滑動"""
+        if duration <= 0:
+            raise ValueError(f"duration must be positive, got {duration}")
         did = self._resolve_device()
         return self._run_command(
             AdbCommand.SWIPE.get_argv(int(x1), int(y1), int(x2), int(y2), duration, device_id=did),
