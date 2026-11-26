@@ -178,15 +178,19 @@ call(server(sys.argv[1], InterruptedPlatform(sys.argv[1])), "guarded_click", **j
     assert event["evidence"]["assets"][0]["asset_revision_id"] == asset["asset_revision_id"]
 
 
-def test_historical_frame_match_keeps_its_scope_and_is_not_guarded_input(tmp_path):
-    mcp, rec, sid, _, asset = fixture(tmp_path)
-    frame = mcp.store.save_frame(Platform(tmp_path).snapshot(), "A").frame_id
+def test_historical_frame_match_keeps_its_epoch_and_scope(tmp_path):
+    mcp, rec, sid, frame, asset = fixture(tmp_path)
+    unstamped = mcp.store.save_frame(Platform(tmp_path).snapshot(), "A").frame_id
+    assert call(mcp, "scoped_find", **find_request(sid, unstamped, asset))["error"]["code"] == "REF_UNVERSIONED"
+    epochs = DeviceEpochs(mcp.store)
+    with epochs.device_owner("A") as owner:
+        epochs.advance_raw(owner, "A")
     result = call(mcp, "scoped_find", **find_request(sid, frame, asset))["result"]
     match, = result["matches"]
-    assert match["epoch"] is None
+    assert match["epoch"] == 0
     result = call(mcp, "guarded_click", device="A", session_id=sid, ref_id=match["ref_id"],
                   action_id="act_" + "e" * 32)["result"]
-    assert result["reason"]["code"] == "REF_UNVERSIONED"
+    assert result["reason"]["code"] == "STALE_REF_EPOCH"
     other = rec.start("other", "test scope", "A")["session_id"]
     assert call(mcp, "click", device="A", ref=match["ref_id"], session_id=other)["error"]["code"] == "SCOPE_MISMATCH"
     rec.transition(sid, "pause")

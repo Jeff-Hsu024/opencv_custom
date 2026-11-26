@@ -151,6 +151,9 @@ class PrimitiveService:
         device, fid, revision_id = req["device"], req["frame_id"], req["asset_revision_id"]
         revisions = AssetRevisionStore(self.store.store_dir, frame_store=self.store)
         with self.store.pin_frames([fid], device_id=device) as (frame,):
+            epoch = self.epochs.frame_epoch(fid, device)
+            if epoch is None:
+                raise OperationError("REF_UNVERSIONED", "Scoped find requires a versioned frame")
             with revisions.pin(revision_id, device=device, session_id=req["session_id"]) as pinned:
                 template = self.matcher.assets.decode(pinned.png_bytes, revision_id)
                 name = pinned.revision["name"]
@@ -160,7 +163,6 @@ class PrimitiveService:
                         session_id=req["session_id"], revision_id=revision_id,
                     )}
                 result = self._record(req, "find", {**req, "target": name, "all": True}, pinned, find)
-            epoch = self.epochs.frame_epoch(fid, device)
         return {"device": device, "frame_id": fid, "asset_revision_id": revision_id,
                 "match_count": result["count"], "matches": [
                     {**{k: ref[k] for k in ("ref_id", "device_bbox", "score")}, "epoch": epoch}
