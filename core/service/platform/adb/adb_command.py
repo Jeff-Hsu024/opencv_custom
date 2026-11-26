@@ -19,7 +19,7 @@ class AdbCommand(Enum):
     START_APP = "-s %s shell am start -n %s"
     STOP_APP = "-s %s shell am force-stop %s"
     GET_APPS = "-s %s shell pm list packages"
-    GET_ACTIVITY_BY_PACKAGE = "-s %s shell cmd package resolve-activity --brief %s | tail -n 1"
+    GET_ACTIVITY_BY_PACKAGE = "-s %s shell cmd package resolve-activity --brief %s"
     CLEAN_PACKAGE_DATA = "-s %s shell pm clear %s"
     INPUT_TEXT = "-s %s shell input text %s"
     PULL_DATA = "-s %s pull %s %s "

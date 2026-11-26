@@ -117,10 +117,18 @@ class AdbPlatform(PlatformService):
     def start_app(self, app_package: str) -> Optional[str]:
         """啟動應用程式"""
         did = self._resolve_device()
-        launcher = self.adb.exec(
+        resolve_output = self.adb.exec(
             AdbCommand.GET_ACTIVITY_BY_PACKAGE.get_command_with_device_package(did, app_package)
-        ).strip()
-        
+        )
+        launcher = next(
+            (
+                line.strip()
+                for line in reversed(resolve_output.splitlines())
+                if "/" in line and not line.lstrip().startswith("priority=")
+            ),
+            "",
+        )
+
         if launcher:
             return self.adb.exec(
                 AdbCommand.START_APP.get_command_with_device_package(did, launcher)
