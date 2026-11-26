@@ -24,7 +24,41 @@ ANNOTATION_FIELDS = {"purpose", "state", "expected_postcondition", "observation"
                      "completed_steps", "unresolved_issues"}
 
 class RecorderError(ValueError):
-    pass
+    def __init__(self, message, *, code="RECORDER_ERROR", details=None):
+        super().__init__(message)
+        self.code = code
+        self.details = details or {}
+
+
+def annotation_schema():
+    # Historical values were permissive except verification. Keep that compatibility
+    # while naming every legal field and recommending text/list shapes.
+    props = {k: {"description": "Semantic annotation; prefer text."}
+             for k in sorted(ANNOTATION_FIELDS)}
+    for k in ("completed_steps", "unresolved_issues"):
+        props[k] = {"description": "Prefer an array of concise strings."}
+    props["verification"] = {"type":"string","enum":["PASS","FAIL","UNKNOWN"],"default":"UNKNOWN"}
+    return {"type":"object","properties":props,"additionalProperties":False,"minProperties":1}
+
+
+def validate_annotation(annotation):
+    if not isinstance(annotation, dict) or not annotation:
+        raise RecorderError("Annotation must be a nonempty object",code="INVALID_ANNOTATION")
+    unknown=set(annotation)-ANNOTATION_FIELDS
+    if unknown:
+        raise RecorderError("Invalid annotation fields: "+", ".join(sorted(unknown)),
+                            code="INVALID_ANNOTATION",details={"unknown_fields":sorted(unknown),
+                            "allowed_fields":sorted(ANNOTATION_FIELDS)})
+    if annotation.get("verification","UNKNOWN") not in ("PASS","FAIL","UNKNOWN"):
+        raise RecorderError("verification must be PASS, FAIL or UNKNOWN",code="INVALID_ANNOTATION",
+                            details={"field":"verification","allowed":["PASS","FAIL","UNKNOWN"]})
+    try:
+        size=len(_json(annotation))
+    except (TypeError,ValueError):
+        raise RecorderError("Annotation must be valid JSON",code="INVALID_ANNOTATION") from None
+    if size>8000:
+        raise RecorderError("Annotation too large",code="INVALID_ANNOTATION",details={"max_serialized_chars":8000})
+
 
 
 def _json(value):
@@ -102,7 +136,7 @@ class Recorder:
     def _session(self, db, sid):
         row = db.execute("SELECT * FROM sessions WHERE session_id=?", (sid,)).fetchone()
         if not row:
-            raise RecorderError("Unknown session")
+            raise RecorderError("Unknown session",code="SESSION_NOT_FOUND")
         return dict(row)
 
     def _create_session(self, db, name, goal, device):
@@ -159,7 +193,7 @@ class Recorder:
         except StoreError:
             return  # Original service reports missing/invalid reference.
         if frame.device_id != device:
-            raise RecorderError("Frame device differs from session")
+            raise RecorderError("Frame device differs from session",code="SESSION_SCOPE_MISMATCH")
         if not self.store.resolve_image_path(frame.image_path).is_file():
             return
         self.store.set_protected(fid)
@@ -175,7 +209,7 @@ class Recorder:
         except StoreError:
             return
         if asset.device_id is not None and asset.device_id != device:
-            raise RecorderError("Asset source device differs from session")
+            raise RecorderError("Asset source device differs from session",code="SESSION_SCOPE_MISMATCH")
         self._pin(asset.source_frame_id, device, evidence)
         src = Path(asset.image_path)
         if not src.resolve().is_relative_to((self.store.store_dir / "assets").resolve()) or not src.is_file():
@@ -202,7 +236,7 @@ class Recorder:
         except StoreError:
             return
         if ref.device_id != device:
-            raise RecorderError("Reference device differs from session")
+            raise RecorderError("Reference device differs from session",code="SESSION_SCOPE_MISMATCH")
         self._pin(ref.frame_id, device, evidence)
         if rid not in evidence["references"]:
             evidence["references"].append(rid)
@@ -223,55 +257,59 @@ class Recorder:
     def execute(self, sid, operation, inputs, invoke):
         """Invoke once; payload is normalized adapter JSON, never MCP image content."""
         with workspace_lock(self.store):
-            eid, now = _id("evt"), time.time()
-            evidence = {"frames": [], "assets": [], "references": []}
+            return self._execute_locked(sid, operation, inputs, invoke)
+
+    def _execute_locked(self, sid, operation, inputs, invoke):
+        eid, now = _id("evt"), time.time()
+        evidence = {"frames": [], "assets": [], "references": []}
+        with self.db() as db:
+            session = self._session(db, sid)
+            if session["status"] != "active":
+                raise RecorderError("Session is not active",code="SESSION_INACTIVE")
+            device = session["device_id"]
+            seq = db.execute("SELECT COALESCE(MAX(sequence),0)+1 FROM events WHERE session_id=?",
+                             (sid,)).fetchone()[0]
+            db.execute("INSERT INTO events VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                       (eid, sid, seq, now, None, operation, device, "pending",
+                        _json(_clean(inputs)), None, None, _json(evidence)))
+        result, error, status = None, None, "failed"
+        token = protect_new_frames.set(True)
+        try:
+            if inputs.get("device") is not None and inputs["device"] != device:
+                raise RecorderError("Operation device differs from session",code="SESSION_SCOPE_MISMATCH")
+            if operation == "find" and inputs.get("max_results", 10) > 100:
+                raise RecorderError("Recorded find max_results must be <= 100")
+            self._relations(inputs, device, evidence)
+            if operation == "assets_register":
+                self._asset(inputs.get("name"), device, evidence)
+            if operation in ("find", "wait"):
+                self._asset(inputs.get("target") or inputs.get("image_target"), device, evidence)
             with self.db() as db:
-                session = self._session(db, sid)
-                if session["status"] != "active":
-                    raise RecorderError("Session is not active")
-                device = session["device_id"]
-                seq = db.execute("SELECT COALESCE(MAX(sequence),0)+1 FROM events WHERE session_id=?",
-                                 (sid,)).fetchone()[0]
-                db.execute("INSERT INTO events VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-                           (eid, sid, seq, now, None, operation, device, "pending",
-                            _json(_clean(inputs)), None, None, _json(evidence)))
-            result, error, status = None, None, "failed"
-            token = protect_new_frames.set(True)
-            try:
-                if inputs.get("device") is not None and inputs["device"] != device:
-                    raise RecorderError("Operation device differs from session")
-                if operation == "find" and inputs.get("max_results", 10) > 100:
-                    raise RecorderError("Recorded find max_results must be <= 100")
-                self._relations(inputs, device, evidence)
-                if operation == "assets_register":
-                    self._asset(inputs.get("name"), device, evidence)
-                if operation in ("find", "wait"):
-                    self._asset(inputs.get("target") or inputs.get("image_target"), device, evidence)
-                with self.db() as db:
-                    db.execute("UPDATE events SET evidence=? WHERE event_id=?",(_json(evidence),eid))
-                result = invoke()
-                error = result.get("error") if not result.get("ok", False) else None
-                status = "success" if result.get("ok", False) else "failed"
-                self._relations(result, device, evidence)
-                if operation == "assets_register" and status == "success":
-                    self._asset(inputs.get("name"), device, evidence)
-            except Exception as exc:
-                error = {"code": getattr(exc, "code", type(exc).__name__), "message": str(exc)}
-                result = {"ok": False, "error": error, "operation_result": result}
-                status = "failed"
-            finally:
-                protect_new_frames.reset(token)
-            if error and "TIMEOUT" in str(error.get("code", "")).upper():
-                status = "timeout"
-            if operation == "type" and error:
-                error = {"code": error.get("code"), "message": "[REDACTED type error]"}
-                result = {"ok": False, "error": error}
-            with self.db() as db:
-                db.execute("UPDATE events SET completed_at=?,status=?,result=?,error=?,evidence=? WHERE event_id=?",
-                           (time.time(), status, _json(_clean(result)), _json(_clean(error)),
-                            _json(evidence), eid))
-                db.execute("UPDATE sessions SET updated_at=? WHERE session_id=?", (time.time(), sid))
-            return {**result, "event_id": eid, "session_id": sid, "sequence": seq}
+                db.execute("UPDATE events SET evidence=? WHERE event_id=?",(_json(evidence),eid))
+            result = invoke()
+            error = result.get("error") if not result.get("ok", False) else None
+            status = "success" if result.get("ok", False) else "failed"
+            self._relations(result, device, evidence)
+            if operation == "assets_register" and status == "success":
+                self._asset(inputs.get("name"), device, evidence)
+        except Exception as exc:
+            error = {"code": getattr(exc, "code", type(exc).__name__), "message": str(exc)}
+            result = {"ok": False, "error": error, "operation_result": result}
+            status = "failed"
+        finally:
+            protect_new_frames.reset(token)
+        if error and "TIMEOUT" in str(error.get("code", "")).upper():
+            status = "timeout"
+        if operation == "type" and error:
+            error = {"code": error.get("code"), "message": "[REDACTED type error]"}
+            result = {"ok": False, "error": error}
+        with self.db() as db:
+            db.execute("UPDATE events SET completed_at=?,status=?,result=?,error=?,evidence=? WHERE event_id=?",
+                       (time.time(), status, _json(_clean(result)), _json(_clean(error)),
+                        _json(evidence), eid))
+            db.execute("UPDATE sessions SET updated_at=? WHERE session_id=?", (time.time(), sid))
+        return {**result, "event_id": eid, "session_id": sid, "sequence": seq}
+
 
     def events(self, sid, limit=20, after=0, operation=None, status=None):
         self._page(limit, after)
@@ -291,16 +329,11 @@ class Recorder:
         with self.db() as db:
             row = db.execute("SELECT * FROM events WHERE session_id=? AND event_id=?", (sid,event_id)).fetchone()
         if not row:
-            raise RecorderError("Event not found in session")
+            raise RecorderError("Event not found in session",code="EVENT_NOT_FOUND")
         return _decode(row)
 
     def annotate(self, sid, event_id, annotation, kind="annotation"):
-        if not isinstance(annotation, dict) or not annotation or set(annotation)-ANNOTATION_FIELDS:
-            raise RecorderError("Invalid annotation fields")
-        if annotation.get("verification", "UNKNOWN") not in ("PASS", "FAIL", "UNKNOWN"):
-            raise RecorderError("verification must be PASS, FAIL or UNKNOWN")
-        if len(_json(annotation)) > 8000:
-            raise RecorderError("Annotation too large")
+        validate_annotation(annotation)
         self.event(sid, event_id)
         aid = _id("ann")
         with self.db() as db:
@@ -327,6 +360,24 @@ class Recorder:
         page = self.events(sid,limit,after)
         return {"items":[{"event_id":e["event_id"],"sequence":e["sequence"],**e["evidence"]} for e in page["items"]],
                 "next_cursor":page["next_cursor"]}
+
+    def asset_evidence(self,sid,limit=20,after=0):
+        """Distinct revisions ordered by first recorded occurrence (stable append-only cursor). """
+        self._page(limit,after)
+        with self.db() as db:
+            self._session(db,sid)
+            rows=db.execute("""WITH revisions AS (
+                SELECT e.event_id,e.sequence,a.value AS asset,
+                ROW_NUMBER() OVER (PARTITION BY json_extract(a.value,'$.name'),
+                    json_extract(a.value,'$.sha256') ORDER BY e.sequence,a.key) AS rank
+                FROM events e, json_each(e.evidence,'$.assets') a WHERE e.session_id=?),
+                numbered AS (
+                    SELECT event_id,sequence,asset,ROW_NUMBER() OVER (ORDER BY sequence,
+                        json_extract(asset,'$.name'),json_extract(asset,'$.sha256')) AS cursor
+                    FROM revisions WHERE rank=1)
+                SELECT * FROM numbered WHERE cursor>? ORDER BY cursor LIMIT ?""",(sid,after,limit+1)).fetchall()
+        items=[{"event_id":r["event_id"],"sequence":r["sequence"],"asset":json.loads(r["asset"]),"cursor":r["cursor"]} for r in rows[:limit]]
+        return {"items":items,"next_cursor":items[-1]["cursor"] if len(rows)>limit else None}
 
     def resume_context(self,sid,limit=10):
         self._page(limit,0)
@@ -372,6 +423,7 @@ class Recorder:
         if action in ("annotate","checkpoint"): return self.annotate(sid,kind="checkpoint" if action=="checkpoint" else "annotation",**args)
         if action == "annotations": return self.annotations(sid,**args)
         if action == "history": return self.history(sid,**args)
+        if action == "asset-evidence": return self.asset_evidence(sid,**args)
         if action == "latest-checkpoint": return self.resume_context(sid,1)["latest_checkpoint"]
         if action == "resume-context": return self.resume_context(sid,**args)
         raise RecorderError("Unknown recorder action")
@@ -387,10 +439,11 @@ def record_tool_definitions():
         "inspect": ({}, []), "summary": ({}, []),
         "events": ({**page,"operation":string,"status":{"type":"string","enum":["success","failed","timeout","pending"]}}, []),
         "event": ({"event_id":string}, ["event_id"]),
-        "annotate": ({"event_id":string,"annotation":{"type":"object"}}, ["event_id","annotation"]),
-        "checkpoint": ({"event_id":string,"annotation":{"type":"object"}}, ["event_id","annotation"]),
+        "annotate": ({"event_id":string,"annotation":annotation_schema()}, ["event_id","annotation"]),
+        "checkpoint": ({"event_id":string,"annotation":annotation_schema()}, ["event_id","annotation"]),
         "annotations": ({**page,"kind":{"type":"string","enum":["annotation","checkpoint"]}}, []),
         "history": (page, []),
+        "asset_evidence": (page, []),
         "resume_context": ({"limit":page["limit"]}, []),
         "latest_checkpoint": ({}, []),
     }
@@ -401,6 +454,7 @@ def record_tool_definitions():
         "annotate":"Attach explicit semantic evidence to an event. Never include secrets.",
         "checkpoint":"Attach a progress checkpoint with state, completed_steps, unresolved_issues, next_step and verification.",
         "history":"Page frame, asset revision and reference evidence by event sequence.",
+        "asset_evidence":"Page distinct retained asset revisions by first occurrence, with provenance.",
     }
     result = []
     for action,(props,required) in specs.items():

@@ -28,12 +28,14 @@ from vision_app.store import (
     OutOfBoundsError,
 )
 from vision_app.waits import WaitService
-from vision_app.recorder import Recorder, OPERATIONS, workspace_lock
-from vision_app.workflow import WorkflowBuilder
-from vision_app.runtime import WorkflowRuntime
+from vision_app.recorder import Recorder, RecorderError, OPERATIONS, workspace_lock
+from vision_app.workflow import WorkflowBuilder, WorkflowError
+from vision_app.runtime import WorkflowRuntime, RuntimeFault
 from vision_app.recovery import RecoveryService
 from vision_app.lifecycle import LifecycleService
 from vision_app.orchestrator import ExecutionOrchestrator
+from vision_app.transition import TransitionService
+from vision_app.responses import MODES, validate as validate_response, project
 
 
 class _CliParser(argparse.ArgumentParser):
@@ -74,6 +76,17 @@ def _build_parser() -> _CliParser:
     )
     parser.add_argument('--session', default=os.environ.get('VISION_SESSION_ID'))
     sub = parser.add_subparsers(dest="command", required=True)
+    transition = sub.add_parser('transition', help='Recorded one-click transition')
+    transition.add_argument('transition_action',choices=['execute','inspect'])
+    transition.add_argument('--transition-id',required=True)
+    transition.add_argument('--device')
+    transition.add_argument('--target')
+    transition.add_argument('--postcondition',help='JSON object: mode, timeout and optional region/target/threshold')
+    transition.add_argument('--threshold',type=float,default=.98)
+    transition.add_argument('--max-age',dest='max_ref_age_seconds',type=float,default=15)
+    transition.add_argument('--pre-state')
+    transition.add_argument('--return-image',choices=['true','false'],default='true')
+    transition.add_argument('--json',action='store_true')
     task = sub.add_parser('task', help='Execute registered workflow with bounded recovery')
     task.add_argument('task_action', choices=['execute','inspect','list'])
     task.add_argument('--family', dest='family_id')
@@ -82,6 +95,8 @@ def _build_parser() -> _CliParser:
     task.add_argument('--auto-recover', action='store_true', default=None)
     task.add_argument('--limit', type=int)
     task.add_argument('--after')
+    task.add_argument('--response-mode',choices=MODES,default='full')
+    task.add_argument('--detail-id')
     task.add_argument('--json', action='store_true')
     lifecycle = sub.add_parser('lifecycle', help='Workflow registry and recovery routing')
     lifecycle.add_argument('lifecycle_action', choices=['register','activate','disable','rollback','link','route-status','inspect','history','list','select'])
@@ -110,6 +125,8 @@ def _build_parser() -> _CliParser:
     recovery.add_argument('--plan', help='UTF-8 JSON file')
     recovery.add_argument('--limit', type=int)
     recovery.add_argument('--after', type=int)
+    recovery.add_argument('--response-mode',choices=MODES,default='full')
+    recovery.add_argument('--detail-id')
     recovery.add_argument('--json', action='store_true')
     runtime = sub.add_parser('runtime', help='Deterministic workflow runtime')
     runtime.add_argument('runtime_action', choices=['qualify','run','inspect','list'])
@@ -120,6 +137,8 @@ def _build_parser() -> _CliParser:
     runtime.add_argument('--run-id')
     runtime.add_argument('--limit', type=int)
     runtime.add_argument('--after')
+    runtime.add_argument('--response-mode',choices=MODES,default='full')
+    runtime.add_argument('--detail-id')
     runtime.add_argument('--json', action='store_true')
     workflow = sub.add_parser('workflow', help='Offline evidence-bound workflow builder')
     workflow.add_argument('workflow_action', choices=['candidates','build','inspect','validate','list'])
@@ -128,9 +147,11 @@ def _build_parser() -> _CliParser:
     workflow.add_argument('--plan', help='UTF-8 JSON plan file')
     workflow.add_argument('--limit', type=int)
     workflow.add_argument('--after')
+    workflow.add_argument('--response-mode',choices=MODES,default='full')
+    workflow.add_argument('--detail-id')
     workflow.add_argument('--json', action='store_true')
     record = sub.add_parser('record', help='Persistent exploration recorder')
-    record.add_argument('record_action', choices=['start','status','pause','resume','stop','list','inspect','summary','events','event','annotate','checkpoint','annotations','history','resume-context','latest-checkpoint'])
+    record.add_argument('record_action', choices=['start','status','pause','resume','stop','list','inspect','summary','events','event','annotate','checkpoint','annotations','history','asset-evidence','resume-context','latest-checkpoint'])
     record.add_argument('--session', dest='record_session')
     record.add_argument('--name')
     record.add_argument('--goal')
@@ -142,6 +163,8 @@ def _build_parser() -> _CliParser:
     record.add_argument('--operation')
     record.add_argument('--status')
     record.add_argument('--kind')
+    record.add_argument('--response-mode',choices=MODES,default='full')
+    record.add_argument('--detail-id')
     record.add_argument('--json', action='store_true')
 
     p_devices = sub.add_parser("devices", help="List available devices")
@@ -533,10 +556,25 @@ def run_cli(argv=None, *, service=None):
         return _run_cli(argv, service=service)
     try:
         store = service.store if service else FrameStore(Path(args.store_dir))
+        if args.command in ('task','recovery','runtime','workflow','record'):
+            mode=args.response_mode;detail_id=args.detail_id
+            action=getattr(args,args.command+'_action')
+            validate_response(args.command,action,mode,detail_id)
+        if args.command == 'transition':
+            svc=TransitionService(store,observation=service)
+            if args.transition_action=='inspect':
+                result=svc.inspect(args.transition_id)
+            else:
+                if args.postcondition is None: raise RecorderError('postcondition is required',code='INVALID_TRANSITION')
+                try: post=json.loads(args.postcondition)
+                except json.JSONDecodeError: raise RecorderError('postcondition must be valid JSON',code='INVALID_TRANSITION') from None
+                result=svc.execute(device=args.device,session_id=args.session,transition_id=args.transition_id,target=args.target,postcondition=post,threshold=args.threshold,max_ref_age_seconds=args.max_ref_age_seconds,pre_state=args.pre_state,return_image=args.return_image=='true')
+            _emit_json({'ok':True,'result':result})
+            return 3 if args.transition_action=='execute' and result['status']!='observed' else 0
         if args.command == 'task':
             params={k:v for k,v in vars(args).items() if k in ('family_id','task_id','expected_generation','auto_recover','limit','after') and v is not None}
             result=ExecutionOrchestrator(store,runtime=WorkflowRuntime(store,observation=service)).query(args.task_action,**params)
-            _emit_json({'ok':True,'result':result})
+            _emit_json({'ok':True,'result':project(args.command,action,result,mode,detail_id)})
             return 3 if args.task_action=='execute' and result['status']!='completed' else 0
         if args.command == 'lifecycle':
             params={k:v for k,v in vars(args).items() if k in ('family_id','workflow_id','run_id','version','parent_version','expected_generation','reason','proposal_id','qualification_id','route_id','enabled','limit','after') and v is not None}
@@ -549,13 +587,13 @@ def run_cli(argv=None, *, service=None):
             for k in ('reconciliation','plan'):
                 if k in params: params[k]=json.loads(Path(params[k]).read_text(encoding='utf-8-sig'))
             result = RecoveryService(store).query(args.recovery_action, **params)
-            _emit_json({'ok':True,'result':result})
+            _emit_json({'ok':True,'result':project(args.command,action,result,mode,detail_id)})
             return 0
         if args.command == 'runtime':
             params = {k:v for k,v in vars(args).items() if k in ('workflow_id','device','profile','binding_id','run_id','limit','after') and v is not None}
             if 'profile' in params: params['profile'] = json.loads(Path(params['profile']).read_text(encoding='utf-8-sig'))
             result = WorkflowRuntime(store, observation=service).query(args.runtime_action, **params)
-            _emit_json({'ok':True,'result':result})
+            _emit_json({'ok':True,'result':project(args.command,action,result,mode,detail_id)})
             return 3 if args.runtime_action=='run' and result['status']!='completed' else 0
         if args.command == 'workflow':
             params = {}
@@ -565,14 +603,15 @@ def run_cli(argv=None, *, service=None):
             if args.limit is not None: params['limit'] = args.limit
             if args.after is not None: params['after'] = int(args.after) if args.workflow_action=='candidates' else args.after
             result = WorkflowBuilder(store).query(args.workflow_action, **params)
-            _emit_json({'ok':True,'result':result})
+            _emit_json({'ok':True,'result':project(args.command,action,result,mode,detail_id)})
             return 0
         if args.command == 'record':
             data = {k: v for k, v in vars(args).items() if k in ('name','goal','device','event_id','annotation','limit','after','operation','status','kind') and v is not None}
             if 'annotation' in data:
-                data['annotation'] = json.loads(data['annotation'])
+                try: data['annotation'] = json.loads(data['annotation'])
+                except json.JSONDecodeError: raise RecorderError('Annotation must be valid JSON',code='INVALID_ANNOTATION') from None
             result = Recorder(store).query(args.record_action, session_id=args.record_session or args.session, **data)
-            _emit_json({'ok': True, 'result': result})
+            _emit_json({'ok':True,'result':project(args.command,action,result,mode,detail_id)})
             return 0
         operation = 'assets_register' if args.command == 'assets' and args.assets_command == 'register' else args.command
         if args.session is not None and operation in OPERATIONS:
@@ -587,8 +626,21 @@ def run_cli(argv=None, *, service=None):
             return codes[0] if result.get('ok') and codes else (codes[0] if codes and codes[0] else 3)
         with workspace_lock(store):
             return _run_cli(argv, service=service, parsed=args)
+    except RecorderError as exc:
+        _emit_json({"ok":False,"error":{"code":exc.code,"message":str(exc),"details":exc.details,"retryable":False}})
+        return 3
+    except RuntimeFault as exc:
+        _emit_json({"ok":False,"error":{"code":exc.code,"message":str(exc),"details":exc.details,"retryable":False}})
+        return 3
+    except WorkflowError as exc:
+        code={"task":"TASK_ERROR","lifecycle":"LIFECYCLE_ERROR","recovery":"RECOVERY_ERROR","workflow":"WORKFLOW_ERROR","runtime":"RUNTIME_ERROR"}.get(args.command,"WORKFLOW_ERROR")
+        _emit_json({"ok":False,"error":{"code":code,"message":str(exc),"retryable":False}})
+        return 3
+    except (UsageError,OperationError) as exc:
+        _emit_json({"ok":False,"error":{"code":exc.code,"message":exc.message,"retryable":getattr(exc,"retryable",False)}})
+        return getattr(exc,"exit_code",3)
     except Exception as exc:
-        _emit_json({'ok':False,'error':{'code':getattr(exc,'code','RUNTIME_ERROR') if args.command == 'runtime' else ('TASK_ERROR' if args.command == 'task' else 'LIFECYCLE_ERROR' if args.command == 'lifecycle' else ('RECOVERY_ERROR' if args.command == 'recovery' else ('WORKFLOW_ERROR' if args.command == 'workflow' else 'RECORDER_ERROR'))),'message':str(exc)}})
+        _emit_json({"ok":False,"error":{"code":"INTERNAL_ERROR","message":str(exc),"retryable":False}})
         return 3
 
 

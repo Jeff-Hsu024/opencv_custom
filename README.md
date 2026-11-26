@@ -110,3 +110,6 @@ Phase 7 baseline: 258 regression tests passed; MuMu controlled settings navigati
 - [Workflow playbook](skills/agent-vision/references/workflow.md): exploration, recovery, registry and task decisions.
 - [Builder plan](skills/agent-vision/references/builder.md): exact plan fields and evidence collection.
 - [Core README](core/README.md): legacy core library context, not the current agent entry point.
+
+## Phase 8 — Agent interface candidate
+The candidate branch adds recorded one-click transitions, explicit annotation fields/errors, opt-in response projections, metadata-only snapshots, expanded overlapping CLI/MCP parameters, paged asset evidence and task-local sealed offline-validation reuse. See [Phase 8 interface](skills/agent-vision/references/interface.md) and [specification](specs/agent-vision-phase8/SPEC.md). Existing workflows and full response defaults remain compatible. Do not install the candidate over the frozen official deployment before review.

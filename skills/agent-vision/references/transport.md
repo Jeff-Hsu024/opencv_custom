@@ -1,6 +1,6 @@
 # Verified transport and CLI reference
 
-Phase 7 interface verified on NB on 2026-11-26. Tool names and schemas can evolve: discover actual tools each session. Read only the section for your current task.
+Phase 7 interface is the frozen installed NB baseline. Phase 8 adds the interfaces in [interface.md](interface.md); discover actual deployed version before use. Tool names and schemas can evolve: discover actual tools each session. Read only the section for your current task.
 
 ## ChatGPT / Queqiao NB
 
@@ -46,7 +46,7 @@ The current MCP proxy wraps downstream content as JSON: result.result.content en
 
 Regions are integer [x1,y1,x2,y2] half-open in the given image. Frame IDs and refs are opaque. Frame metadata has width/height, source dimensions, timestamp, transform and optional rotation. Crop and resize coordinates are frame-local; reference and frame-point clicks map back to original device. Use matching source dimensions and current orientation; the current implementation does not guarantee live rotation validation or semantic freshness, so observe again. Actions return status=executed, verified=false; verify separately. Error metadata is nested in content text and isError must be checked. A no-match query is normal, count=0.
 
-MCP's current vision_find schema lacks CLI color-mode/max-results; its vision_wait schema exposes fewer tuning options than CLI. Do not invent unsupported fields. NB ADB advertises unicode_text=false; use only supported text entry. Long press capability exists in Core, but this MCP/CLI surface has no dedicated long-press command.
+Phase 8 adds MCP vision_find color_mode/max_results and wait max_captures, pixel_tolerance, min/max_changed_ratio, stable_duration and color_mode. Legacy MCP poll_interval default 0.2 and CLI --interval default 0.5 are intentionally preserved; specify explicitly for parity. CLI --out is export-only; MCP return_image=false returns artifact metadata without image content. Do not invent unsupported fields. NB ADB advertises unicode_text=false; use only supported text entry. Long press capability exists in Core, but this MCP/CLI surface has no dedicated long-press command.
 
 ## Local CLI on NB
 
@@ -143,3 +143,5 @@ MCP vision_task_execute {family_id,task_id,expected_generation,auto_recover?}; v
 Exit 0 only for completed execution; 3 for noncompleted. Generation pin and workspace lock cover entire synchronous task. Existing runtime bounds are per-step, not a task wall-clock timeout.
 
 Transport timeout: a long synchronous MCP task may outlast the connector request. Inspect the original task ID (CLI or MCP); do not generate a new ID or assume success/failure. If still running, the journal may belong to a live or interrupted writer; same-ID execute under the workspace lock is readback/reconciliation only once the previous writer releases the lock. Use CLI for tasks expected to exceed the connector timeout.
+
+Phase 8 annotation/checkpoint keys, transition options, response modes, asset pagination and image forwarding: [interface.md](interface.md).

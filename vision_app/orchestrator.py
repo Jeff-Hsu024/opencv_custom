@@ -7,6 +7,7 @@ import time
 
 from vision_app.lifecycle import LifecycleService
 from vision_app.recorder import workspace_lock
+from vision_app.validation_context import validation_scope
 from vision_app.runtime import WorkflowRuntime
 from vision_app.store import _atomic_write_json
 from vision_app.workflow import require, digest, canonical
@@ -101,7 +102,7 @@ class ExecutionOrchestrator:
         require(type(auto_recover) is bool,"auto_recover must be boolean")
         request={"family_id":family_id,"expected_generation":expected_generation,"auto_recover":auto_recover}
         path=self._path(task_id)
-        with workspace_lock(self.store):
+        with workspace_lock(self.store), validation_scope(self.store):
             if path.exists():
                 old=self._load(task_id)
                 require(old["request"]==request,"Task ID already bound to another request")

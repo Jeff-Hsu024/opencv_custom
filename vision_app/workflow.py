@@ -397,6 +397,10 @@ class WorkflowBuilder:
         return {"workflow_id":workflow_id,"definition":definition,"bundle_path":str(directory)}
 
     def _validate(self,wid):
+        from vision_app.validation_context import validate_cached
+        return validate_cached(self,wid,self._validate_uncached)
+
+    def _validate_uncached(self,wid):
         item=self.inspect(wid)
         directory=self._directory(wid)
         saved=item["definition"]

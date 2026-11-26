@@ -36,12 +36,14 @@ from vision_app.store import (
     StoreError,
 )
 from vision_app.waits import WaitService
-from vision_app.recorder import Recorder, OPERATIONS, workspace_lock, record_tool_definitions
+from vision_app.recorder import Recorder, RecorderError, OPERATIONS, workspace_lock, record_tool_definitions
 from vision_app.workflow import WorkflowBuilder, WorkflowError, workflow_tool_definitions
 from vision_app.runtime import WorkflowRuntime, RuntimeFault, runtime_tool_definitions
 from vision_app.recovery import RecoveryService, recovery_tool_definitions
 from vision_app.lifecycle import LifecycleService, lifecycle_tool_definitions
 from vision_app.orchestrator import ExecutionOrchestrator, orchestrator_tool_definitions
+from vision_app.transition import TransitionService, transition_tool_definitions
+from vision_app.responses import schema_for, validate as validate_response, project
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "vision-mcp"
@@ -49,6 +51,8 @@ SERVER_VERSION = "0.1.0"
 
 
 def _error_payload(exc: Exception) -> Dict[str, Any]:
+    if isinstance(exc, RecorderError):
+        return {"code":exc.code,"message":str(exc),"details":exc.details,"retryable":False}
     if isinstance(exc, RuntimeFault):
         return {'code':exc.code,'message':str(exc),'details':exc.details,'retryable':False}
     if isinstance(exc, WorkflowError):
@@ -289,7 +293,23 @@ def _tool_definitions() -> List[Dict[str, Any]]:
     for tool in definitions:
         if tool['name'].removeprefix('vision_') in OPERATIONS:
             tool['inputSchema']['properties']['session_id'] = {'type':'string', 'description':'Explicit active recording session'}
-    return definitions + record_tool_definitions() + workflow_tool_definitions() + runtime_tool_definitions() + recovery_tool_definitions() + lifecycle_tool_definitions() + orchestrator_tool_definitions()
+    definitions = definitions + record_tool_definitions() + workflow_tool_definitions() + runtime_tool_definitions() + recovery_tool_definitions() + lifecycle_tool_definitions() + orchestrator_tool_definitions() + transition_tool_definitions()
+    for tool in definitions:
+        schema_for(tool)
+        props=tool["inputSchema"]["properties"]
+        if tool["name"] in ("vision_snapshot","vision_crop","vision_resize"):
+            props["return_image"]={"type":"boolean","default":True,"description":"False returns metadata/artifact path only."}
+        if tool["name"]=="vision_find":
+            props.update(max_results={"type":"integer","minimum":1,"default":10},
+                         color_mode={"type":"string","enum":["gray","bgr"],"default":"gray"})
+        if tool["name"]=="vision_wait":
+            props.update(max_captures={"type":"integer","minimum":1,"default":100},
+                         pixel_tolerance={"type":"integer","minimum":0,"maximum":255,"default":0},
+                         min_changed_ratio={"type":"number","minimum":0,"maximum":1,"default":.01},
+                         max_changed_ratio={"type":"number","minimum":0,"maximum":1,"default":0},
+                         stable_duration={"type":"number","minimum":0,"default":1},
+                         color_mode={"type":"string","enum":["gray","bgr"],"default":"gray"})
+    return definitions
 
 
 class VisionMcpServer:
@@ -349,27 +369,39 @@ class VisionMcpServer:
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         args = dict(arguments or {})
         try:
+            def query(scope,action,service):
+                mode=args.pop("response_mode","full")
+                detail_id=args.pop("detail_id",None)
+                validate_response(scope,action,mode,detail_id)
+                return project(scope,action,service.query(action,**args),mode,detail_id)
+            if name in ('vision_transition','vision_transition_inspect'):
+                svc=TransitionService(self.store,observation=self.obs,matcher=self.matcher,actions=self.actions,waits=self.waits)
+                result=svc.execute(**args) if name=='vision_transition' else svc.inspect(**args)
+                payload={'ok':True,'result':result}
+                if name=='vision_transition' and result['request']['return_image'] and result.get('artifact'):
+                    return self._image_tool_result({**payload,'artifact':result['artifact']})
+                return self._text_tool_result(payload)
             if name.startswith('vision_task_'):
                 action=name.removeprefix('vision_task_')
                 runtime=WorkflowRuntime(self.store,observation=self.obs,actions=self.actions)
-                return self._text_tool_result({'ok':True,'result':ExecutionOrchestrator(self.store,runtime=runtime).query(action,**args)})
+                return self._text_tool_result({'ok':True,'result':query("task",action,ExecutionOrchestrator(self.store,runtime=runtime))})
             if name.startswith('vision_lifecycle_'):
                 action=name.removeprefix('vision_lifecycle_')
                 runtime=WorkflowRuntime(self.store,observation=self.obs,actions=self.actions)
                 return self._text_tool_result({'ok':True,'result':LifecycleService(self.store,runtime=runtime).query(action,**args)})
             if name.startswith('vision_recovery_'):
                 action = name.removeprefix('vision_recovery_')
-                return self._text_tool_result({'ok':True,'result':RecoveryService(self.store).query(action, **args)})
+                return self._text_tool_result({'ok':True,'result':query("recovery",action,RecoveryService(self.store))})
             if name.startswith('vision_runtime_'):
                 action = name.removeprefix('vision_runtime_')
-                result = WorkflowRuntime(self.store, observation=self.obs, actions=self.actions).query(action, **args)
+                result = query("runtime",action,WorkflowRuntime(self.store, observation=self.obs, actions=self.actions))
                 return self._text_tool_result({'ok':True,'result':result})
             if name.startswith('vision_workflow_'):
                 action = name.removeprefix('vision_workflow_')
-                return self._text_tool_result({'ok':True,'result':WorkflowBuilder(self.store).query(action, **args)})
+                return self._text_tool_result({'ok':True,'result':query("workflow",action,WorkflowBuilder(self.store))})
             if name.startswith('vision_record_'):
                 action = name.removeprefix('vision_record_').replace('_','-')
-                result = Recorder(self.store).query(action, **args)
+                result = query("record",action,Recorder(self.store))
                 return self._text_tool_result({'ok':True,'result':result})
             operation = name.removeprefix('vision_')
             sid = args.pop('session_id', None)
@@ -393,6 +425,9 @@ class VisionMcpServer:
     def _call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         args = arguments or {}
         try:
+            if name in ("vision_snapshot","vision_crop","vision_resize"):
+                if type(args.get("return_image",True)) is not bool: raise UsageError("return_image must be boolean")
+                output_image=self._image_tool_result if args.get("return_image",True) else self._text_tool_result
             if name == "vision_devices":
                 devices = self.obs.devices()
                 return self._text_tool_result({"ok": True, "devices": devices})
@@ -408,7 +443,7 @@ class VisionMcpServer:
                     raise UsageError("device is required")
                 region = _parse_region_arg(args.get("region"))
                 res = self.obs.snapshot(str(device), region=region)
-                return self._image_tool_result({"ok": True, "device": str(device), **res})
+                return output_image({"ok": True, "device": str(device), **res})
 
             if name == "vision_crop":
                 frame_id = args.get("frame_id")
@@ -418,7 +453,7 @@ class VisionMcpServer:
                 if region is None:
                     raise UsageError("region is required")
                 res = self.obs.crop(str(frame_id), region)
-                return self._image_tool_result({"ok": True, **res})
+                return output_image({"ok": True, **res})
 
             if name == "vision_resize":
                 frame_id = args.get("frame_id")
@@ -426,7 +461,7 @@ class VisionMcpServer:
                 if not frame_id or scale is None:
                     raise UsageError("frame_id and scale are required")
                 res = self.obs.resize(str(frame_id), float(scale))
-                return self._image_tool_result({"ok": True, **res})
+                return output_image({"ok": True, **res})
 
             if name == "vision_assets_register":
                 asset_name = args.get("name")
@@ -451,11 +486,13 @@ class VisionMcpServer:
                 target = args.get("target")
                 if not frame_id or not target:
                     raise UsageError("frame_id and target are required")
+                if type(args.get("max_results",10)) is not int or args.get("max_results",10)<1: raise UsageError("max_results must be positive integer")
                 res = self.matcher.find(
                     str(frame_id),
                     str(target),
                     find_all=bool(args.get("all", False)),
                     threshold=float(args.get("threshold", 0.8)),
+                    max_results=args.get("max_results",10),color_mode=args.get("color_mode","gray"),
                 )
                 return self._text_tool_result({"ok": True, **res})
 
@@ -518,11 +555,15 @@ class VisionMcpServer:
                 if mode == "changed":
                     res = self.waits.wait_changed(
                         str(device), baseline_frame_id=args.get("baseline_frame_id"),
-                        region=region, timeout=timeout, interval=poll_interval
+                        region=region, timeout=timeout, interval=poll_interval,
+                        max_captures=args.get("max_captures",100),pixel_tolerance=args.get("pixel_tolerance",0),
+                        min_changed_ratio=args.get("min_changed_ratio",.01)
                     )
                 elif mode == "stable":
                     res = self.waits.wait_stable(
-                        str(device), region=region, timeout=timeout, interval=poll_interval
+                        str(device), region=region, timeout=timeout, interval=poll_interval,
+                        max_captures=args.get("max_captures",100),pixel_tolerance=args.get("pixel_tolerance",0),
+                        stable_duration=args.get("stable_duration",1),max_changed_ratio=args.get("max_changed_ratio",0)
                     )
                 elif mode == "image":
                     target = args.get("target")
@@ -535,6 +576,7 @@ class VisionMcpServer:
                         timeout=timeout,
                         interval=poll_interval,
                         threshold=float(args.get("threshold", 0.8)),
+                        max_captures=args.get("max_captures",100),color_mode=args.get("color_mode","gray"),
                     )
                 else:
                     raise UsageError(f"Unsupported wait mode: {mode!r}")

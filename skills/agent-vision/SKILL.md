@@ -19,7 +19,7 @@ Use the installed application tools, not a blind coordinate macro. The LLM is th
 | Runtime failure with no known recovery | Inspect task/run; `vision_recovery_open` if recovery exploration is appropriate |
 | Manage a reviewed version or route | `vision_lifecycle_inspect`, generation-checked mutation |
 
-Never silently pick a family, device, profile or store. Discover actual tools first. Read [transport](references/transport.md) for exact calls and NB environment. Read [workflow playbook](references/workflow.md) only for the relevant stage; for compilation read [builder plan](references/builder.md).
+Never silently pick a family, device, profile or store. Discover actual tools first. Read [transport](references/transport.md) for exact calls and NB environment. For Phase 8 compact interaction, read [interface](references/interface.md). Read [workflow playbook](references/workflow.md) only for the relevant stage; for compilation read [builder plan](references/builder.md).
 
 ## Known task: prefer the single entry
 
@@ -34,14 +34,14 @@ Automatic recovery is limited to first-step precondition failure before any prim
 
 1. Discover devices/capabilities; use an explicit authorized device. NB's validated example is MuMu `127.0.0.1:16480`, not a universal default. Avoid desktop and unrelated emulator instances.
 2. Start or resume a Recorder session. Pass its session_id to every recordable operation (CLI global --session before command). Observe a fresh full screenshot; render actual pixels. A path or base64 text alone is not observation.
-3. Learn stable target assets via ROI crop/register. Find on a fresh frame, request all matches and inspect uniqueness, bbox, score, device and freshness. For a one-off frame point, use frame ID and validated local point; reusable workflows require reference clicks.
-4. Act once. Use short explicit ref age (e.g. 15 seconds); ref age does not prove unchanged UI. No-match, ambiguity or stale state => observe again, never pick an arbitrary target.
-5. Wait for an appropriate visual condition, then inspect actual postcondition pixels. `executed`, match score, exit code 0, or changed pixels alone do not prove task success.
+3. Learn stable target assets via ROI crop/register. If the target and intended postcondition are understood, prefer vision_transition with explicit session and unique transition ID; use a meaningful changed ROI and optional bounded settle for animation. Otherwise find on a fresh frame, request all matches and inspect uniqueness, bbox, score, device and freshness. For a one-off frame point, use frame ID and validated local point; reusable workflows require reference clicks.
+4. Act once (vision_transition already includes the click; never click again after it). Use short explicit ref age (e.g. 15 seconds); ref age does not prove unchanged UI. No-match, ambiguity or stale state => observe again, never pick an arbitrary target.
+5. For a primitive click, wait for an appropriate visual condition. For transition, inspect the returned actual post-snapshot; its observed status is not semantic PASS. Use return_image=false plus real artifact image read if the connector wraps image data. `executed`, match score, exit code 0, or changed pixels alone do not prove task success.
 6. Annotate PASS/FAIL/UNKNOWN on the actual observation event; checkpoint goal, state, steps, evidence, uncertainties and next step. Resume via Inspector, not conversation reconstruction.
 
 ## Compile, qualify, publish
 
-Stop the session, review every action and select explicit connected transitions. [Builder plan](references/builder.md) defines exact required fields. Offline PASS is not live success. Qualify exact Android device/profile, perform controlled live run, then explicitly register and activate reviewed version. No auto promotion. Compiled v1 accepts reference-based clicks only; interactive swipe/type/key/desktop are available where capability permits but cannot be compiled.
+Stop the session, review every action and select explicit connected transitions. For build/inspect request response_mode=summary; full remains available for legacy/audit. The transition receipt exposes the exact primitive event IDs. [Builder plan](references/builder.md) defines exact required fields. Offline PASS is not live success. Qualify exact Android device/profile, perform controlled live run, then explicitly register and activate reviewed version. No auto promotion. Compiled v1 accepts reference-based clicks only; interactive swipe/type/key/desktop are available where capability permits but cannot be compiled.
 
 ## Failure and handoff
 

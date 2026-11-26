@@ -62,3 +62,5 @@ For known tasks, prefer the single task entry over manual per-step or per-child 
 | transport timeout | Transport did not return a result | Inspect the same task/run ID, never create a retry ID blindly |
 
 For a new agent session, share the workspace/store, device, goal and the existing session_id, task_id or run_id. Resume an active/paused Recorder session appropriately; stopped sessions remain immutable for operations. For known tasks use lifecycle list/inspect before executing. Never reconstruct a previous agent's action sequence from chat if structured evidence exists.
+
+Phase 8: use [interface](interface.md) for the compact transition and response modes. Existing recorded operation semantics, workflow identities and recovery policy remain unchanged.
