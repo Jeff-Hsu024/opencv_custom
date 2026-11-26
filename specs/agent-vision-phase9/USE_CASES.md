@@ -1,5 +1,5 @@
 # Phase 9 — Use cases: Learn Once, Qualify Per Device, Execute Many
-Status: proposed planning baseline, 2026-11-26. No implementation or live device actions.
+Status: review-resolved design, 2026-11-26. No implementation or live device actions.
 Base: bfbec17fe55b25a2ea7ddbd9051cc3937ccd3efb (agent-vision-v0.2.0).
 
 ## Goal
@@ -38,3 +38,14 @@ Each scenario includes entry conditions, behavior and observable outcome. A and 
 
 ## Boundaries / decisions for review
 First release: exact profile + geometry compatibility only; no scaling/cross-version adaptation, fuzzy semantic automation, automatic discovery of new targets, cross-host distributed scheduler, uncontrolled external ADB arbitration, multi-device recovery-route learning or hidden retries. One Worker host / ADB server / shared store; different serials can be different devices but aliases of the same physical device are not supported concurrently. Keep legacy v1 execution/recovery; portable v2 failure hands off explicitly. Qualification trial is a real run, separately authorized, not read-only preflight. Explicit device selection and portable enrollment prevent implicit broadcast.
+
+## Review-resolved behavioral cases (normative additions)
+| ID | Actor / scenario | Main path | Expected result / negative path |
+|---|---|---|---|
+| UC15 | Independent explorers choose the same asset label | A and B register settings-gear in their own device/session scopes; find/transition uses resolved revision | Distinct immutable revision IDs, coherent PNG/metadata and retained hashes. Legacy global name remains explicit last-committed alias, never a portable lookup. Wrong scope rejected before input. Interrupted publication leaves old valid revision or no new visible revision. |
+| UC16 | Agent acts on an old but young reference | A captures/finds; another cooperating controller mutates A; first agent attempts old guarded reference | Reject stale epoch before input, including uncertain prior effect. Fresh observation on A succeeds; B epoch unaffected. Legacy raw/unversioned calls retain existing behavior and advance the same epoch; external controllers are not covered. |
+| UC17 | Device qualification changes | A qualified; revoke/replace/admit races; B profile drifts then restores; device temporarily offline | Separate qualification slot CAS, immutable historical proof, active/inactive status; confirmed drift durably invalidates active qualification until explicit new trial/commit. Unavailability alone does not invalidate. Same revision can be enrolled once for multiple families. |
+| UC18 | Parent disappears while child remains live | Parent reserves every ID, launches A, exits before B claim; A may survive | Never mark live A abandoned; no new child can claim after admission closes. Inspect reconciles A only after actual owner ends; B not_attempted; duplicate never re-dispatches. |
+| UC19 | Source proof changes while publishing | Concurrent annotation/dispute or evidence mutation during validation | Consistent immutable candidate snapshot; commit compares seal/version; mismatch rejects publication. Previous evidence retained; new admission rejects stale source seal. |
+| UC20 | Legacy family activation races with task/recovery | Existing legacy task holds device owner while operator changes its registry | Registry mutation waits on the same device owner (legacy bounded wait); existing task and recovery children retain old semantics; independent B continues. |
+| UC21 | Agent inspects after timeout or discovery error | Lost call result; query original ID; ADB discovery fails versus returns empty | Original receipt/owner state returned without replay; strict discovery reports failure explicitly, old discovery shape retained. |

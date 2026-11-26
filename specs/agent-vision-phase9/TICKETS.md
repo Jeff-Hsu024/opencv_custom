@@ -1,23 +1,31 @@
-# Phase 9 — Ticket set (PROPOSED)
-Parent SPEC SHA-256: 8d662c69b50ba86c61c25007561ee67f95cf87280f11a6d1b3a171d887de06de (UTF-8, LF-normalized).
-Local tracker: .scratch/agent-vision-phase9/issues. No external issue publication or dispatch. One Orca project, one feature worktree. Serialize overlapping edits; logical independence is not permission for concurrent writes.
+# Phase 9 - Revised ticket set
+Status: REVIEW_RESOLVED_DESIGN, no dispatch. Supersedes original 15 MD tickets (Git planning commit d53b986). Contract v1 and exact SHA-256 values in ticket-manifest.json. Initial frontier C00 only. 24 tickets, expanded from review proposal 21 by splitting evidence snapshot vs legacy registry, shared interpreter vs proof resolution, and portable family vs single execute. One Orca project/worktree; logical independence is not permission for concurrent writes.
 
-| Ticket | Title | Blocked by | Use cases | SPEC | Acceptance |
-|---|---|---|---|---|---|
-| [MD-01](../../.scratch/agent-vision-phase9/issues/01-explicit-device-discovery.md) | Explicit Android discovery and target validation | None | UC01,UC08,UC09 | R01,R09 | A01 |
-| [MD-02](../../.scratch/agent-vision-phase9/issues/02-atomic-frame-index.md) | Shared Store metadata and protected frame transactions | None | UC13,UC14 | R07,R09 | A06,A09 |
-| [MD-03](../../.scratch/agent-vision-phase9/issues/03-expand-device-coordinator.md) | Expand cross-process execution coordinator | MD-02 | UC08,UC11,UC13 | R06,R07 | A06,A08 |
-| [MD-04](../../.scratch/agent-vision-phase9/issues/04-migrate-observation-recorder.md) | Migrate primitive, Recorder and Transition entrypoints | MD-01, MD-03 | UC01,UC08,UC09,UC11,UC13 | R01,R06,R07,R09 | A01,A06,A08 |
-| [MD-05](../../.scratch/agent-vision-phase9/issues/05-migrate-runtime-recovery.md) | Migrate legacy Runtime and Recovery | MD-04 | UC08,UC09,UC11,UC14 | R06,R07,R09 | A06,A08,A09 |
-| [MD-06](../../.scratch/agent-vision-phase9/issues/06-migrate-registry-orchestrator.md) | Migrate registry and legacy task admission | MD-05 | UC08,UC11,UC12,UC13,UC14 | R05,R06,R07,R09 | A05,A06,A08,A09 |
-| [MD-07](../../.scratch/agent-vision-phase9/issues/07-contract-parallel-execution.md) | Contract: enable per-device concurrency | MD-06 | UC07,UC08,UC11,UC13,UC14 | R07,R09 | A06,A08,A09 |
-| [MD-08](../../.scratch/agent-vision-phase9/issues/08-portable-publication.md) | Publish portable revision from proven learning | MD-01, MD-02 | UC02,UC03,UC14 | R02,R09 | A02,A09 |
-| [MD-09](../../.scratch/agent-vision-phase9/issues/09-portable-preflight.md) | Read-only preflight on compatible device B | MD-07, MD-08 | UC04,UC09 | R03,R07,R09 | A03 |
-| [MD-10](../../.scratch/agent-vision-phase9/issues/10-portable-trial-runtime.md) | Explicit qualification trial on target device | MD-09 | UC05,UC09,UC11 | R04,R06,R07,R09 | A04,A08 |
-| [MD-11](../../.scratch/agent-vision-phase9/issues/11-qualification-enrollment.md) | Commit and revoke device qualifications | MD-10 | UC05,UC09,UC12 | R04,R05,R09 | A04,A05 |
-| [MD-12](../../.scratch/agent-vision-phase9/issues/12-portable-family-single-execute.md) | Activate portable revision and run on qualified serial | MD-11 | UC06,UC09,UC11,UC12,UC14 | R05,R06,R09 | A05,A08,A09 |
-| [MD-13](../../.scratch/agent-vision-phase9/issues/13-bounded-batch.md) | Bounded parallel batch and durable child receipts | MD-12 | UC07,UC10,UC11,UC13 | R07,R08,R09 | A06,A07,A08 |
-| [MD-14](../../.scratch/agent-vision-phase9/issues/14-compatibility-agent-contract.md) | Compatibility and agent-facing release contract | MD-13 | UC01–UC14 | R01–R09 | A09 |
-| [MD-15](../../.scratch/agent-vision-phase9/issues/15-independent-two-device-qualification.md) | Independent two-device E2E and raw audit | MD-14 | UC01–UC14 | R01–R09 | A01–A10 |
+| Ticket | Title | Blocked by | Findings |
+|---|---|---|---|
+| [C00](../../.scratch/agent-vision-phase9/issues/C00-contract-freeze.md) | Contract fixture freeze | None | F01-F07 |
+| [C01](../../.scratch/agent-vision-phase9/issues/C01-strict-discovery.md) | Strict Android discovery | C00 | F07 |
+| [C02](../../.scratch/agent-vision-phase9/issues/C02-frame-store-transactions.md) | Frame index transactions and active pins | C00 | F06 |
+| [C03](../../.scratch/agent-vision-phase9/issues/C03-asset-revisions.md) | Immutable scoped asset revisions | C02 | F01,F06 |
+| [C04](../../.scratch/agent-vision-phase9/issues/C04-execution-coordinator.md) | Device and request owner coordinator | C02 | F05 |
+| [C05](../../.scratch/agent-vision-phase9/issues/C05-device-action-epoch.md) | Durable Device Action Epoch | C01, C04 | F02 |
+| [C06](../../.scratch/agent-vision-phase9/issues/C06-primitive-recorder-migration.md) | Primitive and Recorder migration | C03, C05 | F01,F02,F05 |
+| [C07](../../.scratch/agent-vision-phase9/issues/C07-transition-migration.md) | Recorded Transition migration | C06 | F01,F02,F05 |
+| [C08](../../.scratch/agent-vision-phase9/issues/C08-legacy-runtime-recovery.md) | Legacy Runtime and Recovery migration | C07 | F02,F05 |
+| [C09](../../.scratch/agent-vision-phase9/issues/C09-evidence-snapshot.md) | Evidence snapshot and publication seal | C08 | F06 |
+| [C10](../../.scratch/agent-vision-phase9/issues/C10-legacy-registry-admission.md) | Legacy registry and task admission | C09 | F05,F07 |
+| [C11](../../.scratch/agent-vision-phase9/issues/C11-contract-parallel-execution.md) | Contract old gate and verify device overlap | C10 | F02,F05,F06,F07 |
+| [P01](../../.scratch/agent-vision-phase9/issues/P01-definition-proof-seam.md) | Immutable definition resolver and proof verifier | C11 | F03,F06 |
+| [P02](../../.scratch/agent-vision-phase9/issues/P02-shared-interpreter.md) | Shared target-bound deterministic interpreter | P01 | F02,F03 |
+| [P03](../../.scratch/agent-vision-phase9/issues/P03-portable-publication.md) | Publish proven portable definition | P02 | F03,F06 |
+| [P04](../../.scratch/agent-vision-phase9/issues/P04-portable-preflight.md) | Read-only portable preflight | P03 | F04,F07 |
+| [P05](../../.scratch/agent-vision-phase9/issues/P05-qualification-trial.md) | Explicit target-device trial | P04 | F02,F03,F05 |
+| [P06](../../.scratch/agent-vision-phase9/issues/P06-qualification-slots.md) | Per-device Qualification Slot CAS | P05 | F04,F05 |
+| [P07](../../.scratch/agent-vision-phase9/issues/P07-portable-family-registry.md) | Portable family revision registry | P06 | F04,F06 |
+| [P08](../../.scratch/agent-vision-phase9/issues/P08-portable-single-execute.md) | Pinned single-device portable execution | P07 | F02,F03,F04,F05 |
+| [B01](../../.scratch/agent-vision-phase9/issues/B01-atomic-batch-admission.md) | Atomic parent admission and child reservations | P08 | F04,F05 |
+| [B02](../../.scratch/agent-vision-phase9/issues/B02-parallel-batch-reconcile.md) | Bounded parallel execution and reconciliation | B01 | F05 |
+| [V01](../../.scratch/agent-vision-phase9/issues/V01-compatibility-verification.md) | Compatibility and frozen store verification | B02 | F01-F07 |
+| [V02](../../.scratch/agent-vision-phase9/issues/V02-independent-live-qualification.md) | Independent two-device qualification | V01 | F01-F07 |
 
-Initial frontier MD-01 and MD-02. MD-02–07 expand–migrate–contract; MD-08 may follow MD-01/02. MD-09 joins both paths. MD-10–15 deliver trial, qualification, single execute, batch, compatibility and independent acceptance. Confirm granularity, dependency edges and design decisions before dispatch.
+C00 verifies/finalizes executable contract fixtures before code. C01-C11 expand/migrate/contract; P01-P08 portable; B01-B02 admission/execute; V01-V02 compatibility/live qualification. No implementation, external issues, or DAG started.
