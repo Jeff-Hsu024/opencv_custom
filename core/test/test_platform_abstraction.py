@@ -122,7 +122,7 @@ class TestAdbPlatform:
         platform = AdbPlatform(mock_adb, mock_opencv)
         mock_adb.get_snapshot.return_value = b'fake-bytes'
         
-        with patch('service.core.opencv.mat_utility.MatUtility.convert_bytes_to_mat') as mock_conv:
+        with patch('service.core.opencv.mat_utility.MatUtility.convert_bytes_to_bgr_mat') as mock_conv:
             mock_conv.return_value = np.zeros((10,10,3), np.uint8)
             res = platform.snapshot()
             assert res is not None

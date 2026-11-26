@@ -53,18 +53,35 @@ class MatUtility:
     @staticmethod
     def convert_bytes_to_mat(bytes_data: bytes) -> Optional[np.ndarray]:
         """
-        將位元組陣列轉換為 Mat 物件
+        將位元組陣列轉換為 Mat 物件（灰階，保留相容性）
         
         Args:
             bytes_data: 位元組陣列
             
         Returns:
-            Mat 物件，失敗時返回 None
+            灰階 Mat 物件，失敗時返回 None
         """
-        if bytes_data is None:
+        if not bytes_data:
             return None
         nparr = np.frombuffer(bytes_data, np.uint8)
         decoded = cv2.imdecode(nparr, cv2.IMREAD_GRAYSCALE)
+        return decoded
+
+    @staticmethod
+    def convert_bytes_to_bgr_mat(bytes_data: bytes) -> Optional[np.ndarray]:
+        """
+        將位元組陣列轉換為 BGR 彩色 Mat 物件
+
+        Args:
+            bytes_data: 位元組陣列
+
+        Returns:
+            BGR Mat 物件 (H, W, 3)，失敗時返回 None
+        """
+        if not bytes_data:
+            return None
+        nparr = np.frombuffer(bytes_data, np.uint8)
+        decoded = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         return decoded
     
     @staticmethod
