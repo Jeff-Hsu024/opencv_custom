@@ -48,6 +48,39 @@ class PlatformService(ABC):
         """獲取當前螢幕截圖 Mat (BGR 格式)"""
         pass
 
+    def snapshot_region(self, region: "OcrRegion") -> Optional[np.ndarray]:
+        """Capture once and crop to the given region via pure MatUtility."""
+        from ..core.opencv.mat_utility import MatUtility
+
+        src = self.snapshot()
+        if src is None:
+            return None
+        return MatUtility.crop(src, region)
+
+    def save_snapshot(
+        self,
+        path: Union[str, Path],
+        region: Optional["OcrRegion"] = None,
+    ) -> Optional[Path]:
+        """Capture once, optionally crop, and save via pure MatUtility."""
+        from ..core.opencv.mat_utility import MatUtility
+
+        src = self.snapshot()
+        if src is None:
+            return None
+        if region is not None:
+            src = MatUtility.crop(src, region)
+        return MatUtility.save(path, src)
+
+    def snapshot_regions(self, regions: List["OcrRegion"]) -> Optional[List[np.ndarray]]:
+        """Capture once and crop multiple regions via pure MatUtility."""
+        from ..core.opencv.mat_utility import MatUtility
+
+        src = self.snapshot()
+        if src is None:
+            return None
+        return [MatUtility.crop(src, region) for region in regions]
+
     @abstractmethod
     def click(self, x: int, y: int) -> bool:
         """模擬點擊座標"""
