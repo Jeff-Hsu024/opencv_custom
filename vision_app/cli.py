@@ -9,8 +9,14 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from vision_app.assets import (
+    AssetNotFoundError,
+    AssetRegistry,
+    InvalidAssetNameError,
+    MatchingService,
+)
 from vision_app.observation import ObservationService, OperationError, UsageError
-from vision_app.store import FrameStore
+from vision_app.store import FrameNotFoundError, FrameStore, InvalidFrameIdError
 
 
 class _CliParser(argparse.ArgumentParser):
@@ -64,6 +70,27 @@ def _build_parser() -> _CliParser:
     p_resize.add_argument("--scale", required=True, type=float, help="Positive scale factor")
     p_resize.add_argument("--out", default=None, help="Optional output PNG path")
     p_resize.add_argument("--json", action="store_true", help="Output JSON")
+
+    p_assets = sub.add_parser("assets", help="Manage named template assets")
+    assets_sub = p_assets.add_subparsers(dest="assets_command", required=True)
+
+    p_assets_reg = assets_sub.add_parser("register", help="Register a named asset from a frame")
+    p_assets_reg.add_argument("--name", required=True, help="Safe asset name")
+    p_assets_reg.add_argument("--frame", required=True, help="Source frame ID")
+    p_assets_reg.add_argument("--region", default=None, help="Optional crop region X1,Y1,X2,Y2")
+    p_assets_reg.add_argument("--json", action="store_true", help="Output JSON")
+
+    p_assets_list = assets_sub.add_parser("list", help="List registered named assets")
+    p_assets_list.add_argument("--json", action="store_true", help="Output JSON")
+
+    p_find = sub.add_parser("find", help="Find a named asset in a stored frame")
+    p_find.add_argument("--frame", required=True, help="Target frame ID")
+    p_find.add_argument("--target", required=True, help="Registered asset name")
+    p_find.add_argument("--all", dest="find_all", action="store_true", help="Return all matches")
+    p_find.add_argument("--threshold", type=float, default=0.8, help="Match threshold in [0.0, 1.0]")
+    p_find.add_argument("--max-results", type=int, default=10, help="Maximum matches for --all")
+    p_find.add_argument("--color-mode", default="gray", choices=["gray", "bgr"], help="Color mode")
+    p_find.add_argument("--json", action="store_true", help="Output JSON")
 
     return parser
 
@@ -137,6 +164,68 @@ def run_cli(
                     "device": data["frame"]["device_id"],
                     "result": data["frame"],
                     "artifact": data["artifact"],
+                }
+            )
+            return 0
+
+        if args.command == "assets":
+            store = obs.store
+            registry = AssetRegistry(store.store_dir)
+            if args.assets_command == "register":
+                command_name = "assets register"
+                region = _parse_region(args.region) if args.region else None
+                try:
+                    record = registry.register_from_frame(args.name, store, args.frame, region=region)
+                except (InvalidAssetNameError, InvalidFrameIdError, ValueError) as exc:
+                    raise UsageError(str(exc)) from exc
+                except FrameNotFoundError as exc:
+                    raise OperationError(code="FRAME_NOT_FOUND", message=str(exc), exit_code=3) from exc
+                _emit_json(
+                    {
+                        "ok": True,
+                        "command": "assets register",
+                        "device": record.device_id,
+                        "result": record.to_dict(),
+                    }
+                )
+                return 0
+            if args.assets_command == "list":
+                command_name = "assets list"
+                items = [a.to_dict() for a in registry.list_assets()]
+                _emit_json(
+                    {
+                        "ok": True,
+                        "command": "assets list",
+                        "device": None,
+                        "result": {"assets": items, "count": len(items)},
+                    }
+                )
+                return 0
+
+        if args.command == "find":
+            store = obs.store
+            matcher = MatchingService(store=store)
+            try:
+                result = matcher.find(
+                    args.frame,
+                    args.target,
+                    find_all=args.find_all,
+                    threshold=args.threshold,
+                    max_results=args.max_results,
+                    color_mode=args.color_mode,
+                )
+            except (InvalidAssetNameError, InvalidFrameIdError, ValueError) as exc:
+                raise UsageError(str(exc)) from exc
+            except FrameNotFoundError as exc:
+                raise OperationError(code="FRAME_NOT_FOUND", message=str(exc), exit_code=3) from exc
+            except AssetNotFoundError as exc:
+                raise OperationError(code="ASSET_NOT_FOUND", message=str(exc), exit_code=3) from exc
+            _emit_json(
+                {
+                    "ok": True,
+                    "command": "find",
+                    "device": result["device_id"],
+                    "result": result,
                 }
             )
             return 0
