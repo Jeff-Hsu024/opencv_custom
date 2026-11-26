@@ -3,7 +3,7 @@ OpenCV 服務 - 提供影像匹配與 OCR 功能
 """
 import cv2
 import numpy as np
-from typing import Optional, Union
+from typing import List, Optional, Tuple, Union
 from .mat_utility import MatUtility
 from .dto import MatchPattern, MatchResult, OcrRegion
 from .ocr.character_ocr import CharacterOCR
@@ -68,24 +68,14 @@ class OpenCvService:
             return cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
         return img
 
-    def match_template(
+    def _prepare_and_match(
         self,
         source: np.ndarray,
         target: np.ndarray,
-        threshold: float = 0.8,
-        color_mode: str = "gray",
-    ) -> Optional[MatchResult]:
-        """Match target template within source image and return a structured result.
-
-        Args:
-            source: Source image array.
-            target: Target template image array.
-            threshold: Minimum similarity score in [0.0, 1.0] (higher is better).
-            color_mode: Explicit color space for matching: 'gray' or 'bgr'.
-
-        Returns:
-            MatchResult if best score >= threshold, else None.
-        """
+        threshold: float,
+        color_mode: str,
+    ) -> Tuple[np.ndarray, int, int]:
+        """Validate inputs, convert color space, and compute TM_SQDIFF_NORMED score map."""
         if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not (0.0 <= float(threshold) <= 1.0):
             raise ValueError(f"threshold must be a float in [0.0, 1.0], got {threshold!r}")
         if color_mode not in ("gray", "bgr"):
@@ -109,6 +99,27 @@ class OpenCvService:
             tgt_mat = self._to_bgr(target, "target")
 
         result = cv2.matchTemplate(src_mat, tgt_mat, cv2.TM_SQDIFF_NORMED)
+        return result, int(tw), int(th)
+
+    def match_template(
+        self,
+        source: np.ndarray,
+        target: np.ndarray,
+        threshold: float = 0.8,
+        color_mode: str = "gray",
+    ) -> Optional[MatchResult]:
+        """Match target template within source image and return a structured result.
+
+        Args:
+            source: Source image array.
+            target: Target template image array.
+            threshold: Minimum similarity score in [0.0, 1.0] (higher is better).
+            color_mode: Explicit color space for matching: 'gray' or 'bgr'.
+
+        Returns:
+            MatchResult if best score >= threshold, else None.
+        """
+        result, tw, th = self._prepare_and_match(source, target, threshold, color_mode)
         min_val, _, min_loc, _ = cv2.minMaxLoc(result)
         score = max(0.0, min(1.0, 1.0 - float(min_val)))
 
@@ -116,9 +127,77 @@ class OpenCvService:
             return None
 
         x1, y1 = int(min_loc[0]), int(min_loc[1])
-        x2, y2 = x1 + int(tw), y1 + int(th)
+        x2, y2 = x1 + tw, y1 + th
         center = (x1 + tw / 2.0, y1 + th / 2.0)
         return MatchResult(score=score, bbox=(x1, y1, x2, y2), center=center)
+
+    def find_all(
+        self,
+        source: np.ndarray,
+        target: np.ndarray,
+        threshold: float = 0.8,
+        max_results: int = 10,
+        iou_threshold: float = 0.5,
+        color_mode: str = "gray",
+    ) -> List[MatchResult]:
+        """Find all template matches above threshold with deterministic NMS.
+
+        Args:
+            source: Source image array.
+            target: Target template image array.
+            threshold: Minimum similarity score in [0.0, 1.0] (higher is better).
+            max_results: Maximum number of matches to return (>= 1).
+            iou_threshold: IoU threshold in [0.0, 1.0] for non-maximum suppression.
+            color_mode: Explicit color space for matching: 'gray' or 'bgr'.
+
+        Returns:
+            List of MatchResult ordered by (-score, y1, x1), bounded by max_results.
+        """
+        if isinstance(max_results, bool) or not isinstance(max_results, int) or max_results < 1:
+            raise ValueError(f"max_results must be an integer >= 1, got {max_results!r}")
+        if isinstance(iou_threshold, bool) or not isinstance(iou_threshold, (int, float)) or not (0.0 <= float(iou_threshold) <= 1.0):
+            raise ValueError(f"iou_threshold must be a float in [0.0, 1.0], got {iou_threshold!r}")
+
+        result, tw, th = self._prepare_and_match(source, target, threshold, color_mode)
+        score_map = np.clip(1.0 - result, 0.0, 1.0)
+        ys, xs = np.where(score_map >= float(threshold))
+        if len(xs) == 0:
+            return []
+
+        candidates = [
+            (float(score_map[y, x]), int(x), int(y), int(x) + tw, int(y) + th)
+            for y, x in zip(ys, xs)
+        ]
+        # Deterministic ordering: highest score first, then top-to-bottom, left-to-right.
+        candidates.sort(key=lambda c: (-c[0], c[2], c[1]))
+
+        kept: List[MatchResult] = []
+        iou_thresh = float(iou_threshold)
+        area_box = tw * th
+        for score, x1, y1, x2, y2 in candidates:
+            if len(kept) >= max_results:
+                break
+            suppressed = False
+            for prev in kept:
+                px1, py1, px2, py2 = prev.bbox
+                inter_w = max(0, min(x2, px2) - max(x1, px1))
+                inter_h = max(0, min(y2, py2) - max(y1, py1))
+                inter_area = inter_w * inter_h
+                if inter_area > 0:
+                    union_area = 2 * area_box - inter_area
+                    iou = inter_area / union_area if union_area > 0 else 0.0
+                    if iou > iou_thresh:
+                        suppressed = True
+                        break
+            if not suppressed:
+                kept.append(
+                    MatchResult(
+                        score=score,
+                        bbox=(x1, y1, x2, y2),
+                        center=(x1 + tw / 2.0, y1 + th / 2.0),
+                    )
+                )
+        return kept
     
     def ocr_character(self, 
                      ocr_templates_path: str, 
