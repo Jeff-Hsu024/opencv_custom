@@ -55,12 +55,12 @@ class AdbPlatform(PlatformService):
     # --- 平台原子操作實作 ---
 
     def snapshot(self) -> Optional[np.ndarray]:
-        """獲取截圖 Mat"""
+        """獲取截圖 Mat (BGR 格式)"""
         did = self._resolve_device()
         bytes_data = self.adb.get_snapshot(did)
         if bytes_data is None:
             return None
-        return MatUtility.convert_bytes_to_mat(bytes_data)
+        return MatUtility.convert_bytes_to_bgr_mat(bytes_data)
 
     def click(self, x: int, y: int) -> bool:
         """模擬點擊"""
