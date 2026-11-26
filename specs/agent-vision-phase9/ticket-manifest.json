@@ -1,0 +1,187 @@
+{
+  "status": "PROPOSED",
+  "spec_sha256": "8d662c69b50ba86c61c25007561ee67f95cf87280f11a6d1b3a171d887de06de",
+  "tickets": [
+    {
+      "id": "MD-01",
+      "file": ".scratch/agent-vision-phase9/issues/01-explicit-device-discovery.md",
+      "title": "Explicit Android discovery and target validation",
+      "blocked_by": [],
+      "use_cases": "UC01,UC08,UC09",
+      "requirements": "R01,R09",
+      "acceptance": "A01",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-02",
+      "file": ".scratch/agent-vision-phase9/issues/02-atomic-frame-index.md",
+      "title": "Shared Store metadata and protected frame transactions",
+      "blocked_by": [],
+      "use_cases": "UC13,UC14",
+      "requirements": "R07,R09",
+      "acceptance": "A06,A09",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-03",
+      "file": ".scratch/agent-vision-phase9/issues/03-expand-device-coordinator.md",
+      "title": "Expand cross-process execution coordinator",
+      "blocked_by": [
+        "MD-02"
+      ],
+      "use_cases": "UC08,UC11,UC13",
+      "requirements": "R06,R07",
+      "acceptance": "A06,A08",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-04",
+      "file": ".scratch/agent-vision-phase9/issues/04-migrate-observation-recorder.md",
+      "title": "Migrate primitive, Recorder and Transition entrypoints",
+      "blocked_by": [
+        "MD-01",
+        "MD-03"
+      ],
+      "use_cases": "UC01,UC08,UC09,UC11,UC13",
+      "requirements": "R01,R06,R07,R09",
+      "acceptance": "A01,A06,A08",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-05",
+      "file": ".scratch/agent-vision-phase9/issues/05-migrate-runtime-recovery.md",
+      "title": "Migrate legacy Runtime and Recovery",
+      "blocked_by": [
+        "MD-04"
+      ],
+      "use_cases": "UC08,UC09,UC11,UC14",
+      "requirements": "R06,R07,R09",
+      "acceptance": "A06,A08,A09",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-06",
+      "file": ".scratch/agent-vision-phase9/issues/06-migrate-registry-orchestrator.md",
+      "title": "Migrate registry and legacy task admission",
+      "blocked_by": [
+        "MD-05"
+      ],
+      "use_cases": "UC08,UC11,UC12,UC13,UC14",
+      "requirements": "R05,R06,R07,R09",
+      "acceptance": "A05,A06,A08,A09",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-07",
+      "file": ".scratch/agent-vision-phase9/issues/07-contract-parallel-execution.md",
+      "title": "Contract: enable per-device concurrency",
+      "blocked_by": [
+        "MD-06"
+      ],
+      "use_cases": "UC07,UC08,UC11,UC13,UC14",
+      "requirements": "R07,R09",
+      "acceptance": "A06,A08,A09",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-08",
+      "file": ".scratch/agent-vision-phase9/issues/08-portable-publication.md",
+      "title": "Publish portable revision from proven learning",
+      "blocked_by": [
+        "MD-01",
+        "MD-02"
+      ],
+      "use_cases": "UC02,UC03,UC14",
+      "requirements": "R02,R09",
+      "acceptance": "A02,A09",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-09",
+      "file": ".scratch/agent-vision-phase9/issues/09-portable-preflight.md",
+      "title": "Read-only preflight on compatible device B",
+      "blocked_by": [
+        "MD-07",
+        "MD-08"
+      ],
+      "use_cases": "UC04,UC09",
+      "requirements": "R03,R07,R09",
+      "acceptance": "A03",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-10",
+      "file": ".scratch/agent-vision-phase9/issues/10-portable-trial-runtime.md",
+      "title": "Explicit qualification trial on target device",
+      "blocked_by": [
+        "MD-09"
+      ],
+      "use_cases": "UC05,UC09,UC11",
+      "requirements": "R04,R06,R07,R09",
+      "acceptance": "A04,A08",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-11",
+      "file": ".scratch/agent-vision-phase9/issues/11-qualification-enrollment.md",
+      "title": "Commit and revoke device qualifications",
+      "blocked_by": [
+        "MD-10"
+      ],
+      "use_cases": "UC05,UC09,UC12",
+      "requirements": "R04,R05,R09",
+      "acceptance": "A04,A05",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-12",
+      "file": ".scratch/agent-vision-phase9/issues/12-portable-family-single-execute.md",
+      "title": "Activate portable revision and run on qualified serial",
+      "blocked_by": [
+        "MD-11"
+      ],
+      "use_cases": "UC06,UC09,UC11,UC12,UC14",
+      "requirements": "R05,R06,R09",
+      "acceptance": "A05,A08,A09",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-13",
+      "file": ".scratch/agent-vision-phase9/issues/13-bounded-batch.md",
+      "title": "Bounded parallel batch and durable child receipts",
+      "blocked_by": [
+        "MD-12"
+      ],
+      "use_cases": "UC07,UC10,UC11,UC13",
+      "requirements": "R07,R08,R09",
+      "acceptance": "A06,A07,A08",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-14",
+      "file": ".scratch/agent-vision-phase9/issues/14-compatibility-agent-contract.md",
+      "title": "Compatibility and agent-facing release contract",
+      "blocked_by": [
+        "MD-13"
+      ],
+      "use_cases": "UC01–UC14",
+      "requirements": "R01–R09",
+      "acceptance": "A09",
+      "status": "PROPOSED"
+    },
+    {
+      "id": "MD-15",
+      "file": ".scratch/agent-vision-phase9/issues/15-independent-two-device-qualification.md",
+      "title": "Independent two-device E2E and raw audit",
+      "blocked_by": [
+        "MD-14"
+      ],
+      "use_cases": "UC01–UC14",
+      "requirements": "R01–R09",
+      "acceptance": "A01–A10",
+      "status": "PROPOSED"
+    }
+  ],
+  "use_cases_sha256": "22eae285bacffa3609aabb68b6aced3b38a45ff4c8f67c0cc341a559b27a3e7c",
+  "hash_encoding": "UTF-8, LF-normalized, single terminal newline"
+}
