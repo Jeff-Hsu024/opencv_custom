@@ -1,0 +1,3841 @@
+{
+  "tool_count": 61,
+  "tools": [
+    {
+      "name": "vision_devices",
+      "description": "List available ADB devices and the local desktop target.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_capabilities",
+      "description": "Show capabilities for a target device ('desktop' or ADB serial).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string",
+            "default": "adb"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_snapshot",
+      "description": "Capture a screenshot from a device and return PNG image content + metadata.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string",
+            "description": "Device serial or 'desktop'"
+          },
+          "region": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "Half-open region [x1, y1, x2, y2]"
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Explicit active recording session"
+          },
+          "return_image": {
+            "type": "boolean",
+            "default": true,
+            "description": "False returns metadata/artifact path only."
+          }
+        },
+        "required": [
+          "device"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_crop",
+      "description": "Crop an existing frame and return PNG image content + metadata.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "frame_id": {
+            "type": "string"
+          },
+          "region": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "Half-open region [x1, y1, x2, y2]"
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Explicit active recording session"
+          },
+          "return_image": {
+            "type": "boolean",
+            "default": true,
+            "description": "False returns metadata/artifact path only."
+          }
+        },
+        "required": [
+          "frame_id",
+          "region"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_resize",
+      "description": "Resize an existing frame by scale and return PNG image content + metadata.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "frame_id": {
+            "type": "string"
+          },
+          "scale": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Explicit active recording session"
+          },
+          "return_image": {
+            "type": "boolean",
+            "default": true,
+            "description": "False returns metadata/artifact path only."
+          }
+        },
+        "required": [
+          "frame_id",
+          "scale"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_assets_register",
+      "description": "Register a named template asset from a frame (and optional region).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "frame_id": {
+            "type": "string"
+          },
+          "region": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "Half-open region [x1, y1, x2, y2]"
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Explicit active recording session"
+          }
+        },
+        "required": [
+          "name",
+          "frame_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_assets_list",
+      "description": "List registered named assets.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_find",
+      "description": "Find a registered asset in a frame and return scoped references.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "frame_id": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "all": {
+            "type": "boolean",
+            "default": false
+          },
+          "threshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0.8
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Explicit active recording session"
+          },
+          "max_results": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 10
+          },
+          "color_mode": {
+            "type": "string",
+            "enum": [
+              "gray",
+              "bgr"
+            ],
+            "default": "gray"
+          }
+        },
+        "required": [
+          "frame_id",
+          "target"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_click",
+      "description": "Click a frame-local point or a scoped reference on a device.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string"
+          },
+          "frame_id": {
+            "type": "string"
+          },
+          "point": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "2D integer coordinates [x, y]"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "max_age_seconds": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Explicit active recording session"
+          }
+        },
+        "required": [
+          "device"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_swipe",
+      "description": "Swipe between two points on a device.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string"
+          },
+          "from_point": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "2D integer coordinates [x, y]"
+          },
+          "to_point": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "2D integer coordinates [x, y]"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 300
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Explicit active recording session"
+          }
+        },
+        "required": [
+          "device",
+          "from_point",
+          "to_point"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_type",
+      "description": "Type text on a device.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Explicit active recording session"
+          }
+        },
+        "required": [
+          "device",
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_key",
+      "description": "Send a key event on a device.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Explicit active recording session"
+          }
+        },
+        "required": [
+          "device",
+          "key"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_wait",
+      "description": "Wait for screen change, stability, or a target asset.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "changed",
+              "stable",
+              "image"
+            ]
+          },
+          "baseline_frame_id": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "region": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 4,
+            "maxItems": 4,
+            "description": "Half-open region [x1, y1, x2, y2]"
+          },
+          "timeout": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "default": 10.0
+          },
+          "poll_interval": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "default": 0.2
+          },
+          "threshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0.8
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Explicit active recording session"
+          },
+          "max_captures": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 100
+          },
+          "pixel_tolerance": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255,
+            "default": 0
+          },
+          "min_changed_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0.01
+          },
+          "max_changed_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "default": 0
+          },
+          "stable_duration": {
+            "type": "number",
+            "minimum": 0,
+            "default": 1
+          },
+          "color_mode": {
+            "type": "string",
+            "enum": [
+              "gray",
+              "bgr"
+            ],
+            "default": "gray"
+          }
+        },
+        "required": [
+          "device",
+          "mode"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_start",
+      "description": "Start a persistent session scoped to an explicit device and goal.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "goal": {
+            "type": "string"
+          },
+          "device": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "goal",
+          "device"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_list",
+      "description": "Recorder list",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_status",
+      "description": "Recorder status",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_pause",
+      "description": "Recorder pause",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_resume",
+      "description": "Recorder resume",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_stop",
+      "description": "Recorder stop",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_inspect",
+      "description": "Recorder inspect",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_summary",
+      "description": "Recorder summary",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_events",
+      "description": "Page events in ascending sequence; filter by operation/status. Use event for details.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "operation": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failed",
+              "timeout",
+              "pending"
+            ]
+          },
+          "response_mode": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "detail",
+              "full"
+            ],
+            "default": "full"
+          },
+          "detail_id": {
+            "type": "string",
+            "description": "Specific step/event/child run ID for detail where supported."
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_event",
+      "description": "Recorder event",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "response_mode": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "detail",
+              "full"
+            ],
+            "default": "full"
+          },
+          "detail_id": {
+            "type": "string",
+            "description": "Specific step/event/child run ID for detail where supported."
+          }
+        },
+        "required": [
+          "session_id",
+          "event_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_annotate",
+      "description": "Attach explicit semantic evidence to an event. Never include secrets.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "annotation": {
+            "type": "object",
+            "properties": {
+              "completed_steps": {
+                "description": "Prefer an array of concise strings."
+              },
+              "expected_postcondition": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "failure_reason": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "insight": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "next_step": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "observation": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "purpose": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "state": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "unresolved_issues": {
+                "description": "Prefer an array of concise strings."
+              },
+              "verification": {
+                "type": "string",
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "UNKNOWN"
+                ],
+                "default": "UNKNOWN"
+              }
+            },
+            "additionalProperties": false,
+            "minProperties": 1
+          }
+        },
+        "required": [
+          "session_id",
+          "event_id",
+          "annotation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_checkpoint",
+      "description": "Attach a progress checkpoint with state, completed_steps, unresolved_issues, next_step and verification.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "annotation": {
+            "type": "object",
+            "properties": {
+              "completed_steps": {
+                "description": "Prefer an array of concise strings."
+              },
+              "expected_postcondition": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "failure_reason": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "insight": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "next_step": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "observation": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "purpose": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "state": {
+                "description": "Semantic annotation; prefer text."
+              },
+              "unresolved_issues": {
+                "description": "Prefer an array of concise strings."
+              },
+              "verification": {
+                "type": "string",
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "UNKNOWN"
+                ],
+                "default": "UNKNOWN"
+              }
+            },
+            "additionalProperties": false,
+            "minProperties": 1
+          }
+        },
+        "required": [
+          "session_id",
+          "event_id",
+          "annotation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_annotations",
+      "description": "Recorder annotations",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "annotation",
+              "checkpoint"
+            ]
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_history",
+      "description": "Page frame, asset revision and reference evidence by event sequence.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_asset_evidence",
+      "description": "Page distinct retained asset revisions by first occurrence, with provenance.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_resume_context",
+      "description": "Bounded evidence-linked context, recent events and annotations, latest checkpoint.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "response_mode": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "detail",
+              "full"
+            ],
+            "default": "full"
+          },
+          "detail_id": {
+            "type": "string",
+            "description": "Specific step/event/child run ID for detail where supported."
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_record_latest_checkpoint",
+      "description": "Recorder latest_checkpoint",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_workflow_candidates",
+      "description": "List actual action receipts for review, including failed/unsupported actions.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_workflow_build",
+      "description": "Compile an explicitly reviewed click/state plan from a stopped Recorder session; offline only.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "session_id": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "object"
+          },
+          "response_mode": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "detail",
+              "full"
+            ],
+            "default": "full"
+          },
+          "detail_id": {
+            "type": "string",
+            "description": "Specific step/event/child run ID for detail where supported."
+          }
+        },
+        "required": [
+          "session_id",
+          "plan"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_workflow_inspect",
+      "description": "Inspect immutable workflow definition and bundle path.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {
+            "type": "string"
+          },
+          "response_mode": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "detail",
+              "full"
+            ],
+            "default": "full"
+          },
+          "detail_id": {
+            "type": "string",
+            "description": "Specific step/event/child run ID for detail where supported."
+          }
+        },
+        "required": [
+          "workflow_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_workflow_validate",
+      "description": "Revalidate source evidence and template integrity offline.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {
+            "type": "string"
+          },
+          "response_mode": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "detail",
+              "full"
+            ],
+            "default": "full"
+          },
+          "detail_id": {
+            "type": "string",
+            "description": "Specific step/event/child run ID for detail where supported."
+          }
+        },
+        "required": [
+          "workflow_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_workflow_list",
+      "description": "List workflow definitions with bounded cursor pagination.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_runtime_probe_profile",
+      "description": "Read-only current Android profile; package must be focused and resumed; UI mode is lowercase hexadecimal.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string"
+          },
+          "package": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "device",
+          "package"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_runtime_qualify",
+      "description": "Read-only Android preflight; bind explicit profile and validate initial state/target.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow_id": {
+            "type": "string"
+          },
+          "device": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "object",
+            "properties": {
+              "package": {
+                "type": "string"
+              },
+              "version_code": {
+                "type": "integer"
+              },
+              "rotation": {
+                "type": "integer"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "ui_mode": {
+                "type": "string",
+                "pattern": "^0x[0-9a-f]+$",
+                "examples": [
+                  "0x21"
+                ]
+              }
+            },
+            "required": [
+              "package",
+              "version_code",
+              "rotation",
+              "locale",
+              "ui_mode"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "workflow_id",
+          "device",
+          "profile"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_runtime_run",
+      "description": "Execute one deterministic workflow run. Use unique run_<32 lowercase hex>; same ID never replays.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "binding_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "binding_id",
+          "run_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_runtime_inspect",
+      "description": "Inspect durable run journal, frames and failure handoff.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "run_id": {
+            "type": "string"
+          },
+          "response_mode": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "detail",
+              "full"
+            ],
+            "default": "full"
+          },
+          "detail_id": {
+            "type": "string",
+            "description": "Specific step/event/child run ID for detail where supported."
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_runtime_list",
+      "description": "List runtime receipts.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_recovery_open",
+      "description": "Open an idempotent recovery case and linked exploration session from failed run.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_recovery_inspect",
+      "description": "Bounded failure handoff and proposal list.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "response_mode": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "detail",
+              "full"
+            ],
+            "default": "full"
+          },
+          "detail_id": {
+            "type": "string",
+            "description": "Specific step/event/child run ID for detail where supported."
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_recovery_propose",
+      "description": "Compile explicit recovery route or full replacement; offline only, no auto retry or promotion.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "recovery_route",
+              "replacement"
+            ]
+          },
+          "destination_state": {
+            "type": "string"
+          },
+          "reconciliation": {
+            "type": "object",
+            "properties": {
+              "anchor_event_id": {
+                "type": "string"
+              },
+              "annotation_id": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "not_attempted",
+                  "effect_observed",
+                  "effect_not_observed",
+                  "unknown"
+                ]
+              },
+              "note": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "anchor_event_id",
+              "annotation_id",
+              "outcome",
+              "note"
+            ],
+            "additionalProperties": false
+          },
+          "plan": {
+            "type": "object"
+          },
+          "response_mode": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "detail",
+              "full"
+            ],
+            "default": "full"
+          },
+          "detail_id": {
+            "type": "string",
+            "description": "Specific step/event/child run ID for detail where supported."
+          }
+        },
+        "required": [
+          "case_id",
+          "kind",
+          "destination_state",
+          "reconciliation",
+          "plan"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_recovery_proposal",
+      "description": "Inspect immutable lineage and live qualifications.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "proposal_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "proposal_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_recovery_verify",
+      "description": "Link later completed child runtime result.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "proposal_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "run_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_recovery_list",
+      "description": "List recovery cases with cursor pagination.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_lifecycle_register",
+      "description": "Workflow registry register",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "family_id": {
+            "type": "string"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "parent_version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "family_id",
+          "expected_generation",
+          "reason",
+          "workflow_id",
+          "run_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_lifecycle_activate",
+      "description": "Workflow registry activate",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "family_id": {
+            "type": "string"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "family_id",
+          "expected_generation",
+          "reason",
+          "version"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_lifecycle_disable",
+      "description": "Workflow registry disable",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "family_id": {
+            "type": "string"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "family_id",
+          "expected_generation",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_lifecycle_rollback",
+      "description": "Workflow registry rollback",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "family_id": {
+            "type": "string"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "family_id",
+          "expected_generation",
+          "reason",
+          "version"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_lifecycle_link",
+      "description": "Workflow registry link",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "family_id": {
+            "type": "string"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          },
+          "parent_version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "proposal_id": {
+            "type": "string"
+          },
+          "qualification_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "family_id",
+          "expected_generation",
+          "reason",
+          "parent_version",
+          "proposal_id",
+          "qualification_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_lifecycle_route_status",
+      "description": "Workflow registry route_status",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "family_id": {
+            "type": "string"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          },
+          "route_id": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "family_id",
+          "expected_generation",
+          "reason",
+          "route_id",
+          "enabled"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_lifecycle_inspect",
+      "description": "Workflow registry inspect",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "family_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "parent_version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "family_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_lifecycle_history",
+      "description": "Workflow registry history",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "family_id": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "family_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_lifecycle_list",
+      "description": "Workflow registry list",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_lifecycle_select",
+      "description": "Select a qualified recovery route using fresh pixels; no execution.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "family_id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "family_id",
+          "run_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_task_execute",
+      "description": "Execute active workflow; optional single qualified recovery and safe full restart only before any primary action.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "family_id": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "auto_recover": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "family_id",
+          "task_id",
+          "expected_generation"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_task_inspect",
+      "description": "Inspect persistent task outcome and child run references.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "response_mode": {
+            "type": "string",
+            "enum": [
+              "summary",
+              "detail",
+              "full"
+            ],
+            "default": "full"
+          },
+          "detail_id": {
+            "type": "string",
+            "description": "Specific step/event/child run ID for detail where supported."
+          }
+        },
+        "required": [
+          "task_id"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_task_list",
+      "description": "List task receipts.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "after": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_transition",
+      "description": "Record one fresh unique click and observed post-frame; annotate semantic result separately.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string"
+          },
+          "session_id": {
+            "type": "string"
+          },
+          "transition_id": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "postcondition": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "enum": [
+                  "changed",
+                  "image"
+                ],
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 60
+              },
+              "region": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "minItems": 4,
+                "maxItems": 4
+              },
+              "target": {
+                "type": "string"
+              },
+              "threshold": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "settle_seconds": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 2,
+                "default": 0
+              },
+              "min_changed_ratio": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "default": 0.01
+              }
+            },
+            "required": [
+              "mode",
+              "timeout"
+            ],
+            "additionalProperties": false
+          },
+          "threshold": {
+            "type": "number",
+            "minimum": 0.8,
+            "maximum": 1,
+            "default": 0.98
+          },
+          "max_ref_age_seconds": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 60,
+            "default": 15
+          },
+          "return_image": {
+            "type": "boolean",
+            "default": true
+          },
+          "pre_state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "device",
+          "session_id",
+          "transition_id",
+          "target",
+          "postcondition"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "vision_transition_inspect",
+      "description": "Read persisted transition receipt without action.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "transition_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "transition_id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "cli_parser": [
+    {
+      "dest": "help",
+      "options": [
+        "-h",
+        "--help"
+      ],
+      "required": false,
+      "default": "==SUPPRESS==",
+      "nargs": 0,
+      "type": null
+    },
+    {
+      "dest": "store_dir",
+      "options": [
+        "--store-dir"
+      ],
+      "required": false,
+      "default": "<store>",
+      "nargs": null,
+      "type": null
+    },
+    {
+      "dest": "session",
+      "options": [
+        "--session"
+      ],
+      "required": false,
+      "default": "<session>",
+      "nargs": null,
+      "type": null
+    },
+    {
+      "dest": "command",
+      "options": [],
+      "required": true,
+      "default": null,
+      "nargs": "A...",
+      "type": null,
+      "commands": {
+        "transition": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "transition_action",
+            "options": [],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "execute",
+              "inspect"
+            ]
+          },
+          {
+            "dest": "transition_id",
+            "options": [
+              "--transition-id"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "device",
+            "options": [
+              "--device"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "target",
+            "options": [
+              "--target"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "postcondition",
+            "options": [
+              "--postcondition"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "threshold",
+            "options": [
+              "--threshold"
+            ],
+            "required": false,
+            "default": 0.98,
+            "nargs": null,
+            "type": "float"
+          },
+          {
+            "dest": "max_ref_age_seconds",
+            "options": [
+              "--max-age"
+            ],
+            "required": false,
+            "default": 15,
+            "nargs": null,
+            "type": "float"
+          },
+          {
+            "dest": "pre_state",
+            "options": [
+              "--pre-state"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "return_image",
+            "options": [
+              "--return-image"
+            ],
+            "required": false,
+            "default": "true",
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "true",
+              "false"
+            ]
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "task": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "task_action",
+            "options": [],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "execute",
+              "inspect",
+              "list"
+            ]
+          },
+          {
+            "dest": "family_id",
+            "options": [
+              "--family"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "task_id",
+            "options": [
+              "--task-id"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "expected_generation",
+            "options": [
+              "--generation"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "auto_recover",
+            "options": [
+              "--auto-recover"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "limit",
+            "options": [
+              "--limit"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "after",
+            "options": [
+              "--after"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "response_mode",
+            "options": [
+              "--response-mode"
+            ],
+            "required": false,
+            "default": "full",
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "summary",
+              "detail",
+              "full"
+            ]
+          },
+          {
+            "dest": "detail_id",
+            "options": [
+              "--detail-id"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "lifecycle": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "lifecycle_action",
+            "options": [],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "register",
+              "activate",
+              "disable",
+              "rollback",
+              "link",
+              "route-status",
+              "inspect",
+              "history",
+              "list",
+              "select"
+            ]
+          },
+          {
+            "dest": "family_id",
+            "options": [
+              "--family"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "workflow_id",
+            "options": [
+              "--workflow"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "run_id",
+            "options": [
+              "--run-id"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "version",
+            "options": [
+              "--version"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "parent_version",
+            "options": [
+              "--parent-version"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "expected_generation",
+            "options": [
+              "--generation"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "reason",
+            "options": [
+              "--reason"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "proposal_id",
+            "options": [
+              "--proposal"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "qualification_id",
+            "options": [
+              "--qualification"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "route_id",
+            "options": [
+              "--route"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "enabled",
+            "options": [
+              "--enabled"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "true",
+              "false"
+            ]
+          },
+          {
+            "dest": "limit",
+            "options": [
+              "--limit"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "after",
+            "options": [
+              "--after"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "recovery": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "recovery_action",
+            "options": [],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "open",
+              "inspect",
+              "propose",
+              "proposal",
+              "verify",
+              "list"
+            ]
+          },
+          {
+            "dest": "run_id",
+            "options": [
+              "--run-id"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "case_id",
+            "options": [
+              "--case"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "proposal_id",
+            "options": [
+              "--proposal"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "kind",
+            "options": [
+              "--kind"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "recovery_route",
+              "replacement"
+            ]
+          },
+          {
+            "dest": "destination_state",
+            "options": [
+              "--destination-state"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "reconciliation",
+            "options": [
+              "--reconciliation"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "plan",
+            "options": [
+              "--plan"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "limit",
+            "options": [
+              "--limit"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "after",
+            "options": [
+              "--after"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "response_mode",
+            "options": [
+              "--response-mode"
+            ],
+            "required": false,
+            "default": "full",
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "summary",
+              "detail",
+              "full"
+            ]
+          },
+          {
+            "dest": "detail_id",
+            "options": [
+              "--detail-id"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "runtime": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "runtime_action",
+            "options": [],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "qualify",
+              "run",
+              "inspect",
+              "list",
+              "probe-profile"
+            ]
+          },
+          {
+            "dest": "workflow_id",
+            "options": [
+              "--workflow"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "device",
+            "options": [
+              "--device"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "package",
+            "options": [
+              "--package"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "profile",
+            "options": [
+              "--profile"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "binding_id",
+            "options": [
+              "--binding"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "run_id",
+            "options": [
+              "--run-id"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "limit",
+            "options": [
+              "--limit"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "after",
+            "options": [
+              "--after"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "response_mode",
+            "options": [
+              "--response-mode"
+            ],
+            "required": false,
+            "default": "full",
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "summary",
+              "detail",
+              "full"
+            ]
+          },
+          {
+            "dest": "detail_id",
+            "options": [
+              "--detail-id"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "workflow": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "workflow_action",
+            "options": [],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "candidates",
+              "build",
+              "inspect",
+              "validate",
+              "list"
+            ]
+          },
+          {
+            "dest": "workflow_session",
+            "options": [
+              "--session"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "workflow_id",
+            "options": [
+              "--workflow"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "plan",
+            "options": [
+              "--plan"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "limit",
+            "options": [
+              "--limit"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "after",
+            "options": [
+              "--after"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "response_mode",
+            "options": [
+              "--response-mode"
+            ],
+            "required": false,
+            "default": "full",
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "summary",
+              "detail",
+              "full"
+            ]
+          },
+          {
+            "dest": "detail_id",
+            "options": [
+              "--detail-id"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "record": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "record_action",
+            "options": [],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "start",
+              "status",
+              "pause",
+              "resume",
+              "stop",
+              "list",
+              "inspect",
+              "summary",
+              "events",
+              "event",
+              "annotate",
+              "checkpoint",
+              "annotations",
+              "history",
+              "asset-evidence",
+              "resume-context",
+              "latest-checkpoint"
+            ]
+          },
+          {
+            "dest": "record_session",
+            "options": [
+              "--session"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "name",
+            "options": [
+              "--name"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "goal",
+            "options": [
+              "--goal"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "device",
+            "options": [
+              "--device"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "event_id",
+            "options": [
+              "--event"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "annotation",
+            "options": [
+              "--annotation"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "limit",
+            "options": [
+              "--limit"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "after",
+            "options": [
+              "--after"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "operation",
+            "options": [
+              "--operation"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "status",
+            "options": [
+              "--status"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "kind",
+            "options": [
+              "--kind"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "response_mode",
+            "options": [
+              "--response-mode"
+            ],
+            "required": false,
+            "default": "full",
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "summary",
+              "detail",
+              "full"
+            ]
+          },
+          {
+            "dest": "detail_id",
+            "options": [
+              "--detail-id"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "devices": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "capabilities": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "device",
+            "options": [
+              "--device"
+            ],
+            "required": false,
+            "default": "adb",
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "snapshot": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "device",
+            "options": [
+              "--device"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "region",
+            "options": [
+              "--region"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "out",
+            "options": [
+              "--out"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "crop": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "frame",
+            "options": [
+              "--frame"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "region",
+            "options": [
+              "--region"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "out",
+            "options": [
+              "--out"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "resize": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "frame",
+            "options": [
+              "--frame"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "scale",
+            "options": [
+              "--scale"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": "float"
+          },
+          {
+            "dest": "out",
+            "options": [
+              "--out"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "assets": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "assets_command",
+            "options": [],
+            "required": true,
+            "default": null,
+            "nargs": "A...",
+            "type": null,
+            "commands": {
+              "register": [
+                {
+                  "dest": "help",
+                  "options": [
+                    "-h",
+                    "--help"
+                  ],
+                  "required": false,
+                  "default": "==SUPPRESS==",
+                  "nargs": 0,
+                  "type": null
+                },
+                {
+                  "dest": "name",
+                  "options": [
+                    "--name"
+                  ],
+                  "required": true,
+                  "default": null,
+                  "nargs": null,
+                  "type": null
+                },
+                {
+                  "dest": "frame",
+                  "options": [
+                    "--frame"
+                  ],
+                  "required": true,
+                  "default": null,
+                  "nargs": null,
+                  "type": null
+                },
+                {
+                  "dest": "region",
+                  "options": [
+                    "--region"
+                  ],
+                  "required": false,
+                  "default": null,
+                  "nargs": null,
+                  "type": null
+                },
+                {
+                  "dest": "json",
+                  "options": [
+                    "--json"
+                  ],
+                  "required": false,
+                  "default": false,
+                  "nargs": 0,
+                  "type": null
+                }
+              ],
+              "list": [
+                {
+                  "dest": "help",
+                  "options": [
+                    "-h",
+                    "--help"
+                  ],
+                  "required": false,
+                  "default": "==SUPPRESS==",
+                  "nargs": 0,
+                  "type": null
+                },
+                {
+                  "dest": "json",
+                  "options": [
+                    "--json"
+                  ],
+                  "required": false,
+                  "default": false,
+                  "nargs": 0,
+                  "type": null
+                }
+              ]
+            }
+          }
+        ],
+        "find": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "frame",
+            "options": [
+              "--frame"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "target",
+            "options": [
+              "--target"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "find_all",
+            "options": [
+              "--all"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "threshold",
+            "options": [
+              "--threshold"
+            ],
+            "required": false,
+            "default": 0.8,
+            "nargs": null,
+            "type": "float"
+          },
+          {
+            "dest": "max_results",
+            "options": [
+              "--max-results"
+            ],
+            "required": false,
+            "default": 10,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "color_mode",
+            "options": [
+              "--color-mode"
+            ],
+            "required": false,
+            "default": "gray",
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "gray",
+              "bgr"
+            ]
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "click": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "device",
+            "options": [
+              "--device"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "frame",
+            "options": [
+              "--frame"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "point",
+            "options": [
+              "--point"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "ref",
+            "options": [
+              "--ref"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "max_age",
+            "options": [
+              "--max-age"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": "float"
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "swipe": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "device",
+            "options": [
+              "--device"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "from_point",
+            "options": [
+              "--from"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "to_point",
+            "options": [
+              "--to"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "duration",
+            "options": [
+              "--duration"
+            ],
+            "required": false,
+            "default": 500,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "frame",
+            "options": [
+              "--frame"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "type": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "device",
+            "options": [
+              "--device"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "text",
+            "options": [
+              "--text"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "key": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "device",
+            "options": [
+              "--device"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "key",
+            "options": [
+              "--key"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ],
+        "wait": [
+          {
+            "dest": "help",
+            "options": [
+              "-h",
+              "--help"
+            ],
+            "required": false,
+            "default": "==SUPPRESS==",
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "device",
+            "options": [
+              "--device"
+            ],
+            "required": true,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "changed",
+            "options": [
+              "--changed"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "stable",
+            "options": [
+              "--stable"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          },
+          {
+            "dest": "image_target",
+            "options": [
+              "--image"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "baseline",
+            "options": [
+              "--baseline"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "region",
+            "options": [
+              "--region"
+            ],
+            "required": false,
+            "default": null,
+            "nargs": null,
+            "type": null
+          },
+          {
+            "dest": "timeout",
+            "options": [
+              "--timeout"
+            ],
+            "required": false,
+            "default": 10.0,
+            "nargs": null,
+            "type": "float"
+          },
+          {
+            "dest": "interval",
+            "options": [
+              "--interval"
+            ],
+            "required": false,
+            "default": 0.5,
+            "nargs": null,
+            "type": "float"
+          },
+          {
+            "dest": "stable_duration",
+            "options": [
+              "--stable-duration"
+            ],
+            "required": false,
+            "default": 1.0,
+            "nargs": null,
+            "type": "float"
+          },
+          {
+            "dest": "max_captures",
+            "options": [
+              "--max-captures"
+            ],
+            "required": false,
+            "default": 100,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "pixel_tolerance",
+            "options": [
+              "--pixel-tolerance"
+            ],
+            "required": false,
+            "default": 0,
+            "nargs": null,
+            "type": "int"
+          },
+          {
+            "dest": "max_changed_ratio",
+            "options": [
+              "--max-changed-ratio"
+            ],
+            "required": false,
+            "default": 0.0,
+            "nargs": null,
+            "type": "float"
+          },
+          {
+            "dest": "min_changed_ratio",
+            "options": [
+              "--min-changed-ratio"
+            ],
+            "required": false,
+            "default": 0.01,
+            "nargs": null,
+            "type": "float"
+          },
+          {
+            "dest": "threshold",
+            "options": [
+              "--threshold"
+            ],
+            "required": false,
+            "default": 0.8,
+            "nargs": null,
+            "type": "float"
+          },
+          {
+            "dest": "color_mode",
+            "options": [
+              "--color-mode"
+            ],
+            "required": false,
+            "default": "gray",
+            "nargs": null,
+            "type": null,
+            "choices": [
+              "gray",
+              "bgr"
+            ]
+          },
+          {
+            "dest": "json",
+            "options": [
+              "--json"
+            ],
+            "required": false,
+            "default": false,
+            "nargs": 0,
+            "type": null
+          }
+        ]
+      }
+    }
+  ],
+  "calls": {
+    "devices": {
+      "cli_exit": 0,
+      "cli": {
+        "ok": true,
+        "command": "devices",
+        "device": null,
+        "result": {
+          "devices": [
+            {
+              "device_id": "fixture-A",
+              "platform": "adb"
+            },
+            {
+              "device_id": "fixture-B",
+              "platform": "adb"
+            },
+            {
+              "device_id": "desktop",
+              "platform": "desktop"
+            }
+          ]
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"ok\": true, \"devices\": [{\"device_id\": \"fixture-A\", \"platform\": \"adb\"}, {\"device_id\": \"fixture-B\", \"platform\": \"adb\"}, {\"device_id\": \"desktop\", \"platform\": \"desktop\"}]}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    "assets_list": {
+      "cli_exit": 0,
+      "cli": {
+        "ok": true,
+        "command": "assets list",
+        "device": null,
+        "result": {
+          "assets": [],
+          "count": 0
+        }
+      },
+      "mcp": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"ok\": true, \"assets\": []}"
+          }
+        ],
+        "isError": false
+      }
+    }
+  },
+  "unknown_mcp": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"ok\": false, \"error\": {\"code\": \"INVALID_USAGE\", \"message\": \"Unknown tool: 'vision_unknown'\", \"retryable\": false}}"
+      }
+    ],
+    "isError": true
+  },
+  "snapshots": {
+    "default": {
+      "content": [
+        {
+          "type": "image",
+          "mimeType": "image/png",
+          "decoded_shape": [
+            20,
+            30,
+            3
+          ],
+          "decoded_sha256": "09cec5a5bd8afffbb758753810a20c55ccb06a46d7bf54eda69ecd2ad645ef11"
+        },
+        {
+          "type": "text",
+          "text": "{\"artifact\": {\"bytes\": \"<png_byte_count>\", \"height\": 20, \"mime_type\": \"image/png\", \"path\": \"<path>\", \"width\": 30}, \"device\": \"fixture-A\", \"frame\": {\"device_id\": \"fixture-A\", \"frame_id\": \"<frame_id>\", \"height\": 20, \"image_path\": \"<path>\", \"parent_id\": null, \"protected\": false, \"rotation\": null, \"source_height\": 20, \"source_width\": 30, \"timestamp\": \"<timestamp>\", \"transform\": {\"offset_x\": 0.0, \"offset_y\": 0.0, \"scale_x\": 1.0, \"scale_y\": 1.0}, \"width\": 30}, \"ok\": true}"
+        }
+      ],
+      "isError": false
+    },
+    "metadata": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"artifact\": {\"bytes\": \"<png_byte_count>\", \"height\": 20, \"mime_type\": \"image/png\", \"path\": \"<path>\", \"width\": 30}, \"device\": \"fixture-A\", \"frame\": {\"device_id\": \"fixture-A\", \"frame_id\": \"<frame_id>\", \"height\": 20, \"image_path\": \"<path>\", \"parent_id\": null, \"protected\": false, \"rotation\": null, \"source_height\": 20, \"source_width\": 30, \"timestamp\": \"<timestamp>\", \"transform\": {\"offset_x\": 0.0, \"offset_y\": 0.0, \"scale_x\": 1.0, \"scale_y\": 1.0}, \"width\": 30}, \"ok\": true}"
+        }
+      ],
+      "isError": false
+    }
+  }
+}

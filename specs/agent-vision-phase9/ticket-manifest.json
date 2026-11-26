@@ -6,9 +6,9 @@
   "hash_encoding": "UTF-8 LF normalized",
   "hashes": {
     "use_cases": "429bcb6f4f552e9f3dc4b939e40ce63b4a7870e33ff532b596d601cf8028b5f3",
-    "spec": "2e3afdd95a9e3ba243afc4210a621506478a57e4435cf62e67aeb4f79b42d99e",
-    "contract": "74766e3303105152d099e35ad6115b1215acaacf73381c619ce1ffb655c77dd4",
-    "schemas": "23cba6b4b823f17b94051ca7c16c1a54b01a4aea7aa54d07bd5c132bf9375dab",
+    "spec": "6011ce89ad766a6be1c3ed3137a7c0900d273a943ab10ad472c49fdcb583d32d",
+    "contract": "c032178e4d072058bac98f9132f3c37b6e56d3363ead42fcd6574aafacd8d701",
+    "schemas": "be3d1b3fbd88fbfda43320bc7abbc0ddeeb16beaa7af68d31274850310c9a415",
     "fixtures": "5f6e5e6adab8dc74e9fa22bc098e546690f73213a775e39e54c8cd4aae75b49a"
   },
   "supersedes": "MD-01..MD-15 (preserved in planning commit d53b986)",

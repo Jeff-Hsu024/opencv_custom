@@ -1,0 +1,113 @@
+{
+  "id": "84f0d294-53de-4fe5-9257-0c4f9bb1c440",
+  "ok": true,
+  "result": {
+    "worktree": {
+      "id": "386edd00-d5ae-4baa-9fe9-0c4f0a56e33f::C:/Users/jeffh/orca/workspaces/clean-working/agent-vision-multi-device",
+      "identity": {
+        "key": "wt2:local:a1ab5db6-8072-43e0-b5de-8560140e51e5",
+        "executionHostId": "local",
+        "instanceId": "a1ab5db6-8072-43e0-b5de-8560140e51e5"
+      },
+      "instanceId": "a1ab5db6-8072-43e0-b5de-8560140e51e5",
+      "repoId": "386edd00-d5ae-4baa-9fe9-0c4f0a56e33f",
+      "projectId": "github:jeff-hsu024/opencv_custom",
+      "hostId": "local",
+      "projectHostSetupId": "386edd00-d5ae-4baa-9fe9-0c4f0a56e33f",
+      "creatorProvenance": {
+        "kind": "host"
+      },
+      "path": "C:/Users/jeffh/orca/workspaces/clean-working/agent-vision-multi-device",
+      "head": "9a3bffcf9b8a2d5090343121d01cceda74a9456e",
+      "branch": "refs/heads/feat/agent-vision-multi-device",
+      "isBare": false,
+      "isMainWorktree": false,
+      "displayName": "agent-vision-multi-device",
+      "displayNameMode": "fixed",
+      "comment": "Phase 9 planning: Learn Once, Qualify Per Device, Execute Many",
+      "linkedIssue": null,
+      "linkedPR": null,
+      "linkedLinearIssue": null,
+      "linkedLinearIssueWorkspaceId": null,
+      "linkedLinearIssueOrganizationUrlKey": null,
+      "linkedGitLabMR": null,
+      "linkedGitLabIssue": null,
+      "linkedBitbucketPR": null,
+      "linkedAzureDevOpsPR": null,
+      "linkedGiteaPR": null,
+      "linkedWorkItem": null,
+      "linkedTaskSourceContext": null,
+      "isArchived": false,
+      "isUnread": false,
+      "isPinned": false,
+      "sortOrder": 1795694086974,
+      "lastActivityAt": 1795697285940,
+      "createdAt": 1795694086973,
+      "cliProvenance": {
+        "kind": "created-by-cli",
+        "createdAt": 1795694085219
+      },
+      "baseRef": "main",
+      "workspaceStatus": "in-progress",
+      "parentWorktreeId": "386edd00-d5ae-4baa-9fe9-0c4f0a56e33f::C:/Users/jeffh/Downloads/develop/opencv_custom_recovery/clean-working",
+      "childWorktreeIds": [],
+      "lineage": {
+        "worktreeId": "386edd00-d5ae-4baa-9fe9-0c4f0a56e33f::C:/Users/jeffh/orca/workspaces/clean-working/agent-vision-multi-device",
+        "worktreeInstanceId": "a1ab5db6-8072-43e0-b5de-8560140e51e5",
+        "parentWorktreeId": "386edd00-d5ae-4baa-9fe9-0c4f0a56e33f::C:/Users/jeffh/Downloads/develop/opencv_custom_recovery/clean-working",
+        "parentWorktreeInstanceId": "fe5b1dab-8e38-4e3d-b033-7988f493cdef",
+        "origin": "cli",
+        "capture": {
+          "source": "explicit-cli-flag",
+          "confidence": "explicit"
+        },
+        "createdAt": 1795694086976
+      },
+      "git": {
+        "path": "C:/Users/jeffh/orca/workspaces/clean-working/agent-vision-multi-device",
+        "head": "9a3bffcf9b8a2d5090343121d01cceda74a9456e",
+        "branch": "refs/heads/feat/agent-vision-multi-device",
+        "isBare": false,
+        "isMainWorktree": false
+      },
+      "linkedItems": [],
+      "workspaceLineage": {
+        "childWorkspaceKey": "worktree:386edd00-d5ae-4baa-9fe9-0c4f0a56e33f::C:/Users/jeffh/orca/workspaces/clean-working/agent-vision-multi-device",
+        "childInstanceId": "a1ab5db6-8072-43e0-b5de-8560140e51e5",
+        "parentWorkspaceKey": "worktree:386edd00-d5ae-4baa-9fe9-0c4f0a56e33f::C:/Users/jeffh/Downloads/develop/opencv_custom_recovery/clean-working",
+        "parentInstanceId": "fe5b1dab-8e38-4e3d-b033-7988f493cdef",
+        "origin": "cli",
+        "capture": {
+          "source": "explicit-cli-flag",
+          "confidence": "explicit"
+        },
+        "createdAt": 1795694086976
+      },
+      "environment": {
+        "id": "local",
+        "name": "local"
+      },
+      "parent": {
+        "state": "known",
+        "selector": "id:386edd00-d5ae-4baa-9fe9-0c4f0a56e33f::C:/Users/jeffh/Downloads/develop/opencv_custom_recovery/clean-working",
+        "environment": {
+          "id": "local",
+          "name": "local"
+        },
+        "address": {
+          "environment": "local",
+          "worktree": "id:386edd00-d5ae-4baa-9fe9-0c4f0a56e33f::C:/Users/jeffh/Downloads/develop/opencv_custom_recovery/clean-working",
+          "line": "--environment local --worktree id:386edd00-d5ae-4baa-9fe9-0c4f0a56e33f::C:/Users/jeffh/Downloads/develop/opencv_custom_recovery/clean-working"
+        }
+      },
+      "address": {
+        "environment": "local",
+        "worktree": "identity:wt2:local:a1ab5db6-8072-43e0-b5de-8560140e51e5",
+        "line": "--environment local --worktree identity:wt2:local:a1ab5db6-8072-43e0-b5de-8560140e51e5"
+      }
+    }
+  },
+  "_meta": {
+    "runtimeId": "f0e49363-2c18-4ef5-bf90-117ff282b6cc"
+  }
+}

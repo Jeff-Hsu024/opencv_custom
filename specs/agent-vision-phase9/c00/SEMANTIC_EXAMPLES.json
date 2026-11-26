@@ -1,0 +1,54 @@
+{
+  "qualification": [
+    {"case":"first-source-A","state":{"generation":0,"status":"absent","qualification_id":null},"event":{"action":"commit","expected":0,"proof_kind":"source","source_device":true,"qualification_id":"q1"},"expected":[{"generation":1,"status":"active","qualification_id":"q1"},"ok"]},
+    {"case":"source-cannot-enroll-B","state":{"generation":0,"status":"absent","qualification_id":null},"event":{"action":"commit","expected":0,"proof_kind":"source","source_device":false,"qualification_id":"q1"},"expected":[{"generation":0,"status":"absent","qualification_id":null},"PROOF_INVALID"]},
+    {"case":"CAS-race-loser","state":{"generation":2,"status":"active","qualification_id":"q2"},"event":{"action":"revoke","expected":1},"expected":[{"generation":2,"status":"active","qualification_id":"q2"},"STALE_GENERATION"]},
+    {"case":"revoke","state":{"generation":1,"status":"active","qualification_id":"q1"},"event":{"action":"revoke","expected":1},"expected":[{"generation":2,"status":"revoked","qualification_id":"q1"},"ok"]},
+    {"case":"absent-revoke","state":{"generation":0,"status":"absent","qualification_id":null},"event":{"action":"revoke","expected":0},"expected":[{"generation":0,"status":"absent","qualification_id":null},"NOT_FOUND"]},
+    {"case":"inactive-revoke","state":{"generation":2,"status":"revoked","qualification_id":"q1"},"event":{"action":"revoke","expected":2},"expected":[{"generation":2,"status":"revoked","qualification_id":"q1"},"QUALIFICATION_INACTIVE"]},
+    {"case":"confirmed-drift","state":{"generation":1,"status":"active","qualification_id":"q1"},"event":{"action":"drift","expected":1},"expected":[{"generation":2,"status":"invalidated","qualification_id":"q1"},"ok"]},
+    {"case":"old-probe-cannot-invalidate-replacement","state":{"generation":2,"status":"active","qualification_id":"q2"},"event":{"action":"drift","expected":1},"expected":[{"generation":2,"status":"active","qualification_id":"q2"},"STALE_GENERATION"]},
+    {"case":"offline-is-not-drift","state":{"generation":1,"status":"active","qualification_id":"q1"},"event":{"action":"probe_unknown"},"expected":[{"generation":1,"status":"active","qualification_id":"q1"},"unchanged"]},
+    {"case":"profile-restoration-no-resurrection","state":{"generation":2,"status":"invalidated","qualification_id":"q1"},"event":{"action":"profile_restored"},"expected":[{"generation":2,"status":"invalidated","qualification_id":"q1"},"unchanged"]},
+    {"case":"duplicate-commit-after-revoke","state":{"generation":2,"status":"revoked","qualification_id":"q1"},"event":{"action":"commit","expected":0,"duplicate":true},"expected":[{"generation":2,"status":"revoked","qualification_id":"q1"},"original_receipt"]},
+    {"case":"old-trial-after-drift","state":{"generation":2,"status":"invalidated","qualification_id":"q1"},"event":{"action":"commit","expected":2,"proof_kind":"trial","fresh_trial":false,"qualification_id":"q2"},"expected":[{"generation":2,"status":"invalidated","qualification_id":"q1"},"PROOF_INVALID"]},
+    {"case":"fresh-requalification","state":{"generation":2,"status":"invalidated","qualification_id":"q1"},"event":{"action":"commit","expected":2,"proof_kind":"trial","fresh_trial":true,"qualification_id":"q2"},"expected":[{"generation":3,"status":"active","qualification_id":"q2"},"ok"]},
+    {"case":"source-first-enrollment-only","state":{"generation":2,"status":"revoked","qualification_id":"q1"},"event":{"action":"commit","expected":2,"proof_kind":"source","source_device":true,"qualification_id":"q2"},"expected":[{"generation":2,"status":"revoked","qualification_id":"q1"},"PROOF_INVALID"]}
+  ],
+  "batch": [
+    {"case":"live-reservation","children":[{"status":"reserved"}],"parent_live":true,"abandoned":false,"expected":["in_progress","open"]},
+    {"case":"surviving-child","children":[{"status":"running","owner_live":true},{"status":"not_attempted"}],"parent_live":false,"abandoned":true,"expected":["in_progress","reconciling"]},
+    {"case":"all-completed-even-parent-lost","children":[{"status":"completed"},{"status":"completed"}],"parent_live":false,"abandoned":true,"expected":["completed","terminal"]},
+    {"case":"abandonment-precedes-partial","children":[{"status":"completed"},{"status":"not_attempted"}],"parent_live":false,"abandoned":true,"expected":["interrupted","terminal"]},
+    {"case":"partial","children":[{"status":"completed"},{"status":"busy"}],"parent_live":true,"abandoned":false,"expected":["partial","terminal"]},
+    {"case":"none-completed","children":[{"status":"busy"},{"status":"rejected"}],"parent_live":true,"abandoned":false,"expected":["needs_agent","terminal"]},
+    {"case":"pending-crash","children":[{"status":"interrupted"},{"status":"needs_agent"}],"parent_live":false,"abandoned":true,"expected":["interrupted","terminal"]}
+  ],
+  "locks": [
+    {"sequence":["compatibility","parent","request","device","metadata"],"valid":true},
+    {"sequence":["parent","metadata"],"valid":true},
+    {"sequence":["request","device","metadata"],"valid":true},
+    {"sequence":["metadata","device"],"valid":false},
+    {"sequence":["metadata","request"],"valid":false},
+    {"sequence":["device","device"],"valid":false},
+    {"sequence":["request","parent"],"valid":false},
+    {"sequence":["request","request"],"valid":false}
+  ],
+  "storage": [
+    {"trace":["publish_bytes","commit_pointer","crash"],"expected":"coherent"},
+    {"trace":["publish_bytes","crash"],"expected":"orphan_only"},
+    {"trace":["commit_pointer"],"expected":"TORN_PUBLICATION"},
+    {"trace":["publish_bytes","commit_pointer","delete_bytes"],"expected":"UNSAFE_DELETE"},
+    {"trace":["publish_bytes","commit_pointer","pin","remove_index"],"expected":"PROTECTED"},
+    {"trace":["publish_bytes","commit_pointer","protect","remove_index"],"expected":"PROTECTED"},
+    {"trace":["publish_bytes","commit_pointer","pin","unpin","remove_index","delete_bytes"],"expected":"ok"},
+    {"trace":["snapshot","mutate","commit_evidence"],"expected":"EVIDENCE_CHANGED"},
+    {"trace":["mutate","snapshot","commit_evidence"],"expected":"ok"}
+  ],
+  "reconciliation": [
+    {"case":"live-parent-no-mutation","acquired":false,"children":[{"status":"reserved","action_outcome":"not_attempted"}],"expected":{"phase":"open","children":[{"status":"reserved","action_outcome":"not_attempted"}],"dispatched":0}},
+    {"case":"surviving-child-never-interrupted","acquired":true,"children":[{"status":"running","owner_live":true,"action_outcome":"unknown","pending":true},{"status":"reserved","action_outcome":"not_attempted"}],"expected":{"phase":"reconciling","children":[{"status":"running","owner_live":true,"action_outcome":"unknown","pending":true},{"status":"not_attempted","action_outcome":"not_attempted"}],"dispatched":0}},
+    {"case":"pending-dead-owner","acquired":true,"children":[{"status":"running","owner_live":false,"action_outcome":"unknown","pending":true}],"expected":{"phase":"terminal","children":[{"status":"interrupted","owner_live":false,"action_outcome":"unknown","pending":true}],"dispatched":0}},
+    {"case":"terminal-child-authoritative","acquired":true,"children":[{"status":"completed","action_outcome":"verified"},{"status":"reserved","action_outcome":"not_attempted"}],"expected":{"phase":"terminal","children":[{"status":"completed","action_outcome":"verified"},{"status":"not_attempted","action_outcome":"not_attempted"}],"dispatched":0}}
+  ]
+}

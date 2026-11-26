@@ -14,13 +14,13 @@
       "properties": {
         "device": {
           "type": "string",
-          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
         },
         "session_id": {
           "anyOf": [
             {
               "type": "string",
-              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$"
+              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -30,11 +30,11 @@
         },
         "name": {
           "type": "string",
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$(?![\\s\\S])"
         },
         "frame_id": {
           "type": "string",
-          "pattern": "^frm_[A-Za-z0-9_-]{1,64}$"
+          "pattern": "^frm_[A-Za-z0-9_-]{1,64}$(?![\\s\\S])"
         },
         "region": {
           "anyOf": [
@@ -66,13 +66,13 @@
       "properties": {
         "device": {
           "type": "string",
-          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
         },
         "session_id": {
           "anyOf": [
             {
               "type": "string",
-              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$"
+              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -82,7 +82,7 @@
         },
         "name": {
           "type": "string",
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$(?![\\s\\S])"
         }
       },
       "required": [
@@ -96,13 +96,13 @@
       "properties": {
         "device": {
           "type": "string",
-          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
         },
         "session_id": {
           "anyOf": [
             {
               "type": "string",
-              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$"
+              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -112,11 +112,11 @@
         },
         "frame_id": {
           "type": "string",
-          "pattern": "^frm_[A-Za-z0-9_-]{1,64}$"
+          "pattern": "^frm_[A-Za-z0-9_-]{1,64}$(?![\\s\\S])"
         },
         "asset_revision_id": {
           "type": "string",
-          "pattern": "^ar_[0-9a-f]{64}$"
+          "pattern": "^ar_[0-9a-f]{64}$(?![\\s\\S])"
         },
         "threshold": {
           "type": "number",
@@ -143,15 +143,15 @@
       "properties": {
         "device": {
           "type": "string",
-          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
         },
         "action_id": {
           "type": "string",
-          "pattern": "^act_[0-9a-f]{32}$"
+          "pattern": "^act_[0-9a-f]{32}$(?![\\s\\S])"
         },
         "ref_id": {
           "type": "string",
-          "pattern": "^ref_[A-Za-z0-9_-]{1,64}$"
+          "pattern": "^ref_[A-Za-z0-9_-]{1,64}$(?![\\s\\S])"
         },
         "max_ref_age_seconds": {
           "type": "number",
@@ -163,7 +163,7 @@
           "anyOf": [
             {
               "type": "string",
-              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$"
+              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -184,25 +184,25 @@
       "properties": {
         "device": {
           "type": "string",
-          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
         },
         "session_id": {
           "type": "string",
-          "pattern": "^ses_[A-Za-z0-9_-]{1,64}$"
+          "pattern": "^ses_[A-Za-z0-9_-]{1,64}$(?![\\s\\S])"
         },
         "transition_id": {
           "type": "string",
-          "pattern": "^strans_[0-9a-f]{32}$"
+          "pattern": "^strans_[0-9a-f]{32}$(?![\\s\\S])"
         },
         "target_asset_revision_id": {
           "type": "string",
-          "pattern": "^ar_[0-9a-f]{64}$"
+          "pattern": "^ar_[0-9a-f]{64}$(?![\\s\\S])"
         },
         "pre_state_asset_revision_id": {
           "anyOf": [
             {
               "type": "string",
-              "pattern": "^ar_[0-9a-f]{64}$"
+              "pattern": "^ar_[0-9a-f]{64}$(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -272,7 +272,7 @@
                 },
                 "asset_revision_id": {
                   "type": "string",
-                  "pattern": "^ar_[0-9a-f]{64}$"
+                  "pattern": "^ar_[0-9a-f]{64}$(?![\\s\\S])"
                 },
                 "threshold": {
                   "type": "number",
@@ -344,11 +344,11 @@
       "properties": {
         "source_workflow_id": {
           "type": "string",
-          "pattern": "^wf_[0-9a-f]{64}$"
+          "pattern": "^wf_[0-9a-f]{64}$(?![\\s\\S])"
         },
         "source_run_id": {
           "type": "string",
-          "pattern": "^run_[0-9a-f]{32}$"
+          "pattern": "^run_[0-9a-f]{32}$(?![\\s\\S])"
         }
       },
       "required": [
@@ -362,7 +362,7 @@
       "properties": {
         "portable_id": {
           "type": "string",
-          "pattern": "^portable_[0-9a-f]{64}$"
+          "pattern": "^portable_[0-9a-f]{64}$(?![\\s\\S])"
         }
       },
       "required": [
@@ -393,11 +393,11 @@
       "properties": {
         "portable_id": {
           "type": "string",
-          "pattern": "^portable_[0-9a-f]{64}$"
+          "pattern": "^portable_[0-9a-f]{64}$(?![\\s\\S])"
         },
         "device": {
           "type": "string",
-          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
         },
         "return_image": {
           "type": "boolean",
@@ -415,7 +415,7 @@
       "properties": {
         "preflight_id": {
           "type": "string",
-          "pattern": "^preflight_[0-9a-f]{64}$"
+          "pattern": "^preflight_[0-9a-f]{64}$(?![\\s\\S])"
         },
         "return_image": {
           "type": "boolean",
@@ -432,15 +432,15 @@
       "properties": {
         "preflight_id": {
           "type": "string",
-          "pattern": "^preflight_[0-9a-f]{64}$"
+          "pattern": "^preflight_[0-9a-f]{64}$(?![\\s\\S])"
         },
         "device": {
           "type": "string",
-          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
         },
         "run_id": {
           "type": "string",
-          "pattern": "^prun_[0-9a-f]{32}$"
+          "pattern": "^prun_[0-9a-f]{32}$(?![\\s\\S])"
         },
         "return_image": {
           "type": "boolean",
@@ -459,7 +459,7 @@
       "properties": {
         "run_id": {
           "type": "string",
-          "pattern": "^prun_[0-9a-f]{32}$"
+          "pattern": "^prun_[0-9a-f]{32}$(?![\\s\\S])"
         },
         "return_image": {
           "type": "boolean",
@@ -476,11 +476,11 @@
       "properties": {
         "portable_id": {
           "type": "string",
-          "pattern": "^portable_[0-9a-f]{64}$"
+          "pattern": "^portable_[0-9a-f]{64}$(?![\\s\\S])"
         },
         "device": {
           "type": "string",
-          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
         },
         "expected_slot_generation": {
           "type": "integer",
@@ -496,11 +496,11 @@
           "anyOf": [
             {
               "type": "string",
-              "pattern": "^run_[0-9a-f]{32}$"
+              "pattern": "^run_[0-9a-f]{32}$(?![\\s\\S])"
             },
             {
               "type": "string",
-              "pattern": "^prun_[0-9a-f]{32}$"
+              "pattern": "^prun_[0-9a-f]{32}$(?![\\s\\S])"
             }
           ]
         },
@@ -551,7 +551,7 @@
             "properties": {
               "proof_id": {
                 "type": "string",
-                "pattern": "^run_[0-9a-f]{32}$"
+                "pattern": "^run_[0-9a-f]{32}$(?![\\s\\S])"
               }
             }
           }
@@ -568,7 +568,7 @@
             "properties": {
               "proof_id": {
                 "type": "string",
-                "pattern": "^prun_[0-9a-f]{32}$"
+                "pattern": "^prun_[0-9a-f]{32}$(?![\\s\\S])"
               }
             }
           }
@@ -580,11 +580,11 @@
       "properties": {
         "portable_id": {
           "type": "string",
-          "pattern": "^portable_[0-9a-f]{64}$"
+          "pattern": "^portable_[0-9a-f]{64}$(?![\\s\\S])"
         },
         "device": {
           "type": "string",
-          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
         },
         "expected_slot_generation": {
           "type": "integer",
@@ -609,11 +609,11 @@
       "properties": {
         "portable_id": {
           "type": "string",
-          "pattern": "^portable_[0-9a-f]{64}$"
+          "pattern": "^portable_[0-9a-f]{64}$(?![\\s\\S])"
         },
         "device": {
           "type": "string",
-          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
         }
       },
       "required": [
@@ -627,7 +627,7 @@
       "properties": {
         "qualification_id": {
           "type": "string",
-          "pattern": "^qlf_[0-9a-f]{64}$"
+          "pattern": "^qlf_[0-9a-f]{64}$(?![\\s\\S])"
         }
       },
       "required": [
@@ -640,7 +640,7 @@
       "properties": {
         "portable_id": {
           "type": "string",
-          "pattern": "^portable_[0-9a-f]{64}$"
+          "pattern": "^portable_[0-9a-f]{64}$(?![\\s\\S])"
         },
         "limit": {
           "type": "integer",
@@ -664,11 +664,11 @@
       "properties": {
         "family_id": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$(?![\\s\\S])"
         },
         "portable_id": {
           "type": "string",
-          "pattern": "^portable_[0-9a-f]{64}$"
+          "pattern": "^portable_[0-9a-f]{64}$(?![\\s\\S])"
         },
         "expected_generation": {
           "type": "integer",
@@ -693,7 +693,7 @@
       "properties": {
         "family_id": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$(?![\\s\\S])"
         },
         "revision": {
           "anyOf": [
@@ -729,7 +729,7 @@
       "properties": {
         "family_id": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$(?![\\s\\S])"
         }
       },
       "required": [
@@ -760,7 +760,7 @@
       "properties": {
         "family_id": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$(?![\\s\\S])"
         },
         "expected_generation": {
           "type": "integer",
@@ -768,11 +768,11 @@
         },
         "device": {
           "type": "string",
-          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
         },
         "task_id": {
           "type": "string",
-          "pattern": "^ptask_[0-9a-f]{32}$"
+          "pattern": "^ptask_[0-9a-f]{32}$(?![\\s\\S])"
         },
         "return_image": {
           "type": "boolean",
@@ -792,7 +792,7 @@
       "properties": {
         "task_id": {
           "type": "string",
-          "pattern": "^ptask_[0-9a-f]{32}$"
+          "pattern": "^ptask_[0-9a-f]{32}$(?![\\s\\S])"
         },
         "return_image": {
           "type": "boolean",
@@ -809,7 +809,7 @@
       "properties": {
         "run_id": {
           "type": "string",
-          "pattern": "^prun_[0-9a-f]{32}$"
+          "pattern": "^prun_[0-9a-f]{32}$(?![\\s\\S])"
         },
         "return_image": {
           "type": "boolean",
@@ -839,7 +839,7 @@
           "anyOf": [
             {
               "type": "string",
-              "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+              "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
             },
             {
               "type": "null"
@@ -856,11 +856,11 @@
       "properties": {
         "batch_id": {
           "type": "string",
-          "pattern": "^batch_[0-9a-f]{32}$"
+          "pattern": "^batch_[0-9a-f]{32}$(?![\\s\\S])"
         },
         "family_id": {
           "type": "string",
-          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$(?![\\s\\S])"
         },
         "expected_generation": {
           "type": "integer",
@@ -870,7 +870,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+            "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$(?![\\s\\S])"
           },
           "minItems": 1,
           "maxItems": 16,
@@ -896,7 +896,7 @@
       "properties": {
         "batch_id": {
           "type": "string",
-          "pattern": "^batch_[0-9a-f]{32}$"
+          "pattern": "^batch_[0-9a-f]{32}$(?![\\s\\S])"
         }
       },
       "required": [

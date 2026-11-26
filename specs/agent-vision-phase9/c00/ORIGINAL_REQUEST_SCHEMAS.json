@@ -1,0 +1,926 @@
+{
+  "contract_version": 1,
+  "schema_dialect": "https://json-schema.org/draft/2020-12/schema",
+  "note": "Each entry is a request schema for vision_<key>. Defaults applied by service; geometry bounds, settle<timeout, online/scope/proof/state/CAS checks are semantic validation per CONTRACT.md. No unknown keys. JSON numeric booleans not accepted for numeric fields.",
+  "operations": {
+    "android_devices": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "asset_revision_register": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string",
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+        },
+        "frame_id": {
+          "type": "string",
+          "pattern": "^frm_[A-Za-z0-9_-]{1,64}$"
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "minItems": 4,
+              "maxItems": 4
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "device",
+        "name",
+        "frame_id"
+      ],
+      "additionalProperties": false
+    },
+    "asset_revision_resolve": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string",
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$"
+        }
+      },
+      "required": [
+        "device",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "scoped_find": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string",
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "frame_id": {
+          "type": "string",
+          "pattern": "^frm_[A-Za-z0-9_-]{1,64}$"
+        },
+        "asset_revision_id": {
+          "type": "string",
+          "pattern": "^ar_[0-9a-f]{64}$"
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0.8,
+          "maximum": 1,
+          "default": 0.98
+        },
+        "max_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 10
+        }
+      },
+      "required": [
+        "device",
+        "frame_id",
+        "asset_revision_id"
+      ],
+      "additionalProperties": false
+    },
+    "guarded_click": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string",
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+        },
+        "action_id": {
+          "type": "string",
+          "pattern": "^act_[0-9a-f]{32}$"
+        },
+        "ref_id": {
+          "type": "string",
+          "pattern": "^ref_[A-Za-z0-9_-]{1,64}$"
+        },
+        "max_ref_age_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 60,
+          "default": 15
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^ses_[A-Za-z0-9_-]{1,64}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "device",
+        "action_id",
+        "ref_id"
+      ],
+      "additionalProperties": false
+    },
+    "scoped_transition": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string",
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^ses_[A-Za-z0-9_-]{1,64}$"
+        },
+        "transition_id": {
+          "type": "string",
+          "pattern": "^strans_[0-9a-f]{32}$"
+        },
+        "target_asset_revision_id": {
+          "type": "string",
+          "pattern": "^ar_[0-9a-f]{64}$"
+        },
+        "pre_state_asset_revision_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^ar_[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "postcondition": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "const": "changed"
+                },
+                "timeout": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 60
+                },
+                "region": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "minItems": 4,
+                      "maxItems": 4
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null
+                },
+                "settle_seconds": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 2,
+                  "default": 0
+                },
+                "min_changed_ratio": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "default": 0.01
+                }
+              },
+              "required": [
+                "mode",
+                "timeout"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "const": "image"
+                },
+                "timeout": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 60
+                },
+                "asset_revision_id": {
+                  "type": "string",
+                  "pattern": "^ar_[0-9a-f]{64}$"
+                },
+                "threshold": {
+                  "type": "number",
+                  "minimum": 0.8,
+                  "maximum": 1,
+                  "default": 0.98
+                },
+                "settle_seconds": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 2,
+                  "default": 0
+                },
+                "region": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "minItems": 4,
+                      "maxItems": 4
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null
+                }
+              },
+              "required": [
+                "mode",
+                "timeout",
+                "asset_revision_id"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "threshold": {
+          "type": "number",
+          "minimum": 0.8,
+          "maximum": 1,
+          "default": 0.98
+        },
+        "max_ref_age_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 60,
+          "default": 15
+        },
+        "return_image": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "device",
+        "session_id",
+        "transition_id",
+        "target_asset_revision_id",
+        "postcondition"
+      ],
+      "additionalProperties": false
+    },
+    "portable_publish": {
+      "type": "object",
+      "properties": {
+        "source_workflow_id": {
+          "type": "string",
+          "pattern": "^wf_[0-9a-f]{64}$"
+        },
+        "source_run_id": {
+          "type": "string",
+          "pattern": "^run_[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "source_workflow_id",
+        "source_run_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_inspect": {
+      "type": "object",
+      "properties": {
+        "portable_id": {
+          "type": "string",
+          "pattern": "^portable_[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "portable_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_list": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 20
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "portable_preflight": {
+      "type": "object",
+      "properties": {
+        "portable_id": {
+          "type": "string",
+          "pattern": "^portable_[0-9a-f]{64}$"
+        },
+        "device": {
+          "type": "string",
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+        },
+        "return_image": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "portable_id",
+        "device"
+      ],
+      "additionalProperties": false
+    },
+    "portable_preflight_inspect": {
+      "type": "object",
+      "properties": {
+        "preflight_id": {
+          "type": "string",
+          "pattern": "^preflight_[0-9a-f]{64}$"
+        },
+        "return_image": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "preflight_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_trial": {
+      "type": "object",
+      "properties": {
+        "preflight_id": {
+          "type": "string",
+          "pattern": "^preflight_[0-9a-f]{64}$"
+        },
+        "device": {
+          "type": "string",
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^prun_[0-9a-f]{32}$"
+        },
+        "return_image": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "preflight_id",
+        "device",
+        "run_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_trial_inspect": {
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "pattern": "^prun_[0-9a-f]{32}$"
+        },
+        "return_image": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "run_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_qualify_commit": {
+      "type": "object",
+      "properties": {
+        "portable_id": {
+          "type": "string",
+          "pattern": "^portable_[0-9a-f]{64}$"
+        },
+        "device": {
+          "type": "string",
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+        },
+        "expected_slot_generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proof_kind": {
+          "enum": [
+            "source",
+            "trial"
+          ]
+        },
+        "proof_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^run_[0-9a-f]{32}$"
+            },
+            {
+              "type": "string",
+              "pattern": "^prun_[0-9a-f]{32}$"
+            }
+          ]
+        },
+        "semantic_pass": {
+          "type": "object",
+          "properties": {
+            "verification": {
+              "const": "PASS"
+            },
+            "observation": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "reviewer": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "verification",
+            "observation",
+            "reviewer"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "portable_id",
+        "device",
+        "expected_slot_generation",
+        "proof_kind",
+        "proof_id",
+        "semantic_pass"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "proof_kind": {
+                "const": "source"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proof_id": {
+                "type": "string",
+                "pattern": "^run_[0-9a-f]{32}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "proof_kind": {
+                "const": "trial"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "proof_id": {
+                "type": "string",
+                "pattern": "^prun_[0-9a-f]{32}$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "portable_qualification_revoke": {
+      "type": "object",
+      "properties": {
+        "portable_id": {
+          "type": "string",
+          "pattern": "^portable_[0-9a-f]{64}$"
+        },
+        "device": {
+          "type": "string",
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+        },
+        "expected_slot_generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "portable_id",
+        "device",
+        "expected_slot_generation",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "portable_qualification_inspect": {
+      "type": "object",
+      "properties": {
+        "portable_id": {
+          "type": "string",
+          "pattern": "^portable_[0-9a-f]{64}$"
+        },
+        "device": {
+          "type": "string",
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+        }
+      },
+      "required": [
+        "portable_id",
+        "device"
+      ],
+      "additionalProperties": false
+    },
+    "portable_qualification_record": {
+      "type": "object",
+      "properties": {
+        "qualification_id": {
+          "type": "string",
+          "pattern": "^qlf_[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "qualification_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_qualification_list": {
+      "type": "object",
+      "properties": {
+        "portable_id": {
+          "type": "string",
+          "pattern": "^portable_[0-9a-f]{64}$"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 20
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "required": [
+        "portable_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_family_publish": {
+      "type": "object",
+      "properties": {
+        "family_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "portable_id": {
+          "type": "string",
+          "pattern": "^portable_[0-9a-f]{64}$"
+        },
+        "expected_generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "family_id",
+        "portable_id",
+        "expected_generation",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "portable_family_activate": {
+      "type": "object",
+      "properties": {
+        "family_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "expected_generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "family_id",
+        "revision",
+        "expected_generation",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "portable_family_inspect": {
+      "type": "object",
+      "properties": {
+        "family_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        }
+      },
+      "required": [
+        "family_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_family_list": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 20
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "portable_execute": {
+      "type": "object",
+      "properties": {
+        "family_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "expected_generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "device": {
+          "type": "string",
+          "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+        },
+        "task_id": {
+          "type": "string",
+          "pattern": "^ptask_[0-9a-f]{32}$"
+        },
+        "return_image": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "family_id",
+        "expected_generation",
+        "device",
+        "task_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_task_inspect": {
+      "type": "object",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "pattern": "^ptask_[0-9a-f]{32}$"
+        },
+        "return_image": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "task_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_run_inspect": {
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "pattern": "^prun_[0-9a-f]{32}$"
+        },
+        "return_image": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "run_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_task_list": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 20
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "device": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "portable_batch_execute": {
+      "type": "object",
+      "properties": {
+        "batch_id": {
+          "type": "string",
+          "pattern": "^batch_[0-9a-f]{32}$"
+        },
+        "family_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+        },
+        "expected_generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!(?:adb|desktop)$)[A-Za-z0-9_.:-]{1,128}$"
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "max_concurrency": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4,
+          "default": 2
+        }
+      },
+      "required": [
+        "batch_id",
+        "family_id",
+        "expected_generation",
+        "devices"
+      ],
+      "additionalProperties": false
+    },
+    "portable_batch_inspect": {
+      "type": "object",
+      "properties": {
+        "batch_id": {
+          "type": "string",
+          "pattern": "^batch_[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "batch_id"
+      ],
+      "additionalProperties": false
+    },
+    "portable_batch_list": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 20
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  }
+}
