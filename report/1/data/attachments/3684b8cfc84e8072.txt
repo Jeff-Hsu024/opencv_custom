@@ -1,0 +1,2 @@
+警告: OCR 模板路徑不存在: C:\Users\runneradmin\AppData\Local\Temp\pytest-of-runneradmin\pytest-0\test_ocr_empty_templates_retur0\missing
+警告: OCR 模板路徑不存在: C:\Users\runneradmin\AppData\Local\Temp\pytest-of-runneradmin\pytest-0\test_ocr_empty_templates_retur0\missing
