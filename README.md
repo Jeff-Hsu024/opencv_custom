@@ -113,3 +113,6 @@ Phase 7 baseline: 258 regression tests passed; MuMu controlled settings navigati
 
 ## Phase 8 — Agent interface candidate
 The candidate branch adds recorded one-click transitions, explicit annotation fields/errors, opt-in response projections, metadata-only snapshots, expanded overlapping CLI/MCP parameters, paged asset evidence and task-local sealed offline-validation reuse. See [Phase 8 interface](skills/agent-vision/references/interface.md) and [specification](specs/agent-vision-phase8/SPEC.md). Existing workflows and full response defaults remain compatible. Do not install the candidate over the frozen official deployment before review.
+
+## Phase 8.1 — failure evidence and onboarding patch
+The candidate retains the last valid full wait observation on failed/timeout waits, exposes explicit pre/post-action transition frame semantics, and adds read-only runtime profile discovery. See [interface](skills/agent-vision/references/interface.md) and [isolated transport recipe](skills/agent-vision/references/transport.md#isolated-candidate-launch-nb). Existing historical evidence is not rewritten. These are candidate capabilities until the candidate is accepted and installed; do not confuse the official frozen deployment with this branch.

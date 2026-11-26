@@ -15,7 +15,7 @@ Use the installed application tools, not a blind coordinate macro. The LLM is th
 | Continue an exploration | `vision_record_resume_context` for the existing session |
 | Unknown task / learn a UI | `vision_record_start`, then fresh recorded snapshot |
 | Convert stopped exploration to reusable workflow | `vision_workflow_candidates`, review evidence, build |
-| Qualify an offline workflow | `vision_runtime_qualify`, then explicit runtime run |
+| Qualify an offline workflow | `vision_runtime_probe_profile` (if deployed), then qualify and explicit runtime run |
 | Runtime failure with no known recovery | Inspect task/run; `vision_recovery_open` if recovery exploration is appropriate |
 | Manage a reviewed version or route | `vision_lifecycle_inspect`, generation-checked mutation |
 
@@ -45,7 +45,7 @@ Stop the session, review every action and select explicit connected transitions.
 
 ## Failure and handoff
 
-Inspect task and child run. Treat unknown or pending action as unknown, not failed-with-no-effect. Do not replay blindly. Open a linked recovery case when appropriate, fresh full snapshot first, explicit observed-state annotation before actions, record smallest safe route, compile/qualify/run/verify child separately, link to exact parent version only with live qualification. Recovery success is not original-task success. Do not overwrite existing bundle or original failure receipt.
+Inspect task and child run. Treat unknown or pending action as unknown, not failed-with-no-effect. On Phase 8.1 transition failure use observation_phase and last_observed_frame_id; a null post-action observation means unknown state, never use pre_frame_id as current. A retained timeout image is evidence of observation, not success. Do not replay blindly. Open a linked recovery case when appropriate, fresh full snapshot first, explicit observed-state annotation before actions, record smallest safe route, compile/qualify/run/verify child separately, link to exact parent version only with live qualification. Recovery success is not original-task success. Do not overwrite existing bundle or original failure receipt.
 
 ## Invariants
 

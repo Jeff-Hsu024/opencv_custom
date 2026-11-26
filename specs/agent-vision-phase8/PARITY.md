@@ -66,3 +66,5 @@ Generated from actual parser and MCP definitions. All 57 baseline tools retained
 | vision_transition_inspect | `vision transition inspect` | new |
 
 Legacy defaults are retained: CLI wait interval 0.5s vs MCP 0.2s; set explicitly for equivalence. CLI file output and MCP ImageContent are transport-specific. Summary is opt-in; full response remains default.
+
+Phase 8.1 additive tool: vision_runtime_probe_profile / vision runtime probe-profile --device SERIAL --package PACKAGE (61 candidate tools). Direct and recorded failed wait payloads expose operation_result; error/exit semantics unchanged.

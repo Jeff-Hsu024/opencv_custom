@@ -49,7 +49,7 @@ def test_transition_buildable_and_idempotent(env):
 def test_no_match(env):
     p,s,r,sid,args=env;p.state=1
     res=call(s,"transition",**args)["result"]
-    assert res["status"]=="needs_agent" and res["reason"]["code"]=="TARGET_NOT_UNIQUE" and res["action_outcome"]=="not_attempted"
+    assert res["status"]=="needs_agent" and res["reason"]["code"]=="TARGET_NOT_FOUND" and res["action_outcome"]=="not_attempted"
     assert len(p.actions)==0
 
 def test_ambiguous(env):

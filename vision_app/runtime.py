@@ -311,8 +311,19 @@ class WorkflowRuntime:
             items.append({k:r.get(k) for k in ("run_id","workflow_id","device","status","completed_steps","updated_at","reason")})
         return {"items":items,"next_cursor":items[-1]["run_id"] if len(ids)>limit else None}
 
+    def probe_profile(self,device=None,package=None):
+        check(isinstance(device,str) and device.strip()==device and bool(device) and device not in ("adb","desktop"),
+              "INVALID_DEVICE","Explicit Android device serial required")
+        check(isinstance(package,str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+",package),
+              "INVALID_PACKAGE","Valid Android package required")
+        with workspace_lock(self.store):
+            observed=self.probe(device,package)
+            profile_shape(observed)
+            check(observed["package"]==package,"APP_MISMATCH","Observed app does not match expected package")
+            return observed
+
     def query(self,action,**args):
-        require(action in ("qualify","run","inspect","list"),"Unknown runtime action")
+        require(action in ("qualify","run","inspect","list","probe_profile"),"Unknown runtime action")
         return getattr(self,action)(**args)
 
 
@@ -320,8 +331,9 @@ def runtime_tool_definitions():
     string={"type":"string"}
     integer={"type":"integer"}
     profile={"type":"object","properties":{"package":string,"version_code":integer,"rotation":integer,
-             "locale":string,"ui_mode":string},"required":list(PROFILE_FIELDS),"additionalProperties":False}
+             "locale":string,"ui_mode":{"type":"string","pattern":"^0x[0-9a-f]+$","examples":["0x21"]}},"required":list(PROFILE_FIELDS),"additionalProperties":False}
     specs={
+        "probe_profile":({"device":string,"package":string},["device","package"],"Read-only current Android profile; package must be focused and resumed; UI mode is lowercase hexadecimal."),
         "qualify":({"workflow_id":string,"device":string,"profile":profile},["workflow_id","device","profile"],
                    "Read-only Android preflight; bind explicit profile and validate initial state/target."),
         "run":({"binding_id":string,"run_id":string},["binding_id","run_id"],

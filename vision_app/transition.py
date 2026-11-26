@@ -10,10 +10,10 @@ import time
 
 from vision_app.actions import ActionService
 from vision_app.assets import AssetRegistry, MatchingService
-from vision_app.observation import ObservationService
+from vision_app.observation import ObservationService, _artifact_for_record
 from vision_app.recorder import Recorder, RecorderError, workspace_lock
-from vision_app.store import _atomic_write_json
-from vision_app.waits import WaitService
+from vision_app.store import _atomic_write_json, StoreError
+from vision_app.waits import WaitService, WaitFailure
 
 
 def check(ok,message):
@@ -48,27 +48,85 @@ class TransitionService:
         self._save(t)
         return t
 
-    def _reconcile(self,t):
-        # Correlation is persisted in normal event inputs before invocation.
+    @staticmethod
+    def _clear_observation(t,phase):
+        t.update(last_frame_id=None,last_observed_frame_id=None,artifact=None,
+                 last_capture_timestamp=None,observation_phase=phase)
+
+    def _observe(self,t,role,payload):
+        """Only real snapshot or wait observations can advance the frame pointer."""
+        if role=="action":
+            self._clear_observation(t,"post_action_unknown")
+            return
+        if role not in ("pre","wait","post") or not isinstance(payload,dict):
+            return
+        data=payload if payload.get("ok") else payload.get("operation_result")
+        if role=="wait":
+            data=data if isinstance(data,dict) else {}
+            t["wait"]={k:data.get(k) for k in ("condition","verified","frame_id","elapsed_seconds",
+                       "captures","last_capture_timestamp","capture_role","retention_error")}
+            t["wait"]["verified"]=data.get("verified") is True and payload.get("ok") is True
+            t["wait"]["status"]=data.get("status") or ("verified" if t["wait"]["verified"] else
+                "timeout" if "TIMEOUT" in str((payload.get("error") or {}).get("code","")) else "failed")
+        if not isinstance(data,dict):
+            return
+        # Snapshot on failure is not a trustworthy observation; WaitFailure is explicitly typed upstream.
+        if role!="wait" and not payload.get("ok"):
+            return
+        fid=data.get("frame",{}).get("frame_id") or data.get("frame_id")
+        if not fid:
+            return
+        try:
+            frame=self.store.get_frame(fid,device_id=t["request"]["device"])
+            artifact=_artifact_for_record(self.store,frame)
+            if not frame.protected or frame.parent_id is not None or not Path(artifact["path"]).is_file():
+                return
+        except (StoreError,ValueError,OSError):
+            return
+        t.update(last_frame_id=fid,last_observed_frame_id=fid,artifact=artifact,
+                 last_capture_timestamp=frame.timestamp,
+                 observation_phase="pre_action" if role=="pre" else "post_action")
+        if role=="pre":t["pre_frame_id"]=fid
+        if role=="post":t["post_frame_id"]=fid
+
+    def _restore_observations(self,t):
+        # Rebuild from durable events only. Do not trust the old pre-click pointer.
+        prior_action=t.get("action_outcome")
+        t.update(pre_frame_id=None,post_frame_id=None,wait=None)
+        self._clear_observation(t,"none")
         with self.rec.db() as db:
             rows=db.execute("""SELECT event_id,operation,status,result FROM events
                          WHERE session_id=? AND json_extract(inputs,'$.transition_id')=?
                          ORDER BY sequence""",(t["request"]["session_id"],t["transition_id"])).fetchall()
+        t["events"]={}
         for r in rows:
             payload=json.loads(r["result"]) if r["result"] else None
-            role="post" if r["operation"]=="snapshot" and "pre" in t["events"] and t["events"]["pre"]!=r["event_id"] else {"snapshot":"pre","find":"find","click":"action","wait":"wait"}[r["operation"]]
+            role="post" if r["operation"]=="snapshot" and "pre" in t["events"] else {"snapshot":"pre","find":"find","click":"action","wait":"wait"}[r["operation"]]
             t["events"][role]=r["event_id"]
-            if r["operation"]=="click":
+            if role=="action":
                 t["action_outcome"]="executed_unverified" if r["status"]=="success" else "unknown"
-            if payload and (payload.get("frame") or payload.get("frame_id")):
-                t["last_frame_id"]=payload.get("frame",{}).get("frame_id") or payload.get("frame_id")
-                if payload.get("artifact"):t["artifact"]=payload["artifact"]
+                self._clear_observation(t,"post_action_unknown")
+            else:
+                self._observe(t,role,payload)
+        # A crash after writing action intent but before inserting the click event is uncertain.
+        if "action" not in t["events"] and prior_action in ("unknown","executed_unverified"):
+            t["action_outcome"]=prior_action
+            self._clear_observation(t,"post_action_unknown")
+        return t
+
+    def _reconcile(self,t):
+        self._restore_observations(t)
         return self._finish(t,"interrupted",{"code":"TRANSITION_INTERRUPTED","message":"Previous writer ended; inspect receipts and fresh state. Do not replay."})
 
     def inspect(self,transition_id):
         p=self._path(transition_id)
         check(p.is_file() and not p.is_symlink(),"Transition not found")
-        return json.loads(p.read_text(encoding="utf-8"))
+        t=json.loads(p.read_text(encoding="utf-8"))
+        # Adapt legacy receipts in memory, never rewrite historical journals.
+        if "observation_phase" not in t:
+            t["legacy_receipt"]=True
+            self._restore_observations(t)
+        return t
 
     def execute(self,device,session_id,transition_id,target,postcondition,threshold=.98,max_ref_age_seconds=15,return_image=True,pre_state=None):
         check(isinstance(device,str) and device not in ("","adb","desktop"),"Explicit Android device required")
@@ -99,23 +157,25 @@ class TransitionService:
                 if t["status"]=="running":t=self._reconcile(t)
                 return {**t,"duplicate_request":True}
             session=self.rec.status(session_id)
-            check(session["status"]=="active" and session["device_id"]==device,"Active session/device mismatch")
+            if session["status"]!="active":
+                raise RecorderError("Session is not active",code="SESSION_INACTIVE")
+            if session["device_id"]!=device:
+                raise RecorderError("Operation device differs from session",code="SESSION_SCOPE_MISMATCH")
             for name in (target,pre_state,postcondition.get("target")):
                 if name:
                     a=self.assets.get(name)
                     check(a.device_id in (None,device),"Asset device mismatch")
                     self.assets.load_image(name)
             t={"transition_id":transition_id,"request":request,"status":"running","action_outcome":"not_attempted",
-               "events":{},"last_frame_id":None,"match_count":None,"target_score":None,"wait":None,
+               "events":{},"last_frame_id":None,"last_observed_frame_id":None,"pre_frame_id":None,
+               "post_frame_id":None,"observation_phase":"none","last_capture_timestamp":None,
+               "match_count":None,"target_score":None,"wait":None,
                "artifact":None,"semantic_verification":"UNKNOWN","started_at":time.time(),"finished_at":None,"reason":None}
             self._save(t)
             def op(role,operation,inputs,invoke):
                 r=self.rec._execute_locked(session_id,operation,{**inputs,"transition_id":transition_id},invoke)
                 t["events"][role]=r["event_id"]
-                if r.get("frame") or r.get("frame_id"):
-                    # Find also carries frame_id; retain its actual last observation artifact.
-                    t["last_frame_id"]=r.get("frame",{}).get("frame_id") or r.get("frame_id")
-                    if r.get("artifact"):t["artifact"]=r["artifact"]
+                self._observe(t,role,r)
                 self._save(t)
                 if not r.get("ok"):
                     err=r.get("error") or {}
@@ -138,12 +198,15 @@ class TransitionService:
                 find=op("find","find",{"frame_id":fid,"target":target,"all":True,"threshold":threshold,"max_results":2,"color_mode":"gray"},
                         lambda:{"ok":True,**self.matcher.find(fid,target,find_all=True,threshold=threshold,max_results=2)})
                 t["match_count"]=find["count"]
-                if find["count"]!=1:return self._finish(t,"needs_agent",{"code":"TARGET_NOT_UNIQUE","message":"Expected one target"})
+                if find["count"]!=1:
+                    return self._finish(t,"needs_agent",{"code":"TARGET_NOT_FOUND" if find["count"]==0 else "TARGET_AMBIGUOUS",
+                          "message":"No matching target" if find["count"]==0 else "Multiple matching targets",
+                          "match_count":find["count"]})
                 match=find["matches"][0];t["target_score"]=match["score"]
                 if not 0<=time.time()-frame["timestamp"]<=max_ref_age_seconds:
                     return self._finish(t,"needs_agent",{"code":"FRAME_STALE","message":"Pre-frame expired"})
                 rid=match["ref_id"]
-                t["action_outcome"]="unknown";self._save(t)
+                t["action_outcome"]="unknown";self._clear_observation(t,"post_action_unknown");self._save(t)
                 op("action","click",{"device":device,"ref":rid,"max_age_seconds":max_ref_age_seconds},
                    lambda:{"ok":True,**self.actions.click(device,ref_id=rid,max_age_seconds=max_ref_age_seconds)})
                 t["action_outcome"]="executed_unverified";self._save(t)
@@ -157,16 +220,23 @@ class TransitionService:
                     if settle:time.sleep(settle)
                     remaining=timeout-(time.monotonic()-started)
                     if remaining<=0:
-                        raise RecorderError("Wait budget exhausted during settle",code="WAIT_TIMEOUT")
-                    if mode=="changed":
-                        r=self.waits.wait_changed(device,baseline_frame_id=fid,region=tuple(region) if region else None,
-                                                  timeout=remaining,interval=.2,min_changed_ratio=ratio)
-                    else:
-                        r=self.waits.wait_image(device,target_name=wi["target"],region=tuple(region) if region else None,
-                                               timeout=remaining,interval=.2,threshold=wi["threshold"])
+                        from vision_app.observation import OperationError
+                        raise WaitFailure(OperationError("WAIT_TIMEOUT","Wait budget exhausted during settle",retryable=True,exit_code=4),
+                             {"condition":mode,"verified":False,"device_id":device,"status":"timeout",
+                              "captures":0,"frame_id":None,"artifact":None,"last_capture_timestamp":None,
+                              "elapsed_seconds":time.monotonic()-started})
+                    try:
+                        if mode=="changed":
+                            r=self.waits.wait_changed(device,baseline_frame_id=fid,region=tuple(region) if region else None,
+                                                      timeout=remaining,interval=.2,min_changed_ratio=ratio)
+                        else:
+                            r=self.waits.wait_image(device,target_name=wi["target"],region=tuple(region) if region else None,
+                                                   timeout=remaining,interval=.2,threshold=wi["threshold"])
+                    except WaitFailure as exc:
+                        exc.observation["elapsed_seconds"]=time.monotonic()-started
+                        raise
                     return {"ok":True,**r,"elapsed_seconds":time.monotonic()-started}
                 wait=op("wait","wait",wi,invoke)
-                t["wait"]={k:wait.get(k) for k in ("condition","verified","frame_id","elapsed_seconds")}
                 if not wait.get("verified"):return self._finish(t,"needs_agent",{"code":"WAIT_UNVERIFIED","message":"Wait did not verify"})
                 op("post","snapshot",{"device":device},snap)
                 return self._finish(t,"observed")

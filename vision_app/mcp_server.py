@@ -35,7 +35,7 @@ from vision_app.store import (
     OutOfBoundsError,
     StoreError,
 )
-from vision_app.waits import WaitService
+from vision_app.waits import WaitService, WaitFailure
 from vision_app.recorder import Recorder, RecorderError, OPERATIONS, workspace_lock, record_tool_definitions
 from vision_app.workflow import WorkflowBuilder, WorkflowError, workflow_tool_definitions
 from vision_app.runtime import WorkflowRuntime, RuntimeFault, runtime_tool_definitions
@@ -588,7 +588,7 @@ class VisionMcpServer:
                 "content": [
                     {
                         "type": "text",
-                        "text": json.dumps({"ok": False, "error": _error_payload(exc)}),
+                        "text": json.dumps({"ok": False, "error": _error_payload(exc), **({"operation_result":exc.observation} if isinstance(exc,WaitFailure) else {})}),
                     }
                 ],
                 "isError": True,

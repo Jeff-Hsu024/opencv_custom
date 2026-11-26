@@ -294,7 +294,16 @@ class Recorder:
                 self._asset(inputs.get("name"), device, evidence)
         except Exception as exc:
             error = {"code": getattr(exc, "code", type(exc).__name__), "message": str(exc)}
-            result = {"ok": False, "error": error, "operation_result": result}
+            result = {"ok": False, "error": error, "operation_result": None}
+            from vision_app.waits import WaitFailure
+            if operation == "wait" and isinstance(exc, WaitFailure):
+                observation = exc.observation
+                try:
+                    self._relations(observation, device, evidence)
+                    result["operation_result"] = observation
+                except RecorderError as scope_error:
+                    error = {"code":scope_error.code,"message":str(scope_error)}
+                    result["error"] = error
             status = "failed"
         finally:
             protect_new_frames.reset(token)
@@ -327,6 +336,7 @@ class Recorder:
 
     def event(self, sid, event_id):
         with self.db() as db:
+            self._session(db, sid)
             row = db.execute("SELECT * FROM events WHERE session_id=? AND event_id=?", (sid,event_id)).fetchone()
         if not row:
             raise RecorderError("Event not found in session",code="EVENT_NOT_FOUND")

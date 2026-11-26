@@ -27,7 +27,7 @@ from vision_app.store import (
     InvalidFrameIdError,
     OutOfBoundsError,
 )
-from vision_app.waits import WaitService
+from vision_app.waits import WaitService, WaitFailure
 from vision_app.recorder import Recorder, RecorderError, OPERATIONS, workspace_lock
 from vision_app.workflow import WorkflowBuilder, WorkflowError
 from vision_app.runtime import WorkflowRuntime, RuntimeFault
@@ -129,9 +129,10 @@ def _build_parser() -> _CliParser:
     recovery.add_argument('--detail-id')
     recovery.add_argument('--json', action='store_true')
     runtime = sub.add_parser('runtime', help='Deterministic workflow runtime')
-    runtime.add_argument('runtime_action', choices=['qualify','run','inspect','list'])
+    runtime.add_argument('runtime_action', choices=['qualify','run','inspect','list','probe-profile'])
     runtime.add_argument('--workflow', dest='workflow_id')
     runtime.add_argument('--device')
+    runtime.add_argument('--package')
     runtime.add_argument('--profile', help='UTF-8 JSON Android profile file')
     runtime.add_argument('--binding', dest='binding_id')
     runtime.add_argument('--run-id')
@@ -522,6 +523,7 @@ def _run_cli(
         _emit_json(
             {
                 "ok": False,
+                **({"operation_result":exc.observation} if isinstance(exc,WaitFailure) else {}),
                 "command": command_name,
                 "device": device_name,
                 "error": {
@@ -590,9 +592,9 @@ def run_cli(argv=None, *, service=None):
             _emit_json({'ok':True,'result':project(args.command,action,result,mode,detail_id)})
             return 0
         if args.command == 'runtime':
-            params = {k:v for k,v in vars(args).items() if k in ('workflow_id','device','profile','binding_id','run_id','limit','after') and v is not None}
+            params = {k:v for k,v in vars(args).items() if k in ('workflow_id','device','package','profile','binding_id','run_id','limit','after') and v is not None}
             if 'profile' in params: params['profile'] = json.loads(Path(params['profile']).read_text(encoding='utf-8-sig'))
-            result = WorkflowRuntime(store, observation=service).query(args.runtime_action, **params)
+            result = WorkflowRuntime(store, observation=service).query(args.runtime_action.replace("-","_"), **params)
             _emit_json({'ok':True,'result':project(args.command,action,result,mode,detail_id)})
             return 3 if args.runtime_action=='run' and result['status']!='completed' else 0
         if args.command == 'workflow':
@@ -636,6 +638,12 @@ def run_cli(argv=None, *, service=None):
         code={"task":"TASK_ERROR","lifecycle":"LIFECYCLE_ERROR","recovery":"RECOVERY_ERROR","workflow":"WORKFLOW_ERROR","runtime":"RUNTIME_ERROR"}.get(args.command,"WORKFLOW_ERROR")
         _emit_json({"ok":False,"error":{"code":code,"message":str(exc),"retryable":False}})
         return 3
+    except AssetNotFoundError as exc:
+        _emit_json({"ok":False,"error":{"code":"ASSET_NOT_FOUND","message":str(exc),"retryable":False}})
+        return 3
+    except InvalidAssetNameError as exc:
+        _emit_json({"ok":False,"error":{"code":"INVALID_ASSET_NAME","message":str(exc),"retryable":False}})
+        return 2
     except (UsageError,OperationError) as exc:
         _emit_json({"ok":False,"error":{"code":exc.code,"message":exc.message,"retryable":getattr(exc,"retryable",False)}})
         return getattr(exc,"exit_code",3)

@@ -2,7 +2,9 @@
 
 Phase 7 interface is the frozen installed NB baseline. Phase 8 adds the interfaces in [interface.md](interface.md); discover actual deployed version before use. Tool names and schemas can evolve: discover actual tools each session. Read only the section for your current task.
 
-## ChatGPT / Queqiao NB
+## ChatGPT / Queqiao NB — official deployment
+
+The following existing server and CLI are the frozen official environment, **not** the candidate. For Phase 8.1 qualification use the isolated recipe below.
 
 Use the installed Queqiao NB extension tool, workspaceId=develop. Discover via:
 - extension(operation="list")
@@ -145,3 +147,34 @@ Exit 0 only for completed execution; 3 for noncompleted. Generation pin and work
 Transport timeout: a long synchronous MCP task may outlast the connector request. Inspect the original task ID (CLI or MCP); do not generate a new ID or assume success/failure. If still running, the journal may belong to a live or interrupted writer; same-ID execute under the workspace lock is readback/reconciliation only once the previous writer releases the lock. Use CLI for tasks expected to exceed the connector timeout.
 
 Phase 8 annotation/checkpoint keys, transition options, response modes, asset pagination and image forwarding: [interface.md](interface.md).
+
+## Isolated candidate launch (NB)
+Use this for an explicitly requested candidate qualification, not routine official use.
+```powershell
+Set-Location C:\Users\jeffh\Downloads\develop\opencv_custom_recovery\phase8-agent-interface
+git rev-parse HEAD
+git status --short --branch
+$py = (Resolve-Path ../phase8-venv/Scripts/python.exe).Path
+& $py -c "import sys,vision_app; print(sys.executable); print(vision_app.__file__)"
+$env:PYTHONPATH = "core;."
+# Use a NEW uniquely named qualification directory, not a historical store:
+$env:VISION_STORE_DIR = Join-Path (Split-Path (Get-Location).Path -Parent) ("fresh-phase81-" + [guid]::NewGuid().ToString("N") + "/store")
+# Verify native MCP tool discovery; output is text JSON, no image payload:
+'{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | & $py -m vision_app.mcp_server
+& ../phase8-venv/Scripts/vision.exe --help
+& ../phase8-venv/Scripts/vision.exe runtime --help
+```
+Compare HEAD with the qualification target supplied by the caller; verify module file belongs to the candidate checkout. Phase 8.1 exposes 61 tools (including vision_runtime_probe_profile); official Phase 7 deployment had 57. Candidate MCP and CLI must use the same explicit absolute isolated store. For a persistent native server, run that same python -m vision_app.mcp_server executable with the same cwd, PYTHONPATH and VISION_STORE_DIR and use JSON-RPC stdio. Do not redirect official Queqiao server or install over the official skill. Read candidate skill from its repository. A tool count is not a substitute for exact version check.
+
+## Typed image forwarding
+Native MCP response: use response.result.content after JSON-RPC envelope. Do not assume the first block is text.
+```javascript
+const blocks = response.result.content;
+const meta = JSON.parse(blocks.find(c => c.type === "text").text);
+for (const c of blocks) {
+  if (c.type === "image") image("data:" + c.mimeType + ";base64," + c.data);
+}
+// Print only parsed metadata. Never print or stringify blocks or image data.
+text(meta);
+```
+For the actual Queqiao NB MCP wrapper, parse extensionResponse.text as JSON then read .result.result.content. For dev.queqiao.media image_read, use extensionResponse.content_items (typed blocks, not the text response) and forward image items using the same renderer. If a client exposes different wrappers, inspect types/keys only; do not log the entire raw response. Use metadata-only return_image=false and image_read on a verified workspace-relative artifact path when the wrapper is unsuitable. On transition failure check observation_phase and last_observed_frame_id first; if null, do not render pre_frame_id as current. In direct wait failure, use operation_result.artifact if present, regardless of isError. Actual visual observation requires rendering pixels. This documents the wrapper boundary; the external connector is not changed.
