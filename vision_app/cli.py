@@ -29,6 +29,7 @@ from vision_app.store import (
 )
 from vision_app.waits import WaitService
 from vision_app.recorder import Recorder, OPERATIONS, workspace_lock
+from vision_app.workflow import WorkflowBuilder
 
 
 class _CliParser(argparse.ArgumentParser):
@@ -69,6 +70,14 @@ def _build_parser() -> _CliParser:
     )
     parser.add_argument('--session', default=os.environ.get('VISION_SESSION_ID'))
     sub = parser.add_subparsers(dest="command", required=True)
+    workflow = sub.add_parser('workflow', help='Offline evidence-bound workflow builder')
+    workflow.add_argument('workflow_action', choices=['candidates','build','inspect','validate','list'])
+    workflow.add_argument('--session', dest='workflow_session')
+    workflow.add_argument('--workflow', dest='workflow_id')
+    workflow.add_argument('--plan', help='UTF-8 JSON plan file')
+    workflow.add_argument('--limit', type=int)
+    workflow.add_argument('--after')
+    workflow.add_argument('--json', action='store_true')
     record = sub.add_parser('record', help='Persistent exploration recorder')
     record.add_argument('record_action', choices=['start','status','pause','resume','stop','list','inspect','summary','events','event','annotate','checkpoint','annotations','history','resume-context','latest-checkpoint'])
     record.add_argument('--session', dest='record_session')
@@ -473,6 +482,16 @@ def run_cli(argv=None, *, service=None):
         return _run_cli(argv, service=service)
     try:
         store = service.store if service else FrameStore(Path(args.store_dir))
+        if args.command == 'workflow':
+            params = {}
+            if args.workflow_session: params['session_id'] = args.workflow_session
+            if args.workflow_id: params['workflow_id'] = args.workflow_id
+            if args.plan: params['plan'] = json.loads(Path(args.plan).read_text(encoding='utf-8-sig'))
+            if args.limit is not None: params['limit'] = args.limit
+            if args.after is not None: params['after'] = int(args.after) if args.workflow_action=='candidates' else args.after
+            result = WorkflowBuilder(store).query(args.workflow_action, **params)
+            _emit_json({'ok':True,'result':result})
+            return 0
         if args.command == 'record':
             data = {k: v for k, v in vars(args).items() if k in ('name','goal','device','event_id','annotation','limit','after','operation','status','kind') and v is not None}
             if 'annotation' in data:
@@ -494,7 +513,7 @@ def run_cli(argv=None, *, service=None):
         with workspace_lock(store):
             return _run_cli(argv, service=service, parsed=args)
     except Exception as exc:
-        _emit_json({'ok':False,'error':{'code':'RECORDER_ERROR','message':str(exc)}})
+        _emit_json({'ok':False,'error':{'code':'WORKFLOW_ERROR' if args.command == 'workflow' else 'RECORDER_ERROR','message':str(exc)}})
         return 3
 
 

@@ -82,3 +82,14 @@ CLI examples (global --session precedes ordinary commands):
     vision --store-dir <store> record checkpoint --session <id> --event <event-id> --annotation <JSON>
     vision --store-dir <store> record resume-context --session <id>
 The recorder DB and protected evidence remain in the store; do not delete the store to reset transient data. Session IDs are not authentication credentials. A bound operation with invalid device/frame scope is recorded as failed and not executed. Invalid CLI syntax rejected before dispatch is not an operation receipt.
+
+## Workflow Builder Phase 3
+
+MCP: vision_workflow_candidates {session_id,limit?,after?}; vision_workflow_build {session_id,plan}; vision_workflow_inspect/validate {workflow_id}; vision_workflow_list {limit?,after?}. Build plan exact fields: name, goal, states[], steps[], excluded_actions[]. State fields: id, label, event_id (full path snapshot), region [x1,y1,x2,y2], threshold. Step fields: from, to, pre_event_id, find_event_id, action_event_id, wait_event_id, post_event_id, annotation_id. Exclusions: {event_id,reason}; all action events must be accounted for. V1 accepts reference-based clicks only. Candidate list is not approval.
+CLI:
+    vision --store-dir STORE workflow candidates --session SID
+    vision --store-dir STORE workflow build --session SID --plan plan.json
+    vision --store-dir STORE workflow inspect --workflow WF_ID
+    vision --store-dir STORE workflow validate --workflow WF_ID
+    vision --store-dir STORE workflow list
+Bundle: STORE/workflows/WF_ID/{definition.json,plan.json,templates/<sha256>.png}. Source evidence revalidation requires original Recorder store. Never edit a published bundle; a changed plan/evidence produces a new ID.

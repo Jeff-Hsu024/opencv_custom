@@ -25,3 +25,9 @@ Choose reversible navigation with no persistent settings change. Verify original
 ## Recorder and handoff
 
 Checkpoint explicit state, verified postconditions, completed_steps, unresolved_issues, next_step and evidence-linked event ID. Use resume_context instead of replaying the whole conversation or raw log. Verify fresh state before acting. Inspect failed/timeout/pending events separately; no automatic retry. Recorder is a faithful exploration memory, not a workflow builder or runtime.
+
+## Builder review sequence
+1. Stop source session and discover action candidates with pagination.
+2. Inspect source receipts, actual full frames and explicit semantic annotations. Select a connected path; account for every action and reject ambiguous or interrupted transitions.
+3. Choose visually distinctive state marker crops, including destination state markers (not merely action targets). The builder tests positive and other-state negative historical frames, checks target uniqueness, and seals template/evidence hashes.
+4. Preserve the content-addressed bundle and validate it again across processes. Any evidence or template drift is a failure. Do not promote offline validation to live qualification.

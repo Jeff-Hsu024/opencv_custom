@@ -37,6 +37,7 @@ from vision_app.store import (
 )
 from vision_app.waits import WaitService
 from vision_app.recorder import Recorder, OPERATIONS, workspace_lock, record_tool_definitions
+from vision_app.workflow import WorkflowBuilder, WorkflowError, workflow_tool_definitions
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "vision-mcp"
@@ -44,6 +45,8 @@ SERVER_VERSION = "0.1.0"
 
 
 def _error_payload(exc: Exception) -> Dict[str, Any]:
+    if isinstance(exc, WorkflowError):
+        return {"code":"WORKFLOW_ERROR","message":str(exc),"retryable":False}
     if isinstance(exc, UsageError):
         return {"code": exc.code, "message": exc.message, "retryable": False}
     if isinstance(exc, OperationError):
@@ -280,7 +283,7 @@ def _tool_definitions() -> List[Dict[str, Any]]:
     for tool in definitions:
         if tool['name'].removeprefix('vision_') in OPERATIONS:
             tool['inputSchema']['properties']['session_id'] = {'type':'string', 'description':'Explicit active recording session'}
-    return definitions + record_tool_definitions()
+    return definitions + record_tool_definitions() + workflow_tool_definitions()
 
 
 class VisionMcpServer:
@@ -340,6 +343,9 @@ class VisionMcpServer:
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         args = dict(arguments or {})
         try:
+            if name.startswith('vision_workflow_'):
+                action = name.removeprefix('vision_workflow_')
+                return self._text_tool_result({'ok':True,'result':WorkflowBuilder(self.store).query(action, **args)})
             if name.startswith('vision_record_'):
                 action = name.removeprefix('vision_record_').replace('_','-')
                 result = Recorder(self.store).query(action, **args)
