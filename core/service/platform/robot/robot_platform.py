@@ -5,9 +5,25 @@ import uuid
 import os
 from typing import Optional, Tuple, Union
 import numpy as np
-import pyautogui
 from PIL import Image
 import cv2
+
+pyautogui = None
+
+
+def _get_pyautogui():
+    """Lazily import pyautogui so headless/ADB environments do not require it."""
+    global pyautogui
+    if pyautogui is None:
+        try:
+            import pyautogui as _pyautogui
+            pyautogui = _pyautogui
+        except ImportError as exc:
+            raise ImportError(
+                "pyautogui is required for RobotPlatform. "
+                "Install desktop extras with: pip install .[desktop]"
+            ) from exc
+    return pyautogui
 from ..platform_service import PlatformService
 from service.core.opencv.open_cv_service import OpenCvService
 from service.core.opencv.mat_utility import MatUtility
@@ -28,7 +44,7 @@ class RobotPlatform(PlatformService):
         """
         super().__init__(open_cv_service)
         self.failsafe = bool(failsafe)
-        pyautogui.FAILSAFE = self.failsafe
+        _get_pyautogui().FAILSAFE = self.failsafe
 
     def capabilities(self) -> dict:
         """Report Robot platform action capabilities and known limitations."""
@@ -51,7 +67,7 @@ class RobotPlatform(PlatformService):
     def snapshot(self) -> Optional[np.ndarray]:
         """獲取螢幕截圖 Mat (BGR 格式)"""
         try:
-            screenshot = pyautogui.screenshot()
+            screenshot = _get_pyautogui().screenshot()
             screenshot_np = np.array(screenshot)
             # RGB 轉 BGR
             return cv2.cvtColor(screenshot_np, cv2.COLOR_RGB2BGR)
@@ -62,7 +78,7 @@ class RobotPlatform(PlatformService):
     def click(self, x: int, y: int) -> bool:
         """點擊本機座標"""
         try:
-            pyautogui.click(x, y)
+            _get_pyautogui().click(x, y)
             return True
         except Exception:
             return False
@@ -73,8 +89,9 @@ class RobotPlatform(PlatformService):
             raise ValueError(f"duration must be non-negative, got {duration}")
         try:
             # duration 轉為秒
-            pyautogui.moveTo(x1, y1)
-            pyautogui.dragTo(x2, y2, duration=duration/1000.0)
+            pg = _get_pyautogui()
+            pg.moveTo(x1, y1)
+            pg.dragTo(x2, y2, duration=duration/1000.0)
             return True
         except Exception:
             return False
@@ -82,7 +99,7 @@ class RobotPlatform(PlatformService):
     def type_text(self, text: str) -> bool:
         """模擬鍵盤文字輸入"""
         try:
-            pyautogui.write(text)
+            _get_pyautogui().write(text)
             return True
         except Exception:
             return False
@@ -91,7 +108,7 @@ class RobotPlatform(PlatformService):
         """模擬按鍵事件"""
         try:
             # pyautogui.press 支援 'enter', 'esc' 等字串
-            pyautogui.press(str(key_code))
+            _get_pyautogui().press(str(key_code))
             return True
         except Exception:
             return False
