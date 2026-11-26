@@ -31,6 +31,7 @@ from vision_app.waits import WaitService
 from vision_app.recorder import Recorder, OPERATIONS, workspace_lock
 from vision_app.workflow import WorkflowBuilder
 from vision_app.runtime import WorkflowRuntime
+from vision_app.recovery import RecoveryService
 
 
 class _CliParser(argparse.ArgumentParser):
@@ -71,6 +72,18 @@ def _build_parser() -> _CliParser:
     )
     parser.add_argument('--session', default=os.environ.get('VISION_SESSION_ID'))
     sub = parser.add_subparsers(dest="command", required=True)
+    recovery = sub.add_parser('recovery', help='Evidence-bound recovery and replanning')
+    recovery.add_argument('recovery_action', choices=['open','inspect','propose','proposal','verify','list'])
+    recovery.add_argument('--run-id')
+    recovery.add_argument('--case', dest='case_id')
+    recovery.add_argument('--proposal', dest='proposal_id')
+    recovery.add_argument('--kind', choices=['recovery_route','replacement'])
+    recovery.add_argument('--destination-state')
+    recovery.add_argument('--reconciliation', help='UTF-8 JSON file')
+    recovery.add_argument('--plan', help='UTF-8 JSON file')
+    recovery.add_argument('--limit', type=int)
+    recovery.add_argument('--after', type=int)
+    recovery.add_argument('--json', action='store_true')
     runtime = sub.add_parser('runtime', help='Deterministic workflow runtime')
     runtime.add_argument('runtime_action', choices=['qualify','run','inspect','list'])
     runtime.add_argument('--workflow', dest='workflow_id')
@@ -493,6 +506,13 @@ def run_cli(argv=None, *, service=None):
         return _run_cli(argv, service=service)
     try:
         store = service.store if service else FrameStore(Path(args.store_dir))
+        if args.command == 'recovery':
+            params = {k:v for k,v in vars(args).items() if k in ('run_id','case_id','proposal_id','kind','destination_state','reconciliation','plan','limit','after') and v is not None}
+            for k in ('reconciliation','plan'):
+                if k in params: params[k]=json.loads(Path(params[k]).read_text(encoding='utf-8-sig'))
+            result = RecoveryService(store).query(args.recovery_action, **params)
+            _emit_json({'ok':True,'result':result})
+            return 0
         if args.command == 'runtime':
             params = {k:v for k,v in vars(args).items() if k in ('workflow_id','device','profile','binding_id','run_id','limit','after') and v is not None}
             if 'profile' in params: params['profile'] = json.loads(Path(params['profile']).read_text(encoding='utf-8-sig'))
@@ -530,7 +550,7 @@ def run_cli(argv=None, *, service=None):
         with workspace_lock(store):
             return _run_cli(argv, service=service, parsed=args)
     except Exception as exc:
-        _emit_json({'ok':False,'error':{'code':getattr(exc,'code','RUNTIME_ERROR') if args.command == 'runtime' else ('WORKFLOW_ERROR' if args.command == 'workflow' else 'RECORDER_ERROR'),'message':str(exc)}})
+        _emit_json({'ok':False,'error':{'code':getattr(exc,'code','RUNTIME_ERROR') if args.command == 'runtime' else ('RECOVERY_ERROR' if args.command == 'recovery' else ('WORKFLOW_ERROR' if args.command == 'workflow' else 'RECORDER_ERROR')),'message':str(exc)}})
         return 3
 
 

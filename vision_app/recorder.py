@@ -105,14 +105,18 @@ class Recorder:
             raise RecorderError("Unknown session")
         return dict(row)
 
-    def start(self, name, goal, device):
+    def _create_session(self, db, name, goal, device):
+        """Insert a session in a caller-owned transaction (also used by recovery)."""
         if not all(isinstance(x, str) and x.strip() and len(x) <= 4000 for x in (name, goal, device)):
             raise RecorderError("name, goal and device are required (max 4000 characters)")
         sid, now = _id("ses"), time.time()
+        db.execute("INSERT INTO sessions VALUES (?,?,?,?,?,?,?,?)",
+                   (sid, _clean(name), _clean(goal), _clean(device), str(self.store.store_dir), now, now, "active"))
+        return self._session(db, sid)
+
+    def start(self, name, goal, device):
         with self.db() as db:
-            db.execute("INSERT INTO sessions VALUES (?,?,?,?,?,?,?,?)",
-                       (sid, _clean(name), _clean(goal), _clean(device), str(self.store.store_dir), now, now, "active"))
-        return self.status(sid)
+            return self._create_session(db, name, goal, device)
 
     def status(self, sid):
         with self.db() as db:

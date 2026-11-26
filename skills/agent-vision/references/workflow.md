@@ -35,3 +35,7 @@ Checkpoint explicit state, verified postconditions, completed_steps, unresolved_
 ## Runtime execution and handoff
 
 Qualify the immutable bundle on the exact Android device using actual profile evidence. Run once with a unique idempotency ID. Runtime captures fresh state, requires exactly one expected guard and one current target, records pending action before click, and polls fresh postcondition frames within a bounded budget. A click receipt does not prove semantic completion. On needs_agent or interrupted, query runtime inspect, inspect the last actual frame and action outcome, and do not retry blindly. A running receipt is not evidence of success. Never conflate offline Builder PASS, live preflight PASS and actual completed runtime execution. Runtime has no authority to change workflow definitions or learn recovery rules.
+
+## Agent recovery sequence
+
+Use the failure handoff as a bounded context, not a command to replay. Check original action outcome and fresh state. Record the smallest reversible route that returns to a known parent state; a new snapshot after learning is required if the anchor ages. Use an explicit semantic reconciliation and original evidence. Compile, validate, and qualify the child separately. Preserve the verified prefix for review, but do not splice or replay it automatically. A full replacement must start/end at the original task endpoints; a recovery route only recovers state. No automatic promotion or original-task success inference.

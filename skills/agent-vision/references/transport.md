@@ -103,3 +103,16 @@ CLI:
     vision --store-dir STORE runtime inspect --run-id RUN_ID
     vision --store-dir STORE runtime list
 CLI run exits 0 only for completed, 3 for other terminal results. Journals: STORE/runtime/runs/RUN_ID.json; bindings: STORE/runtime/bindings/BIND_ID.json. Live frames remain protected in FrameStore. No change to source Recorder session or immutable workflow definition.
+
+## Recovery Phase 5
+
+MCP: vision_recovery_open {run_id}; vision_recovery_inspect {case_id,limit?,after?}; vision_recovery_propose {case_id,kind,destination_state,reconciliation,plan}; vision_recovery_proposal {proposal_id,limit?,after?}; vision_recovery_verify {proposal_id,run_id}; vision_recovery_list {limit?,after?}.
+kind: recovery_route or replacement. reconciliation: {anchor_event_id,annotation_id,outcome,note}; outcome: not_attempted, effect_observed, effect_not_observed, unknown. First session event must be a fresh full snapshot; PASS annotation before action. A later fresh execution snapshot must match anchor state. Stop the linked session before proposal. All recorded actions must be accounted for without exclusions. Qualification uses a later completed child run, same original device/profile.
+CLI:
+    vision recovery open --run-id RUN_ID
+    vision recovery inspect --case CASE_ID
+    vision recovery propose --case CASE_ID --kind recovery_route --destination-state STATE --reconciliation reconciliation.json --plan plan.json
+    vision recovery proposal --proposal PROPOSAL_ID
+    vision recovery verify --proposal PROPOSAL_ID --run-id CHILD_RUN_ID
+    vision recovery list
+Recovery rows live in recorder.sqlite; the parent/child workflow bundles and failed/completed runtime journals stay in their existing stores. Parent is never overwritten. A child proposal is an offline candidate until live verification; even then no automatic default selection.

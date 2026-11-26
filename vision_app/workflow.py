@@ -360,23 +360,30 @@ class WorkflowBuilder:
 
     def build(self, session_id, plan):
         with workspace_lock(self.store):
-            definition,blobs=self._compile(session_id,plan)
-            workflow_id="wf_"+digest(canonical({"definition":definition,"plan":plan}))
-            target=self.root/workflow_id
-            self.root.mkdir(parents=True,exist_ok=True)
-            if target.exists():
-                self._validate(workflow_id)
-                return self.inspect(workflow_id)
-            staging=Path(tempfile.mkdtemp(prefix=".building_",dir=self.root))
-            try:
-                for sha,data in blobs.items():
-                    _atomic_write_bytes(staging/"templates"/(sha+".png"),data)
-                _atomic_write_json(staging/"plan.json",plan)
-                _atomic_write_json(staging/"definition.json",{"workflow_id":workflow_id,**definition})
-                os.replace(staging,target)
-            finally:
-                if staging.exists(): shutil.rmtree(staging)
+            return self._build_locked(session_id, plan)
+
+    def _build_locked(self, session_id, plan):
+        definition,blobs=self._compile(session_id,plan)
+        return self._publish_locked(definition,blobs,plan)
+
+    def _publish_locked(self, definition, blobs, plan):
+        workflow_id="wf_"+digest(canonical({"definition":definition,"plan":plan}))
+        target=self.root/workflow_id
+        self.root.mkdir(parents=True,exist_ok=True)
+        if target.exists():
+            self._validate(workflow_id)
             return self.inspect(workflow_id)
+        staging=Path(tempfile.mkdtemp(prefix=".building_",dir=self.root))
+        try:
+            for sha,data in blobs.items():
+                _atomic_write_bytes(staging/"templates"/(sha+".png"),data)
+            _atomic_write_json(staging/"plan.json",plan)
+            _atomic_write_json(staging/"definition.json",{"workflow_id":workflow_id,**definition})
+            os.replace(staging,target)
+        finally:
+            if staging.exists(): shutil.rmtree(staging)
+        return self.inspect(workflow_id)
+
 
     def _directory(self,wid):
         require(isinstance(wid,str) and re.fullmatch(r"wf_[a-f0-9]{64}",wid),"Invalid workflow ID")
