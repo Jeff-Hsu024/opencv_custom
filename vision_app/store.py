@@ -9,6 +9,7 @@ import tempfile
 import time
 import uuid
 from contextvars import ContextVar
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -17,6 +18,7 @@ import cv2
 import numpy as np
 
 from vision_app.transforms import CoordinateTransform
+from vision_app.metadata import FileLock, metadata_transaction
 
 protect_new_frames = ContextVar('protect_new_frames', default=False)
 
@@ -140,9 +142,74 @@ class FrameStore:
         self.store_dir = Path(workspace_dir).resolve()
         self.frames_dir = self.store_dir / "frames"
         self.index_path = self.store_dir / "index.json"
+        self.lifetime_path = self.store_dir / "frame_lifetimes.json"
         self.max_frames = max_frames
         self.ttl_seconds = ttl_seconds
         self.frames_dir.mkdir(parents=True, exist_ok=True)
+
+    def _lifetimes(self):
+        if self.lifetime_path.exists():
+            return json.loads(self.lifetime_path.read_text(encoding="utf-8"))
+        return {"reservations": {}, "pins": {}}
+
+    def _write_lifetimes(self, state):
+        _atomic_write_json(self.lifetime_path, state)
+
+    def _active_frames(self):
+        """Reconcile dead OS owners without waiting; called inside metadata."""
+        state = self._lifetimes()
+        active = set()
+        changed = False
+        for token, frames in list(state["pins"].items()):
+            probe = FileLock(self.store_dir, "frame-owner", token)
+            if probe.acquire(blocking=False):
+                probe.release()
+                del state["pins"][token]
+                changed = True
+            else:
+                active.update(frames)
+        for fid, token in state["reservations"].items():
+            if token is None:
+                continue
+            probe = FileLock(self.store_dir, "frame-owner", token)
+            if probe.acquire(blocking=False):
+                probe.release()
+                state["reservations"][fid] = None
+                changed = True
+            else:
+                active.add(fid)
+        if changed:
+            self._write_lifetimes(state)
+        return active
+
+    @contextmanager
+    def pin_frames(self, frame_ids, *, device_id=None):
+        """Yield coherent records retained until this context exits or its OS owner dies."""
+        ids = [validate_frame_id(fid) for fid in frame_ids]
+        token = uuid.uuid4().hex
+        owner = FileLock(self.store_dir, "frame-owner", token)
+        owner.acquire()
+        try:
+            with metadata_transaction(self):
+                records = self._load_index()
+                selected = []
+                for fid in ids:
+                    rec = self._get_frame(records, fid, device_id)
+                    if not self.resolve_image_path(rec.image_path).is_file():
+                        raise FrameNotFoundError(f"Image file missing for frame {fid}")
+                    selected.append(rec)
+                state = self._lifetimes()
+                state["pins"][token] = ids
+                self._write_lifetimes(state)
+            yield selected
+        finally:
+            try:
+                with metadata_transaction(self):
+                    state = self._lifetimes()
+                    state["pins"].pop(token, None)
+                    self._write_lifetimes(state)
+            finally:
+                owner.release()
 
     def _load_index(self) -> Dict[str, FrameRecord]:
         if not self.index_path.exists():
@@ -194,7 +261,6 @@ class FrameStore:
         ok, encoded = cv2.imencode(".png", image)
         if not ok:
             raise StoreError("Failed to encode frame as PNG")
-        _atomic_write_bytes(abs_path, encoded.tobytes())
 
         record = FrameRecord(
             frame_id=fid,
@@ -211,16 +277,37 @@ class FrameStore:
             protected=protected or protect_new_frames.get(),
         )
 
-        records = self._load_index()
-        records[fid] = record
-        self._cleanup_records(records, now=ts)
-        self._save_index(records)
+        token = uuid.uuid4().hex
+        owner = FileLock(self.store_dir, "frame-owner", token)
+        owner.acquire()
+        try:
+            with metadata_transaction(self):
+                state = self._lifetimes()
+                if fid in self._load_index() or fid in state["reservations"] or abs_path.exists():
+                    raise StoreError(f"Frame ID already reserved: {fid}")
+                state["reservations"][fid] = token
+                self._write_lifetimes(state)
+            # Encoding and durable byte publication never hold metadata.
+            _atomic_write_bytes(abs_path, encoded.tobytes())
+            with metadata_transaction(self):
+                records = self._load_index()
+                records[fid] = record
+                self._save_index(records)
+                state = self._lifetimes()
+                state["reservations"][fid] = None
+                self._write_lifetimes(state)
+                self._cleanup_records(records, now=ts)
+        finally:
+            owner.release()
         return record
 
     def get_frame(self, frame_id: str, *, device_id: Optional[str] = None) -> FrameRecord:
         """Fetch a frame record by ID, optionally enforcing device_id match."""
         fid = validate_frame_id(frame_id)
-        records = self._load_index()
+        with metadata_transaction(self):
+            return self._get_frame(self._load_index(), fid, device_id)
+
+    def _get_frame(self, records, fid, device_id):
         if fid not in records:
             raise FrameNotFoundError(f"Frame not found: {fid}")
         rec = records[fid]
@@ -232,22 +319,26 @@ class FrameStore:
 
     def load_image(self, frame_id: str, *, device_id: Optional[str] = None) -> np.ndarray:
         """Load the BGR image for a stored frame."""
-        rec = self.get_frame(frame_id, device_id=device_id)
-        img_path = self.resolve_image_path(rec.image_path)
-        if not img_path.exists():
-            raise FrameNotFoundError(f"Image file missing for frame {rec.frame_id}: {img_path}")
-        img = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
-        if img is None:
-            raise StoreError(f"Failed to decode image for frame {rec.frame_id}")
-        return img
+        with self.pin_frames([frame_id], device_id=device_id) as records:
+            rec = records[0]
+            img = cv2.imread(str(self.resolve_image_path(rec.image_path)), cv2.IMREAD_COLOR)
+            if img is None:
+                raise StoreError(f"Failed to decode image for frame {rec.frame_id}")
+            return img
 
     def set_protected(self, frame_id: str, protected: bool = True) -> FrameRecord:
         """Mark or unmark a frame as protected (e.g. registered asset) from TTL cleanup."""
+        with metadata_transaction(self):
+            return self._set_protected(frame_id, protected)
+
+    def _set_protected(self, frame_id, protected):
         fid = validate_frame_id(frame_id)
         records = self._load_index()
         if fid not in records:
             raise FrameNotFoundError(f"Frame not found: {fid}")
         old = records[fid]
+        if not self.resolve_image_path(old.image_path).is_file():
+            raise FrameNotFoundError(f"Image file missing for frame {fid}")
         updated = FrameRecord(
             frame_id=old.frame_id,
             device_id=old.device_id,
@@ -289,7 +380,8 @@ class FrameStore:
 
     def list_frames(self, *, device_id: Optional[str] = None) -> List[FrameRecord]:
         """List stored frames, optionally filtered by device_id."""
-        records = self._load_index()
+        with metadata_transaction(self):
+            records = self._load_index()
         items = list(records.values())
         if device_id is not None:
             items = [r for r in items if r.device_id == device_id]
@@ -297,37 +389,46 @@ class FrameStore:
 
     def cleanup(self, *, now: Optional[float] = None) -> List[str]:
         """Remove expired or excess unprotected frames and return removed frame IDs."""
-        records = self._load_index()
-        removed = self._cleanup_records(records, now=now if now is not None else time.time())
-        if removed:
-            self._save_index(records)
-        return removed
+        with metadata_transaction(self):
+            records = self._load_index()
+            return self._cleanup_records(records, now=now if now is not None else time.time())
 
     def _cleanup_records(self, records: Dict[str, FrameRecord], *, now: float) -> List[str]:
         removed: List[str] = []
+        active = self._active_frames()
+        deleted = []
         cutoff = now - self.ttl_seconds
 
         # 1. Remove expired unprotected frames
         for fid, rec in list(records.items()):
-            if not rec.protected and rec.timestamp < cutoff:
-                self._delete_record_file(rec)
+            if not rec.protected and fid not in active and rec.timestamp < cutoff:
+                deleted.append(rec)
                 del records[fid]
                 removed.append(fid)
 
         # 2. Bound the transient cache; protected evidence is outside its budget.
         unprotected = sorted(
-            (rec for rec in records.values() if not rec.protected),
+            (rec for rec in records.values() if not rec.protected and rec.frame_id not in active),
             key=lambda r: r.timestamp,
         )
         excess = len(unprotected) - self.max_frames
         for rec in unprotected:
             if excess <= 0:
                 break
-            self._delete_record_file(rec)
+            deleted.append(rec)
             del records[rec.frame_id]
             removed.append(rec.frame_id)
             excess -= 1
 
+        # Commit pointer removal before deleting any bytes, including orphan recovery.
+        if removed:
+            self._save_index(records)
+        for rec in deleted:
+            self._delete_record_file(rec)
+        indexed_paths = {self.resolve_image_path(rec.image_path) for rec in records.values()}
+        for path in self.frames_dir.glob("*.png"):
+            if path not in indexed_paths and path.stem not in active:
+                path.unlink(missing_ok=True)
         return removed
 
     def _delete_record_file(self, rec: FrameRecord) -> None:
