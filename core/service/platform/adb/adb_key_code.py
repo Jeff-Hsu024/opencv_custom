@@ -105,3 +105,18 @@ class AdbKeyCode(Enum):
         """取得按鍵命令字串"""
         from .adb_command import AdbCommand
         return AdbCommand.DEVICE_LIST._get_adb_platform() + f"-s {device_id} shell input keyevent {self.value}"
+
+    def get_argv(self, device_id: str) -> list[str]:
+        """取得按鍵命令參數列"""
+        from .adb_command import AdbCommand
+        if not device_id:
+            raise ValueError("Device ID is required")
+        return [
+            AdbCommand.DEVICE_LIST._get_adb_executable(),
+            "-s",
+            device_id,
+            "shell",
+            "input",
+            "keyevent",
+            str(self.value),
+        ]
