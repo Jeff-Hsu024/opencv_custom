@@ -30,6 +30,8 @@ Evidence: .scratch/agent-vision-phase9/coordinator/task-mapping.json, native-gra
 
 Native mapping:
 
+C01 dispatch: ctx_79c24bd7acd4, terminal term_1d878337-c444-41bd-8cef-b6d810d9fb3b. Native start returned outcome_unknown; wake msg_rest_abf9d2ecbb1af8c2fad27271 explicitly prescribed draft-only recovery. worker-read confirmed live worker with unsent original draft; Enter-only accepted. Await native wake; C01 implementation/PASS unconfirmed. No duplicate task or brief resend.
+
 - C00: task_ac79f0fdd976
 - C01: task_c0f77974bef2
 - C02: task_4a19ccfc98c7
