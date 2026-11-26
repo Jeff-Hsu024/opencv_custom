@@ -226,3 +226,43 @@ def test_thread_exclusion_nested_metadata_and_context_pins(tmp_path):
         assert not t.is_alive()
         assert store.get_frame("thread")
     assert store.cleanup(now=10**12) == ["thread"]
+
+
+def case_alias_publisher(root, ready, release):
+    """Hold a durable reservation before any PNG is published."""
+    import vision_app.store as module
+    original = module._atomic_write_bytes
+    def write(path, data):
+        if path.suffix == ".png":
+            ready.set()
+            if not release.wait(30):
+                raise RuntimeError("publication barrier timed out")
+        return original(path, data)
+    module._atomic_write_bytes = write
+    FrameStore(root).save_frame(image(17), "A", frame_id="CaseAlias", protected=True)
+
+
+def test_case_insensitive_path_alias_cannot_overwrite_reserved_frame(tmp_path):
+    probe = tmp_path / "CaseProbe"
+    probe.write_bytes(b"x")
+    insensitive = (tmp_path / "caseprobe").exists()
+    probe.unlink()
+    if not insensitive:
+        pytest.skip("requires case-insensitive filesystem")
+    ready, release = CTX.Event(), CTX.Event()
+    p = CTX.Process(target=case_alias_publisher, args=(tmp_path, ready, release))
+    p.start()
+    store = FrameStore(tmp_path)
+    try:
+        assert ready.wait(20)
+        with pytest.raises(StoreError, match="reserved"):
+            store.save_frame(image(99), "B", frame_id="casealias", protected=True)
+    finally:
+        release.set()
+        join(p)
+    assert [r.frame_id for r in store.list_frames()] == ["CaseAlias"]
+    assert store.load_image("CaseAlias")[0, 0, 0] == 17
+    store.set_protected("CaseAlias", False)
+    store.cleanup(now=10**12)
+    with pytest.raises(StoreError, match="reserved"):
+        store.save_frame(image(), "B", frame_id="CASEALIAS")

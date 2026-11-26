@@ -1,5 +1,11 @@
 # Phase 9 implementation status
 
+## Coordination handback
+
+Native message msg_bdc68d7375ed conveys user-directed external ChatGPT takeover. Autonomous dispatch decisions stopped. Do not launch C03 or any successor/new worker. Existing run and assignments preserved; active C02 was inspected read-only and left untouched.
+
+At handback, C02 dispatch ctx_485ea10ad788 / task task_4a19ccfc98c7 reports ready/input_accepted, live, working. Its current report c02/REPORT.md is provisional: records 22 targeted and 978 contract passes, while final full regression and commit remain pending. These are worker-reported intermediate results, not coordinator acceptance. Current uncommitted worker paths: vision_app/store.py, vision_app/test/test_cli_assets.py, vision_app/metadata.py, vision_app/test/test_frame_transactions.py, specs/agent-vision-phase9/c02/. Preserve these files and allow C02 to settle. Latest observed committed HEAD remains 789961a. Coordinator handback status update is intentionally left uncommitted to avoid interfering with active worker commit activity.
+
 Coordinator-owned record. Candidate work only; no release or live qualification claim.
 
 - Run: `run_212fdcb86d47` (bound with native `run-use --environment local`).
@@ -64,3 +70,7 @@ C01 dispatch: ctx_79c24bd7acd4, terminal term_1d878337-c444-41bd-8cef-b6d810d9fb
 - B02: task_6f86323f3278
 - V01: task_2dd794b74d49
 - V02: task_010e1a55a89d
+
+## Direct session takeover and C02 audit
+
+No further worker dispatch. C02 original worker settled and exited, commit f6b0415. Direct audit reproduced a Windows case-insensitive frame reservation collision and fixed it with a native path-key comparison under metadata. Added real spawned-process regression (original failed; fixed passed). Direct isolated run: 1001 tests passed in 24.20s; prior full regression 365 passed before fix. See c02/DIRECT_AUDIT.md. C03/C04 remain ready; subsequent work by current ChatGPT session directly via Queqiao NB. No device input or deployment.

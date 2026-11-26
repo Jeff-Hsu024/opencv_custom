@@ -283,7 +283,12 @@ class FrameStore:
         try:
             with metadata_transaction(self):
                 state = self._lifetimes()
-                if fid in self._load_index() or fid in state["reservations"] or abs_path.exists():
+                # On Windows distinct JSON keys can address the same PNG.
+                # Compare native path keys before releasing metadata, even
+                # when the first publisher has not written its bytes yet.
+                path_key = os.path.normcase(fid)
+                claimed = self._load_index().keys() | state["reservations"].keys()
+                if any(os.path.normcase(other) == path_key for other in claimed) or abs_path.exists():
                     raise StoreError(f"Frame ID already reserved: {fid}")
                 state["reservations"][fid] = token
                 self._write_lifetimes(state)
