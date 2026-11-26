@@ -12,6 +12,41 @@ from ..mat_utility import MatUtility
 class MatchOCRAdaptor(ABC):
     """OCR 適配器抽象類別"""
     
+    @staticmethod
+    def _validate_ocr_inputs(target_img: np.ndarray, threshold: float) -> None:
+        """Validate target_img and threshold at the OCR boundary."""
+        if not isinstance(target_img, np.ndarray) or target_img.size == 0:
+            raise ValueError("target_img must be a non-empty numpy.ndarray")
+        if target_img.ndim not in (2, 3):
+            raise ValueError(f"target_img must be 2D or 3D array, got {target_img.ndim}D")
+        if target_img.shape[0] <= 0 or target_img.shape[1] <= 0:
+            raise ValueError(
+                f"target_img must have positive height and width, got {target_img.shape}"
+            )
+        if target_img.ndim == 3 and target_img.shape[2] not in (1, 3, 4):
+            raise ValueError(
+                f"target_img must have 1, 3, or 4 channels, got {target_img.shape[2]}"
+            )
+        if (
+            isinstance(threshold, bool)
+            or not isinstance(threshold, (int, float))
+            or not (0.0 <= float(threshold) <= 1.0)
+        ):
+            raise ValueError(
+                f"threshold must be a float in [0.0, 1.0], got {threshold!r}"
+            )
+
+    @staticmethod
+    def _to_gray(img: np.ndarray) -> np.ndarray:
+        """Convert 2D or 1/3/4-channel image to 2D grayscale."""
+        if img.ndim == 2:
+            return img
+        if img.shape[2] == 1:
+            return img[:, :, 0]
+        if img.shape[2] == 3:
+            return cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        return cv2.cvtColor(img, cv2.COLOR_BGRA2GRAY)
+
     @abstractmethod
     def execute_ocr(self, ocr_templates_path: str, target_img: np.ndarray, threshold: float) -> str:
         """
