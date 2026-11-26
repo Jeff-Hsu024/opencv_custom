@@ -11,7 +11,7 @@ from pathlib import Path
 # 防止循環引用，僅在型別檢查時導入
 if TYPE_CHECKING:
     from ..core.opencv.open_cv_service import OpenCvService
-    from ..core.opencv.dto import MatchPattern, OcrRegion
+    from ..core.opencv.dto import MatchPattern, MatchResult, OcrRegion
 
 class PlatformService(ABC):
     """平台服務虛擬基類"""
@@ -93,6 +93,88 @@ class PlatformService(ABC):
                 return (pattern.point[0] + region.x1, pattern.point[1] + region.y1)
             return pattern.point
         return None
+
+    @staticmethod
+    def _offset_match_result(res: "MatchResult", region: "OcrRegion") -> "MatchResult":
+        """Map a region-local MatchResult to full-device coordinates."""
+        from ..core.opencv.dto import MatchResult
+
+        x1, y1, x2, y2 = res.bbox
+        cx, cy = res.center
+        return MatchResult(
+            score=res.score,
+            bbox=(x1 + region.x1, y1 + region.y1, x2 + region.x1, y2 + region.y1),
+            center=(cx + region.x1, cy + region.y1),
+            scale=res.scale,
+        )
+
+    def _resolve_source_and_target(
+        self,
+        image_path: str,
+        region: Optional["OcrRegion"],
+        source: Optional[np.ndarray],
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        """Resolve source (capture once if not supplied), crop to ROI if given, and load target."""
+        from ..core.opencv.mat_utility import MatUtility
+
+        src = self.snapshot() if source is None else source
+        if src is None:
+            return None
+
+        target = self._get_image_mat(image_path)
+        if target is None:
+            return None
+
+        if region is not None:
+            src = MatUtility.slice_region_mat_from_source(src, region)
+        return src, target
+
+    def find_match(
+        self,
+        image_path: str,
+        region: Optional["OcrRegion"] = None,
+        threshold: float = 0.8,
+        color_mode: str = "gray",
+        source: Optional[np.ndarray] = None,
+    ) -> Optional["MatchResult"]:
+        """Find best structured match, using supplied source if given or capturing once."""
+        resolved = self._resolve_source_and_target(image_path, region, source)
+        if resolved is None:
+            return None
+        src, target = resolved
+        res = self.open_cv_service.match_template(
+            src, target, threshold=threshold, color_mode=color_mode
+        )
+        if res is None:
+            return None
+        return self._offset_match_result(res, region) if region is not None else res
+
+    def find_all_matches(
+        self,
+        image_path: str,
+        region: Optional["OcrRegion"] = None,
+        threshold: float = 0.8,
+        max_results: int = 10,
+        iou_threshold: float = 0.5,
+        color_mode: str = "gray",
+        source: Optional[np.ndarray] = None,
+    ) -> List["MatchResult"]:
+        """Find all structured matches with NMS, mapping ROI coordinates to full-device."""
+        resolved = self._resolve_source_and_target(image_path, region, source)
+        if resolved is None:
+            return []
+        src, target = resolved
+        results = self.open_cv_service.find_all(
+            src,
+            target,
+            threshold=threshold,
+            max_results=max_results,
+            iou_threshold=iou_threshold,
+            color_mode=color_mode,
+        )
+        if region is not None:
+            return [self._offset_match_result(r, region) for r in results]
+        return results
 
     def click_image(self, image_path: str, region: Optional["OcrRegion"] = None, threshold: float = 0.9) -> bool:
         """尋找圖片並點擊"""
