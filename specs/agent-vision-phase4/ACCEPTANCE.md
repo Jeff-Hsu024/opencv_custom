@@ -1,0 +1,2 @@
+# Acceptance
+198 original tests plus runtime cases; wrong device/profile/geometry/state/target, duplicate action prevention, timeout and interruption, source tamper, persistence and CLI/MCP parity. Actual MuMu 127.0.0.1:16480 profile verified; run existing 3-step navigation repeatedly without changing settings; visual confirmation of original page, audit new frames/refs and unchanged source. No LLM decisions inside run. Distinguish live completed, needs_agent, unknown interruption. Preserve evidence and local bare sync.

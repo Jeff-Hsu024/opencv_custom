@@ -30,6 +30,7 @@ from vision_app.store import (
 from vision_app.waits import WaitService
 from vision_app.recorder import Recorder, OPERATIONS, workspace_lock
 from vision_app.workflow import WorkflowBuilder
+from vision_app.runtime import WorkflowRuntime
 
 
 class _CliParser(argparse.ArgumentParser):
@@ -70,6 +71,16 @@ def _build_parser() -> _CliParser:
     )
     parser.add_argument('--session', default=os.environ.get('VISION_SESSION_ID'))
     sub = parser.add_subparsers(dest="command", required=True)
+    runtime = sub.add_parser('runtime', help='Deterministic workflow runtime')
+    runtime.add_argument('runtime_action', choices=['qualify','run','inspect','list'])
+    runtime.add_argument('--workflow', dest='workflow_id')
+    runtime.add_argument('--device')
+    runtime.add_argument('--profile', help='UTF-8 JSON Android profile file')
+    runtime.add_argument('--binding', dest='binding_id')
+    runtime.add_argument('--run-id')
+    runtime.add_argument('--limit', type=int)
+    runtime.add_argument('--after')
+    runtime.add_argument('--json', action='store_true')
     workflow = sub.add_parser('workflow', help='Offline evidence-bound workflow builder')
     workflow.add_argument('workflow_action', choices=['candidates','build','inspect','validate','list'])
     workflow.add_argument('--session', dest='workflow_session')
@@ -482,6 +493,12 @@ def run_cli(argv=None, *, service=None):
         return _run_cli(argv, service=service)
     try:
         store = service.store if service else FrameStore(Path(args.store_dir))
+        if args.command == 'runtime':
+            params = {k:v for k,v in vars(args).items() if k in ('workflow_id','device','profile','binding_id','run_id','limit','after') and v is not None}
+            if 'profile' in params: params['profile'] = json.loads(Path(params['profile']).read_text(encoding='utf-8-sig'))
+            result = WorkflowRuntime(store, observation=service).query(args.runtime_action, **params)
+            _emit_json({'ok':True,'result':result})
+            return 3 if args.runtime_action=='run' and result['status']!='completed' else 0
         if args.command == 'workflow':
             params = {}
             if args.workflow_session: params['session_id'] = args.workflow_session
@@ -513,7 +530,7 @@ def run_cli(argv=None, *, service=None):
         with workspace_lock(store):
             return _run_cli(argv, service=service, parsed=args)
     except Exception as exc:
-        _emit_json({'ok':False,'error':{'code':'WORKFLOW_ERROR' if args.command == 'workflow' else 'RECORDER_ERROR','message':str(exc)}})
+        _emit_json({'ok':False,'error':{'code':getattr(exc,'code','RUNTIME_ERROR') if args.command == 'runtime' else ('WORKFLOW_ERROR' if args.command == 'workflow' else 'RECORDER_ERROR'),'message':str(exc)}})
         return 3
 
 

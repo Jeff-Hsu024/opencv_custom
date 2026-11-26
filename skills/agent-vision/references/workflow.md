@@ -31,3 +31,7 @@ Checkpoint explicit state, verified postconditions, completed_steps, unresolved_
 2. Inspect source receipts, actual full frames and explicit semantic annotations. Select a connected path; account for every action and reject ambiguous or interrupted transitions.
 3. Choose visually distinctive state marker crops, including destination state markers (not merely action targets). The builder tests positive and other-state negative historical frames, checks target uniqueness, and seals template/evidence hashes.
 4. Preserve the content-addressed bundle and validate it again across processes. Any evidence or template drift is a failure. Do not promote offline validation to live qualification.
+
+## Runtime execution and handoff
+
+Qualify the immutable bundle on the exact Android device using actual profile evidence. Run once with a unique idempotency ID. Runtime captures fresh state, requires exactly one expected guard and one current target, records pending action before click, and polls fresh postcondition frames within a bounded budget. A click receipt does not prove semantic completion. On needs_agent or interrupted, query runtime inspect, inspect the last actual frame and action outcome, and do not retry blindly. A running receipt is not evidence of success. Never conflate offline Builder PASS, live preflight PASS and actual completed runtime execution. Runtime has no authority to change workflow definitions or learn recovery rules.

@@ -93,3 +93,13 @@ CLI:
     vision --store-dir STORE workflow validate --workflow WF_ID
     vision --store-dir STORE workflow list
 Bundle: STORE/workflows/WF_ID/{definition.json,plan.json,templates/<sha256>.png}. Source evidence revalidation requires original Recorder store. Never edit a published bundle; a changed plan/evidence produces a new ID.
+
+## Workflow Runtime Phase 4
+
+MCP: vision_runtime_qualify {workflow_id,device,profile:{package,version_code,rotation,locale,ui_mode}}; vision_runtime_run {binding_id,run_id}; vision_runtime_inspect {run_id}; vision_runtime_list {limit?,after?}. The run result is a domain outcome: completed, needs_agent, interrupted. Transport ok does not mean workflow success. A running journal may belong to an active or interrupted process. Duplicate run ID under workspace lock never acts twice. Qualify checks actual foreground/resumed package, installed version, rotation, system locale and UI mode; the app's internal theme/locale are only checked indirectly through visual guards. Use explicit serial, never desktop.
+CLI:
+    vision --store-dir STORE runtime qualify --workflow WF_ID --device SERIAL --profile profile.json
+    vision --store-dir STORE runtime run --binding BIND_ID --run-id run_<32 lowercase hex>
+    vision --store-dir STORE runtime inspect --run-id RUN_ID
+    vision --store-dir STORE runtime list
+CLI run exits 0 only for completed, 3 for other terminal results. Journals: STORE/runtime/runs/RUN_ID.json; bindings: STORE/runtime/bindings/BIND_ID.json. Live frames remain protected in FrameStore. No change to source Recorder session or immutable workflow definition.
