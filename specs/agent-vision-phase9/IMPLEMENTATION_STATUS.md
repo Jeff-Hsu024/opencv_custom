@@ -167,3 +167,7 @@ All dispatched workers settled; Codex coordinator stopped after quota exhaustion
 ## Direct grouped portable implementation
 
 P01-P03 ef2053d: shared definition/proof/interpreter, 1058 concentrated tests passed. P04-P06 ef9a1ca: preflight/trial/qualification slots, 11 concentrated tests passed. P07-B02: single and batch admission, registry, atomic reservations, owner reconciliation; 15 portable integration and 10 batch tests passed. Counts overlap earlier suites; no additive total claimed. All implementation direct, native cancelled task history unchanged. V01 consolidated regression and frozen Store verification remain; V02 requires authorized compatible live devices and independent evidence.
+
+## Grouped V01/V02 verification
+
+V01 software candidate PASS: 1429/1429 full collected cases across 26 disjoint direct test shards at 5a8b262; all 308 baseline cases covered, 26 frozen hashes match, 61 legacy plus 29 additive MCP definitions, 223 production portable request examples. Final narrow timeout-contract correction cb76086 verified with 26 portable tests (includes one new case); no full rerun after delta. Copied frozen Store 164 verified files, 67 protected frames, three actual historical completed proofs published, legacy bytes/rows preserved, integrity check passed. Candidate wheel built and isolated package smoke passed. V02 BLOCKED_LIVE_DEVICE / NOT_ATTEMPTED: one Android serial only, no independent agent or live effects. See group-v01-v02/REPORT.md and regression-summary.json. No deployment or main/tag change.
