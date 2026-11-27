@@ -1,0 +1,775 @@
+{
+  "schema_version": 1,
+  "decision": "BLOCKED",
+  "candidate": "770e1de7c53c71de957c69f41291e3b089b0a5c4",
+  "baseline": "bfbec17fe55b25a2ea7ddbd9051cc3937ccd3efb",
+  "source": "VERIFICATION.json#/checks",
+  "evidence_root": ".scratch/agent-vision-phase9/verification/",
+  "historical_full_suite_commit": "5a8b26298dc4ba9cf43cb90306173f9cc629c644",
+  "groups": [
+    {
+      "ticket": "C00",
+      "boundary": "Contract freeze / baseline",
+      "requirement": "Frozen contract, legacy tools and regression preservation",
+      "verification_keys": [
+        "freeze",
+        "legacy_tools",
+        "additive_schemas",
+        "baseline_collection",
+        "schema_dialect",
+        "consolidated_junit"
+      ],
+      "artifacts": [
+        "c00/FREEZE.json",
+        "CONTRACT_SCHEMAS.json",
+        "c00/test_contract.py (978 cases)"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "C01",
+      "boundary": "Strict Android discovery",
+      "requirement": "Explicit supported device selection and discovery guards",
+      "verification_keys": [
+        "consolidated_junit"
+      ],
+      "artifacts": [
+        "test_strict_discovery.py (46 cases)"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "C02",
+      "boundary": "Frame transactions",
+      "requirement": "Atomic frame index, protected evidence and integrity",
+      "verification_keys": [
+        "consolidated_junit",
+        "v02-live-20261127:frames",
+        "v02-independent-20261127:frames"
+      ],
+      "artifacts": [
+        "test_frame_transactions.py (12 cases)",
+        "test_frame_store.py (11 cases)"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "C03",
+      "boundary": "Immutable assets",
+      "requirement": "Revision ownership and hash-preserving learning",
+      "verification_keys": [
+        "consolidated_junit",
+        "v02-live-20261127:asset_revisions",
+        "v02-live-20261127:learning",
+        "v02-independent-20261127:asset_revisions",
+        "v02-independent-20261127:learning"
+      ],
+      "artifacts": [
+        "test_asset_revisions.py (23 cases)"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "C04",
+      "boundary": "Coordinator ownership",
+      "requirement": "Exclusive device ownership, collision and abandoned-owner handling",
+      "verification_keys": [
+        "consolidated_junit",
+        "v02-live-20261127:coordinator",
+        "v02-live-20261127:terminal_claims",
+        "v02-independent-20261127:coordinator",
+        "v02-independent-20261127:terminal_claims"
+      ],
+      "artifacts": [
+        "test_coordinator.py (7 cases)",
+        "test_os_device_contention_kill_and_permanent_hashed_file",
+        "test_batch_collision_rolls_back_entire_reservation",
+        "test_surviving_child_and_abandoned_owner"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "C05",
+      "boundary": "Device action epochs",
+      "requirement": "Monotonic durable effect identity and epoch isolation",
+      "verification_keys": [
+        "consolidated_junit",
+        "v02-live-20261127:epoch",
+        "v02-live-20261127:portable_actions",
+        "v02-independent-20261127:epoch",
+        "v02-independent-20261127:portable_actions"
+      ],
+      "artifacts": [
+        "test_device_epochs.py (4 cases)"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "C06",
+      "boundary": "Primitives and Recorder",
+      "requirement": "Device-local primitive operations and recording",
+      "verification_keys": [
+        "consolidated_junit",
+        "v02-live-20261127:recorder",
+        "v02-live-20261127:learning",
+        "v02-independent-20261127:recorder",
+        "v02-independent-20261127:learning"
+      ],
+      "artifacts": [
+        "test_primitives.py",
+        "test_actions_cli.py",
+        "test_waits_cli.py",
+        "test_recorder.py"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "C07",
+      "boundary": "Transitions",
+      "requirement": "Guarded reversible transitions",
+      "verification_keys": [
+        "consolidated_junit",
+        "v02-live-20261127:pixel_proof",
+        "v02-live-20261127:reversible_pixels",
+        "v02-independent-20261127:pixel_proof",
+        "v02-independent-20261127:reversible_pixels"
+      ],
+      "artifacts": [
+        "test_transition.py (11 cases)"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "C08",
+      "boundary": "Legacy runtime and recovery",
+      "requirement": "Fail-closed runtime, replay and recovery",
+      "verification_keys": [
+        "consolidated_junit",
+        "runtime_final_head",
+        "focus_geometry_guard",
+        "v02-live-20261127:portable_actions",
+        "v02-live-20261127:epoch",
+        "v02-independent-20261127:portable_actions",
+        "v02-independent-20261127:epoch"
+      ],
+      "artifacts": [
+        "vision_app/runtime.py:_capture,_interpret",
+        "test_runtime.py",
+        "test_recovery.py",
+        "focus-geometry-audit.xml"
+      ],
+      "status": "affected",
+      "blocking": true,
+      "findings": [
+        "FA-01"
+      ],
+      "note": "Shared guard dependency; see FA-01."
+    },
+    {
+      "ticket": "C09",
+      "boundary": "Evidence snapshots",
+      "requirement": "Evidence integrity and source publication consistency",
+      "verification_keys": [
+        "consolidated_junit",
+        "v02-live-20261127:frames",
+        "v02-live-20261127:source_proof",
+        "v02-independent-20261127:frames",
+        "v02-independent-20261127:source_proof"
+      ],
+      "artifacts": [
+        "test_workflow.py",
+        "test_failure_evidence.py",
+        "test_annotation_during_validation_rejects_and_preserves_history",
+        "test_annotation_after_staging_rejects_publication"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "C10",
+      "boundary": "Legacy registry / orchestration",
+      "requirement": "Registry CAS, recovery and owner lifecycle",
+      "verification_keys": [
+        "consolidated_junit",
+        "v02-live-20261127:coordinator",
+        "v02-independent-20261127:coordinator"
+      ],
+      "artifacts": [
+        "test_lifecycle.py",
+        "test_orchestrator.py",
+        "test_coordinator.py"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "C11",
+      "boundary": "Gate contraction",
+      "requirement": "Device-local exclusion and overlapping actions",
+      "verification_keys": [
+        "consolidated_junit",
+        "v02-live-20261127:actual_overlap",
+        "v02-independent-20261127:actual_overlap"
+      ],
+      "artifacts": [
+        "test_gate_contraction.py",
+        "test_device_overlap_and_same_device_adapter_exclusion"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "P01",
+      "boundary": "Portable proof resolution",
+      "requirement": "Source proof validation and immutable definition",
+      "verification_keys": [
+        "consolidated_junit",
+        "post_focus_xml",
+        "v02-live-20261127:definition",
+        "v02-live-20261127:source_proof",
+        "v02-independent-20261127:definition",
+        "v02-independent-20261127:source_proof"
+      ],
+      "artifacts": [
+        "test_portable_core.py"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "P02",
+      "boundary": "Shared interpreter",
+      "requirement": "R06/K04: fail closed on actual frame drift",
+      "verification_keys": [
+        "runtime_final_head",
+        "focus_geometry_guard",
+        "v02-live-20261127:portable_actions",
+        "v02-independent-20261127:portable_actions"
+      ],
+      "artifacts": [
+        "vision_app/runtime.py:_capture,_interpret",
+        "focus-geometry-audit.xml"
+      ],
+      "status": "affected",
+      "blocking": true,
+      "findings": [
+        "FA-01"
+      ],
+      "note": "Shared guard dependency; see FA-01."
+    },
+    {
+      "ticket": "P03",
+      "boundary": "Portable publication",
+      "requirement": "Immutable template and source proof publication",
+      "verification_keys": [
+        "consolidated_junit",
+        "post_focus_xml",
+        "v02-live-20261127:definition",
+        "v02-live-20261127:source_proof",
+        "v02-independent-20261127:definition",
+        "v02-independent-20261127:source_proof"
+      ],
+      "artifacts": [
+        "test_portable_core.py"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "P04",
+      "boundary": "Device preflight",
+      "requirement": "R03/K04: explicit profile and geometry preflight",
+      "verification_keys": [
+        "post_focus_xml",
+        "v02-live-20261127:slots",
+        "v02-live-20261127:qualification_hashes",
+        "v02-independent-20261127:slots",
+        "v02-independent-20261127:qualification_hashes"
+      ],
+      "artifacts": [
+        "test_portable_qualification.py"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "P05",
+      "boundary": "Target trial and qualification",
+      "requirement": "Actual B trial proof with no B learning; guarded execution",
+      "verification_keys": [
+        "post_focus_xml",
+        "focus_geometry_guard",
+        "v02-live-20261127:learning",
+        "v02-live-20261127:slots",
+        "v02-live-20261127:pixel_proof",
+        "v02-independent-20261127:learning",
+        "v02-independent-20261127:slots",
+        "v02-independent-20261127:pixel_proof"
+      ],
+      "artifacts": [
+        "test_portable_qualification.py",
+        "test_focus_geometry_audit.py"
+      ],
+      "status": "affected",
+      "blocking": true,
+      "findings": [
+        "FA-01"
+      ],
+      "note": "Shared guard dependency; see FA-01."
+    },
+    {
+      "ticket": "P06",
+      "boundary": "Qualification lifecycle",
+      "requirement": "R13/K05: independent slot generation and invalidation",
+      "verification_keys": [
+        "post_focus_xml",
+        "focus_geometry_guard",
+        "v02-live-20261127:slots",
+        "v02-live-20261127:qualification_hashes",
+        "v02-independent-20261127:slots",
+        "v02-independent-20261127:qualification_hashes"
+      ],
+      "artifacts": [
+        "test_portable_qualification.py",
+        "QualificationSlots.invalidate",
+        "focus-geometry-audit.xml"
+      ],
+      "status": "affected",
+      "blocking": true,
+      "findings": [
+        "FA-01"
+      ],
+      "note": "Shared guard dependency; see FA-01."
+    },
+    {
+      "ticket": "P07",
+      "boundary": "Family registry",
+      "requirement": "Independent generation and pinned family identity",
+      "verification_keys": [
+        "post_focus_xml",
+        "v02-live-20261127:family_child_ids",
+        "v02-live-20261127:qualification_hashes",
+        "v02-independent-20261127:family_child_ids",
+        "v02-independent-20261127:qualification_hashes"
+      ],
+      "artifacts": [
+        "test_portable_admission.py"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "P08",
+      "boundary": "Portable execution",
+      "requirement": "R06/K04/K05: pinned execution, no replay, fail-closed guards",
+      "verification_keys": [
+        "post_focus_xml",
+        "focus_geometry_guard",
+        "v02-live-20261127:standalone_batch",
+        "v02-live-20261127:portable_actions",
+        "v02-live-20261127:idempotency_0",
+        "v02-independent-20261127:standalone_batch",
+        "v02-independent-20261127:portable_actions",
+        "v02-independent-20261127:idempotency_0"
+      ],
+      "artifacts": [
+        "test_portable_admission.py",
+        "test_focus_geometry_audit.py"
+      ],
+      "status": "affected",
+      "blocking": true,
+      "findings": [
+        "FA-01"
+      ],
+      "note": "Shared guard dependency; see FA-01."
+    },
+    {
+      "ticket": "B01",
+      "boundary": "Batch admission",
+      "requirement": "Atomic reservation, deterministic children and conflict rejection",
+      "verification_keys": [
+        "post_focus_xml",
+        "consolidated_junit",
+        "v02-live-20261127:family_child_ids",
+        "v02-live-20261127:standalone_batch",
+        "v02-live-20261127:idempotency_0",
+        "v02-independent-20261127:family_child_ids",
+        "v02-independent-20261127:standalone_batch",
+        "v02-independent-20261127:idempotency_0"
+      ],
+      "artifacts": [
+        "test_portable_batch.py"
+      ],
+      "status": "supported",
+      "blocking": false,
+      "findings": [],
+      "note": "Evidence supports this responsibility boundary within exercised scope; not independent proof of every possible path."
+    },
+    {
+      "ticket": "B02",
+      "boundary": "Batch execution and reconciliation",
+      "requirement": "Bounded parallel action execution and child error propagation",
+      "verification_keys": [
+        "post_focus_xml",
+        "focus_geometry_guard",
+        "v02-live-20261127:actual_overlap",
+        "v02-live-20261127:terminal_claims",
+        "v02-live-20261127:standalone_batch",
+        "v02-independent-20261127:actual_overlap",
+        "v02-independent-20261127:terminal_claims",
+        "v02-independent-20261127:standalone_batch"
+      ],
+      "artifacts": [
+        "test_portable_batch.py",
+        "test_focus_geometry_audit.py (shared interpreter; not a distinct batch counterexample)"
+      ],
+      "status": "affected",
+      "blocking": true,
+      "findings": [
+        "FA-01"
+      ],
+      "note": "Shared guard dependency; see FA-01."
+    },
+    {
+      "ticket": "V01",
+      "boundary": "Contract / regression acceptance",
+      "requirement": "Legacy compatibility and candidate regression integrity",
+      "verification_keys": [
+        "freeze",
+        "legacy_tools",
+        "additive_schemas",
+        "baseline_collection",
+        "consolidated_junit",
+        "post_focus_xml",
+        "runtime_final_head",
+        "focus_geometry_guard",
+        "archive_integrity",
+        "copied_archive",
+        "restored_published_proofs",
+        "full_wheel_cb76086",
+        "full_wheel_770e1de"
+      ],
+      "artifacts": [
+        "group-v01-v02/REPORT.md",
+        "VERIFICATION.json",
+        "FINDINGS.md#FA-01"
+      ],
+      "status": "withheld",
+      "blocking": true,
+      "findings": [
+        "FA-01"
+      ],
+      "note": "Positive evidence verified; final closure withheld due to FA-01."
+    },
+    {
+      "ticket": "V02",
+      "boundary": "Independent live acceptance",
+      "requirement": "Positive live settings campaigns plus required fail-closed contract",
+      "verification_keys": [
+        "focus_geometry_guard",
+        "v02-live-20261127:learning",
+        "v02-live-20261127:definition",
+        "v02-live-20261127:source_proof",
+        "v02-live-20261127:slots",
+        "v02-live-20261127:portable_actions",
+        "v02-live-20261127:standalone_batch",
+        "v02-live-20261127:actual_overlap",
+        "v02-live-20261127:idempotency_0",
+        "v02-live-20261127:reversible_pixels",
+        "v02-live-20261127:pixel_proof",
+        "v02-live-20261127:qualification_hashes",
+        "v02-independent-20261127:learning",
+        "v02-independent-20261127:definition",
+        "v02-independent-20261127:source_proof",
+        "v02-independent-20261127:slots",
+        "v02-independent-20261127:portable_actions",
+        "v02-independent-20261127:standalone_batch",
+        "v02-independent-20261127:actual_overlap",
+        "v02-independent-20261127:idempotency_0",
+        "v02-independent-20261127:reversible_pixels",
+        "v02-independent-20261127:pixel_proof",
+        "v02-independent-20261127:qualification_hashes"
+      ],
+      "artifacts": [
+        "group-v01-v02/LIVE-DIRECT-20261127.md",
+        ".scratch/agent-vision-phase9/verification/v02-independent-20261127/REPORT.md",
+        "FINDINGS.md#FA-01"
+      ],
+      "status": "withheld",
+      "blocking": true,
+      "findings": [
+        "FA-01"
+      ],
+      "note": "Positive evidence verified; final closure withheld due to FA-01."
+    }
+  ],
+  "requirements": [
+    {
+      "requirement": "Frozen 26 hashes",
+      "verification_keys": [
+        "freeze"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "61 legacy definitions; 29 additive operation schemas",
+      "verification_keys": [
+        "legacy_tools",
+        "additive_schemas",
+        "schema_dialect"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "308 baseline cases; consolidated 1429 and exit receipts",
+      "verification_keys": [
+        "baseline_collection",
+        "consolidated_junit"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "Final targeted regression and wheel provenance",
+      "verification_keys": [
+        "post_focus_xml",
+        "runtime_final_head",
+        "full_wheel_cb76086",
+        "full_wheel_770e1de"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "Legacy copied store / frozen integrity",
+      "verification_keys": [
+        "archive_integrity",
+        "copied_archive",
+        "restored_published_proofs"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "Explicit devices, one A learning, zero B learning",
+      "verification_keys": [
+        "v02-live-20261127:learning",
+        "v02-live-20261127:recorder",
+        "v02-live-20261127:asset_revisions",
+        "v02-independent-20261127:learning",
+        "v02-independent-20261127:recorder",
+        "v02-independent-20261127:asset_revisions"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "Immutable definition and templates, source and trial proof",
+      "verification_keys": [
+        "v02-live-20261127:definition",
+        "v02-live-20261127:source_proof",
+        "v02-live-20261127:pixel_proof",
+        "v02-live-20261127:slots",
+        "v02-independent-20261127:definition",
+        "v02-independent-20261127:source_proof",
+        "v02-independent-20261127:pixel_proof",
+        "v02-independent-20261127:slots"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "Slot CAS and family generation",
+      "verification_keys": [
+        "v02-live-20261127:slots",
+        "v02-live-20261127:qualification_hashes",
+        "v02-live-20261127:family_child_ids",
+        "v02-independent-20261127:slots",
+        "v02-independent-20261127:qualification_hashes",
+        "v02-independent-20261127:family_child_ids"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "Two standalone executions per device and two-device batch",
+      "verification_keys": [
+        "v02-live-20261127:standalone_batch",
+        "v02-live-20261127:portable_actions",
+        "v02-independent-20261127:standalone_batch",
+        "v02-independent-20261127:portable_actions"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "Real overlapping execution",
+      "verification_keys": [
+        "v02-live-20261127:actual_overlap",
+        "v02-independent-20261127:actual_overlap"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "Exact duplicate and conflict rejection",
+      "verification_keys": [
+        "v02-live-20261127:idempotency_0",
+        "v02-independent-20261127:idempotency_0",
+        "v02-independent-20261127:idempotency_1",
+        "v02-live-20261127:negative_admission",
+        "v02-independent-20261127:cli_exit_receipts"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "Device locality, ownership, intent and epoch",
+      "verification_keys": [
+        "v02-live-20261127:portable_actions",
+        "v02-live-20261127:terminal_claims",
+        "v02-live-20261127:epoch",
+        "v02-live-20261127:coordinator",
+        "v02-independent-20261127:portable_actions",
+        "v02-independent-20261127:terminal_claims",
+        "v02-independent-20261127:epoch",
+        "v02-independent-20261127:coordinator"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "Raw PNG integrity and reversible endpoint",
+      "verification_keys": [
+        "v02-live-20261127:frames",
+        "v02-live-20261127:reversible_pixels",
+        "v02-live-20261127:pixel_proof",
+        "v02-independent-20261127:frames",
+        "v02-independent-20261127:reversible_pixels",
+        "v02-independent-20261127:pixel_proof"
+      ],
+      "status": "supported",
+      "blocking": false
+    },
+    {
+      "requirement": "Transient focus correction must not suppress confirmed geometry drift",
+      "verification_keys": [
+        "focus_geometry_guard"
+      ],
+      "status": "violated",
+      "blocking": true
+    }
+  ],
+  "findings": [
+    {
+      "id": "FA-01",
+      "severity": "HIGH",
+      "blocking": true,
+      "contract": [
+        "R03",
+        "R06",
+        "R13",
+        "K04",
+        "K05",
+        "UC09",
+        "UC17",
+        "A14"
+      ],
+      "verification_keys": [
+        "focus_geometry_guard"
+      ],
+      "remediation": "Validate captured geometry before transient post-capture profile retry; retain second profile probe, bounded deadline, no replay and evidence, invalidate matching active slot by CAS."
+    },
+    {
+      "id": "FA-02",
+      "severity": "LOW",
+      "blocking": false,
+      "verification_keys": [
+        "consolidated_junit",
+        "post_focus_xml",
+        "runtime_final_head"
+      ],
+      "remediation": "Preserve actual tested commit and exit evidence; rerun consolidated suite on corrected candidate."
+    },
+    {
+      "id": "FA-03",
+      "severity": "INFORMATIONAL",
+      "blocking": false,
+      "verification_keys": [
+        "v02-live-20261127:pixel_proof",
+        "v02-live-20261127:reversible_pixels",
+        "v02-independent-20261127:pixel_proof",
+        "v02-independent-20261127:reversible_pixels"
+      ],
+      "remediation": "Treat Settings campaigns as platform qualification only, not CZN or deployment approval."
+    }
+  ],
+  "independent_recheck_20261127": {
+    "source": "recheck-results.json",
+    "raw_checks": 33,
+    "raw_checks_failed": 0,
+    "mixed_fault_test": "test_recheck_mixed_fault.py",
+    "mixed_fault_junit": "recheck-mixed-fault.xml",
+    "mapping": {
+      "C00-V01": [
+        "freeze",
+        "catalog",
+        "baseline",
+        "shards",
+        "timeout",
+        "portable_final",
+        "runtime_final",
+        "wheel_cb76086",
+        "wheel_770e1de",
+        "archive"
+      ],
+      "C01-C07/C09-C11/P01/P03/P04/P06/P07/B01/V02": [
+        "campaign :db/:png/:learning/:portable/:claims/:source/:qualification/:execution/:epochs/:reversible and duplicate/conflict checks"
+      ],
+      "C08/P02/P05/P06/P08/B02/V01/V02": [
+        "adversarial (FA-01, mixed fault)"
+      ]
+    },
+    "decision": "BLOCKED"
+  }
+}

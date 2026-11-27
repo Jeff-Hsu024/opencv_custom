@@ -1,0 +1,50 @@
+{
+  "portable_id": "portable_c6b73234f9f1b03811c0dff336ff7150f30f72e893e344f569423c7ca01c14db",
+  "legacy_source_run": "run_84529c1d97bc45dfbc8b58dbb0c81a34",
+  "failed_source_run": "run_0ed252eb4eb645958cd726a143e7b88b",
+  "recorder_sessions": [
+    {
+      "session_id": "ses_4a23cbd7a7d54ac2b0ece2b048bbe779",
+      "device_id": "127.0.0.1:16480",
+      "status": "stopped"
+    }
+  ],
+  "B_recorded_events": 0,
+  "learned_asset_revisions": 2,
+  "template_hashes_verified": 4,
+  "indexed_frames": 52,
+  "protected_frames": 44,
+  "portable_runs": 7,
+  "verified_portable_actions": 14,
+  "unique_runtime_refs": 14,
+  "unique_runtime_frames": 28,
+  "device_epochs": {
+    "127.0.0.1:16480": 12,
+    "127.0.0.1:16416": 8
+  },
+  "qualification_slots": [
+    {
+      "portable_id": "portable_c6b73234f9f1b03811c0dff336ff7150f30f72e893e344f569423c7ca01c14db",
+      "device": "127.0.0.1:16416",
+      "generation": 1,
+      "status": "active",
+      "qualification_id": "qlf_5d6f71cfc940d76c908fd0561077076c5e534b0aa276663fa2efe2b6f15d8394"
+    },
+    {
+      "portable_id": "portable_c6b73234f9f1b03811c0dff336ff7150f30f72e893e344f569423c7ca01c14db",
+      "device": "127.0.0.1:16480",
+      "generation": 1,
+      "status": "active",
+      "qualification_id": "qlf_416ee37656e36897ccd0550413fff921a7d770176f2f49333ee5c79ffe16e901"
+    }
+  ],
+  "terminal_claims": 18,
+  "batch_id": "batch_73e3e5ec264143f199dcad3537f2eb70",
+  "batch_duration_s": 6.014,
+  "first_click_delta_s": 0.04158,
+  "active_effect_window_overlap_s": 4.163193,
+  "sqlite_integrity": "ok x3",
+  "png_decode": "all indexed frames pass",
+  "raw_audit": "PASS",
+  "independent_fresh_agent": "NOT_ATTEMPTED"
+}

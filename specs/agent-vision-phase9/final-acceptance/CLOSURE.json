@@ -1,0 +1,301 @@
+{
+  "schema_version": 1,
+  "decision": "PASS_WITH_NON_BLOCKING_FINDINGS",
+  "status": "CLOSED",
+  "accepted_scope": "same-profile explicit Android devices on one host; platform-level qualification",
+  "tested_code_commit": "fc1d2050a4e2f91fe0720a02be22d88a834dd900",
+  "independently_reviewed_head": "6b9d8ad604730bc076630b9305cf65ccce41d992",
+  "historical_live_commit": "770e1de7c53c71de957c69f41291e3b089b0a5c4",
+  "baseline": "bfbec17fe55b25a2ea7ddbd9051cc3937ccd3efb",
+  "findings": {
+    "FA-01": "CLOSED",
+    "FA-02": "CLOSED",
+    "FA-03": "RETAINED_NON_BLOCKING"
+  },
+  "tickets": [
+    {
+      "id": "C00",
+      "title": "Contract fixture freeze",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "C01",
+      "title": "Strict Android discovery",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "C02",
+      "title": "Frame index transactions and active pins",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "C03",
+      "title": "Immutable scoped asset revisions",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "C04",
+      "title": "Device and request owner coordinator",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "C05",
+      "title": "Durable Device Action Epoch",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "C06",
+      "title": "Primitive and Recorder migration",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "C07",
+      "title": "Recorded Transition migration",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "C08",
+      "title": "Legacy Runtime and Recovery migration",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "C09",
+      "title": "Evidence snapshot and publication seal",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "C10",
+      "title": "Legacy registry and task admission",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "C11",
+      "title": "Contract old gate and verify device overlap",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "P01",
+      "title": "Immutable definition resolver and proof verifier",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "P02",
+      "title": "Shared target-bound deterministic interpreter",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "P03",
+      "title": "Publish proven portable definition",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "P04",
+      "title": "Read-only portable preflight",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "P05",
+      "title": "Explicit target-device trial",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "P06",
+      "title": "Per-device Qualification Slot CAS",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "P07",
+      "title": "Portable family revision registry",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "P08",
+      "title": "Pinned single-device portable execution",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "B01",
+      "title": "Atomic parent admission and child reservations",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "B02",
+      "title": "Bounded parallel execution and reconciliation",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "V01",
+      "title": "Compatibility and frozen store verification",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    },
+    {
+      "id": "V02",
+      "title": "Independent two-device qualification",
+      "acceptance_status": "CLOSED",
+      "evidence": "REQUALIFICATION.md; regression-summary-fa01.json; historical EVIDENCE_MATRIX.json; FINAL-CLOSURE.md"
+    }
+  ],
+  "regression": {
+    "total": 1444,
+    "regression": 466,
+    "contract": 978,
+    "shards": 27,
+    "baseline": 308,
+    "frozen_hashes": 26
+  },
+  "independent_targeted": {
+    "tests": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "live_campaigns": 2,
+  "native_dag": "cancelled historical run preserved, not restarted or rewritten",
+  "release": "NOT_ATTEMPTED",
+  "deployment": "NOT_ATTEMPTED",
+  "evidence_index": {
+    ".scratch/agent-vision-phase9/verification/fa01-resolution/wheels/opencv_custom-0.2.0-py3-none-any.whl": {
+      "sha256": "1fe7c1334dd4f8e5a0e6beeb9e612cf372504a7b07ac49624a027683b043f8cc",
+      "bytes": 176981
+    },
+    ".scratch/agent-vision-phase9/verification/independent-requalification-20261127/retry/targeted.log": {
+      "sha256": "49aaa3c7cc1208f0a123a17e5a634731501316ecf3458a27084be7efe4c40fb7",
+      "bytes": 226
+    },
+    ".scratch/agent-vision-phase9/verification/independent-requalification-20261127/retry/targeted.receipt.json": {
+      "sha256": "339b21f27cd9dd121dd8605e659cfd1a382712931391d5af881b5863be65683a",
+      "bytes": 821
+    },
+    ".scratch/agent-vision-phase9/verification/independent-requalification-20261127/retry/targeted.xml": {
+      "sha256": "b44b29d34f6df9689e26fae961a29d29a1ac4ff4b627a4acd934a818a7bd7997",
+      "bytes": 2188
+    },
+    ".scratch/agent-vision-phase9/verification/v02-independent-20261127/REPORT.md": {
+      "sha256": "51c0c31a37636e3ec5ee7340291710b8045be3f9f98f58b307f41134af3aa94a",
+      "bytes": 7633
+    },
+    "specs/agent-vision-phase9/final-acceptance/EVIDENCE_MATRIX.json": {
+      "sha256": "4bc1f6d3ebcf8b83c36afa7246b831e6a9d7b4f71d46b0d763766d56acf239f4",
+      "bytes": 26419
+    },
+    "specs/agent-vision-phase9/final-acceptance/FINDINGS.md": {
+      "sha256": "b06af4cdd26f2c9ece6c1789ce6442116ff7bc32c8338ca20ba9b6aa3145f544",
+      "bytes": 6238
+    },
+    "specs/agent-vision-phase9/final-acceptance/focus-geometry-audit.exit.json": {
+      "sha256": "6346196cc8b047fd1d876a1d5422de5d9496f63061f225ff8408de9e1b869a55",
+      "bytes": 339
+    },
+    "specs/agent-vision-phase9/final-acceptance/focus-geometry-audit.log": {
+      "sha256": "906dca55339371db11bbd520262e7fd6d09f6d656ac422a1c96a6271b4c7947e",
+      "bytes": 13908
+    },
+    "specs/agent-vision-phase9/final-acceptance/focus-geometry-audit.xml": {
+      "sha256": "522937a9c154816d35807afae5c814096b0857d6ec463057c744f9bd00e99b8e",
+      "bytes": 3540
+    },
+    "specs/agent-vision-phase9/final-acceptance/recheck-mixed-fault.exit.json": {
+      "sha256": "b94098b772e337053ae95e1ae398cb7544683f647bda5278d4037aa73c98313c",
+      "bytes": 369
+    },
+    "specs/agent-vision-phase9/final-acceptance/recheck-mixed-fault.log": {
+      "sha256": "39e431286c9f757e7cddd4c980a7ab8580ff6392a834f882833910afb157b476",
+      "bytes": 7872
+    },
+    "specs/agent-vision-phase9/final-acceptance/recheck-mixed-fault.xml": {
+      "sha256": "ab92673bf58dca25936258afdb8ddbcf37ea9bc6c72abeda8118082b46295b1e",
+      "bytes": 3426
+    },
+    "specs/agent-vision-phase9/final-acceptance/recheck-results.json": {
+      "sha256": "616b75a356cd2cb2ee15d274581d7d6e6e7c9f9c5d806fff43da8fcdfaa3fc48",
+      "bytes": 26560
+    },
+    "specs/agent-vision-phase9/final-acceptance/recheck.py": {
+      "sha256": "fe4a20397201b38c714d9ed8c8dcc423d75143c38ee634a01831fca8cbf84113",
+      "bytes": 14137
+    },
+    "specs/agent-vision-phase9/final-acceptance/regression-summary-fa01.json": {
+      "sha256": "834d40337bc9c8cb8147b2b926a14d8cf4d0140463439b7e57e3b80681f61acb",
+      "bytes": 30195
+    },
+    "specs/agent-vision-phase9/final-acceptance/REPORT.md": {
+      "sha256": "6dd19f8bf9e1cbd15014f68523c2f6ac31d58cb5a9acb2ac83f939b12a06dcd2",
+      "bytes": 13800
+    },
+    "specs/agent-vision-phase9/final-acceptance/REQUALIFICATION.md": {
+      "sha256": "50a072401f83d68e63cad914461a2c7205151716d9cfbe52912336673dee6481",
+      "bytes": 10774
+    },
+    "specs/agent-vision-phase9/final-acceptance/RESOLUTION-FA01.md": {
+      "sha256": "c654243b68daacb59952c38ca3d900b005678d323579a6bd0a3437b462e59ff4",
+      "bytes": 3884
+    },
+    "specs/agent-vision-phase9/final-acceptance/runtime-collection-error.exit.json": {
+      "sha256": "03c1a754d886dcd8a82e5c280168c12084158a6f154fb37233007f93f4e66714",
+      "bytes": 306
+    },
+    "specs/agent-vision-phase9/final-acceptance/runtime-collection-error.xml": {
+      "sha256": "b461b8799dfd3c44d996ac2a106b0d79c2b04fef55f011208b7b475815b61c3a",
+      "bytes": 1349
+    },
+    "specs/agent-vision-phase9/final-acceptance/runtime-final-head.exit.json": {
+      "sha256": "0800189a5b2f79f4cd5bcae7e5d4d1ee7358435cd38a1b67c37717cd69cd1735",
+      "bytes": 350
+    },
+    "specs/agent-vision-phase9/final-acceptance/runtime-final-head.xml": {
+      "sha256": "c7d975f9c9dbfd714f81b1c392dc81674aab3c0f7c3459abdab8973341e24afa",
+      "bytes": 2825
+    },
+    "specs/agent-vision-phase9/final-acceptance/supplement.py": {
+      "sha256": "6a0b9d8af91c7377679eaf2bf3bc3256f5bbb333e2dc5f7c98918d7c6b0a4467",
+      "bytes": 9770
+    },
+    "specs/agent-vision-phase9/final-acceptance/test_focus_geometry_audit.py": {
+      "sha256": "71d73cc67c2b25c811d077e65f02f72d7139f688f0b30f051d8fcbf6b822457e",
+      "bytes": 2369
+    },
+    "specs/agent-vision-phase9/final-acceptance/test_recheck_mixed_fault.py": {
+      "sha256": "298cc844e2e1e0c974e8f83c7a0b678f2f36f7833d8bdc707aaaaa171b1c11a8",
+      "bytes": 2312
+    },
+    "specs/agent-vision-phase9/final-acceptance/VERIFICATION.json": {
+      "sha256": "258f5e62b0d905c11bcf74dee2fa6755d914f7d004a4bf2216ba2dc988731f31",
+      "bytes": 105349
+    },
+    "specs/agent-vision-phase9/final-acceptance/verify.py": {
+      "sha256": "479a1053135da32f3ab1ac4acdc9ddd4aebd9ed92fffddc33eafa31c06a1e33e",
+      "bytes": 17589
+    },
+    "specs/agent-vision-phase9/group-v01-v02/direct-raw-audit.json": {
+      "sha256": "8c2bec097b1c142b82a91751a73142415a4b3a5694d5b18f6fbe56efe853fdef",
+      "bytes": 1721
+    },
+    "specs/agent-vision-phase9/group-v01-v02/LIVE-DIRECT-20261127.md": {
+      "sha256": "7a7ff5adca0a45c9b2e12c3a92fb5f5d05cb1641a4c7d9d4751880059c9e8a94",
+      "bytes": 4390
+    }
+  }
+}
