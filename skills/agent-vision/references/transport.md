@@ -1,6 +1,6 @@
 # Verified transport and CLI reference
 
-Agent Vision 0.2.0 is the Phase 8.1 release (61 MCP tools). See [interface.md](interface.md); discover actual deployed version before use. Tool names and schemas can evolve: discover actual tools each session. Read only the section for your current task.
+Agent Vision 0.3.0 is the Phase 9 release (90 MCP tools: 61 legacy + 29 additive). See [interface.md](interface.md); discover actual deployed version before use. Tool names and schemas can evolve: discover actual tools each session. Read only the section for your current task.
 
 ## ChatGPT / Queqiao NB — official deployment
 
@@ -53,7 +53,7 @@ Phase 8 adds MCP vision_find color_mode/max_results and wait max_captures, pixel
 ## Local CLI on NB
 
 Current tested Python installation:
-C:\Users\jeffh\Downloads\develop\opencv_custom_recovery\acceptance-20261126\fresh-venv\Scripts\vision.exe
+C:\Users\jeffh\Downloads\develop\opencv_custom_recovery\releases\agent-vision-v0.3.0\venv\Scripts\vision.exe
 Repository:
 C:\Users\jeffh\Downloads\develop\opencv_custom_recovery\clean-working
 ADB tools are under the repository's ignored platform-tools directory; use the installed official SDK or set PATH/ANDROID_HOME appropriately. No need to install again if the current tools work.
@@ -164,7 +164,7 @@ $env:VISION_STORE_DIR = Join-Path (Split-Path (Get-Location).Path -Parent) ("fre
 & ../acceptance-20261126/fresh-venv/Scripts/vision.exe --help
 & ../acceptance-20261126/fresh-venv/Scripts/vision.exe runtime --help
 ```
-Compare HEAD with the release or qualification target supplied by the caller; verify module file belongs to the intended checkout. Agent Vision 0.2.0 exposes 61 tools (including vision_runtime_probe_profile); frozen Phase 7 had 57. Validation MCP and CLI must use the same explicit absolute isolated store. For a persistent native server, run that same python -m vision_app.mcp_server executable with the same cwd, PYTHONPATH and VISION_STORE_DIR and use JSON-RPC stdio. Do not redirect official Queqiao server or install over the official skill. Read the skill from the intended checkout. A tool count is not a substitute for exact version check.
+Compare HEAD with the release or qualification target supplied by the caller; verify module file belongs to the intended checkout. Agent Vision 0.3.0 exposes 90 tools; 0.2.0 exposed 61 (including vision_runtime_probe_profile), and frozen Phase 7 had 57. Validation MCP and CLI must use the same explicit absolute isolated store. For a persistent native server, run that same python -m vision_app.mcp_server executable with the same cwd, PYTHONPATH and VISION_STORE_DIR and use JSON-RPC stdio. Do not redirect official Queqiao server or install over the official skill. Read the skill from the intended checkout. A tool count is not a substitute for exact version check.
 
 ## Typed image forwarding
 Native MCP response: use response.result.content after JSON-RPC envelope. Do not assume the first block is text.

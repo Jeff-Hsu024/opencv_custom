@@ -140,7 +140,13 @@ def test_scoped_ref_validation(tmp_path: Path) -> None:
         refs.validate(ref_id, device_id="dev-2", frame_store=store)
 
     # Stale rotation
-    store.save_frame(img, device_id="dev-1", frame_id=frame.frame_id, rotation=90)
+    # Deliberately corrupt fixture metadata; save_frame now rejects ID overwrite.
+    from dataclasses import replace
+    from vision_app.metadata import metadata_transaction
+    with metadata_transaction(store):
+        records = store._load_index()
+        records[frame.frame_id] = replace(frame, rotation=90)
+        store._save_index(records)
     with pytest.raises(StaleRefError):
         refs.validate(ref_id, device_id="dev-1", frame_store=store)
 

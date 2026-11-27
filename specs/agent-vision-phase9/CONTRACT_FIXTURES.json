@@ -1,0 +1,156 @@
+{
+  "contract_version": 1,
+  "valid": [
+    {
+      "op": "android_devices",
+      "request": {}
+    },
+    {
+      "op": "portable_preflight",
+      "request": {
+        "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "device": "127.0.0.1:16480"
+      }
+    },
+    {
+      "op": "portable_batch_execute",
+      "request": {
+        "batch_id": "batch_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "family_id": "settings",
+        "expected_generation": 2,
+        "devices": [
+          "A",
+          "B"
+        ]
+      }
+    },
+    {
+      "op": "portable_qualify_commit",
+      "request": {
+        "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "device": "B",
+        "expected_slot_generation": 0,
+        "proof_kind": "trial",
+        "proof_id": "prun_cccccccccccccccccccccccccccccccc",
+        "semantic_pass": {
+          "verification": "PASS",
+          "observation": "Verified final screen",
+          "reviewer": "agent"
+        }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "op": "android_devices",
+      "request": {
+        "unexpected": true
+      }
+    },
+    {
+      "op": "portable_batch_execute",
+      "request": {
+        "batch_id": "batch_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "family_id": "settings",
+        "expected_generation": 2,
+        "devices": [
+          "A",
+          "A"
+        ]
+      }
+    },
+    {
+      "op": "portable_batch_execute",
+      "request": {
+        "batch_id": "batch_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "family_id": "settings",
+        "expected_generation": 2,
+        "devices": []
+      }
+    },
+    {
+      "op": "portable_batch_execute",
+      "request": {
+        "batch_id": "batch_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "family_id": "settings",
+        "expected_generation": 2,
+        "devices": [
+          "desktop"
+        ]
+      }
+    },
+    {
+      "op": "portable_batch_execute",
+      "request": {
+        "batch_id": "batch_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "family_id": "settings",
+        "expected_generation": true,
+        "devices": [
+          "A",
+          "B"
+        ]
+      }
+    },
+    {
+      "op": "portable_batch_execute",
+      "request": {
+        "batch_id": "batch_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "family_id": "settings",
+        "expected_generation": 2,
+        "devices": [
+          "A",
+          "B"
+        ],
+        "max_concurrency": 5
+      }
+    },
+    {
+      "op": "portable_batch_execute",
+      "request": {
+        "batch_id": "bad",
+        "family_id": "settings",
+        "expected_generation": 2,
+        "devices": [
+          "A",
+          "B"
+        ]
+      }
+    },
+    {
+      "op": "portable_qualify_commit",
+      "request": {
+        "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "device": "B",
+        "expected_slot_generation": 0,
+        "proof_kind": "source",
+        "proof_id": "prun_cccccccccccccccccccccccccccccccc",
+        "semantic_pass": {
+          "verification": "PASS",
+          "observation": "Verified final screen",
+          "reviewer": "agent"
+        }
+      }
+    },
+    {
+      "op": "portable_qualify_commit",
+      "request": {
+        "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "device": "B",
+        "expected_slot_generation": 0,
+        "proof_kind": "trial",
+        "proof_id": "prun_cccccccccccccccccccccccccccccccc",
+        "semantic_pass": {
+          "verification": "UNKNOWN",
+          "observation": "Verified final screen",
+          "reviewer": "agent"
+        }
+      }
+    },
+    {
+      "op": "portable_preflight",
+      "request": {
+        "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  ]
+}

@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, TextIO, Tuple
 
 from vision_app.actions import ActionService
+from vision_app.portable_service import PortableService, SCHEMAS as PORTABLE_SCHEMAS
+from vision_app.primitives import PrimitiveService, SCHEMAS as PRIMITIVE_SCHEMAS
 from vision_app.assets import (
     AssetNotFoundError,
     AssetRegistry,
@@ -26,7 +28,13 @@ from vision_app.assets import (
     RefRegistry,
     StaleRefError,
 )
-from vision_app.observation import ObservationService, OperationError, UsageError
+from vision_app.observation import ObservationService, OperationError, UsageError, _artifact_for_record
+from vision_app.discovery import ANDROID_DEVICES_SCHEMA, DiscoveryService
+from vision_app.asset_revisions import (
+    ASSET_REVISION_REGISTER_SCHEMA,
+    ASSET_REVISION_RESOLVE_SCHEMA,
+    AssetRevisionService,
+)
 from vision_app.store import (
     DeviceMismatchError,
     FrameNotFoundError,
@@ -36,18 +44,18 @@ from vision_app.store import (
     StoreError,
 )
 from vision_app.waits import WaitService, WaitFailure
-from vision_app.recorder import Recorder, RecorderError, OPERATIONS, workspace_lock, record_tool_definitions
+from vision_app.recorder import Recorder, RecorderError, OPERATIONS, record_tool_definitions
 from vision_app.workflow import WorkflowBuilder, WorkflowError, workflow_tool_definitions
 from vision_app.runtime import WorkflowRuntime, RuntimeFault, runtime_tool_definitions
 from vision_app.recovery import RecoveryService, recovery_tool_definitions
 from vision_app.lifecycle import LifecycleService, lifecycle_tool_definitions
 from vision_app.orchestrator import ExecutionOrchestrator, orchestrator_tool_definitions
-from vision_app.transition import TransitionService, transition_tool_definitions
+from vision_app.transition import SCOPED_TRANSITION_SCHEMA, TransitionService, transition_tool_definitions
 from vision_app.responses import schema_for, validate as validate_response, project
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "vision-mcp"
-SERVER_VERSION = "0.2.0"
+SERVER_VERSION = "0.3.0"
 
 
 def _error_payload(exc: Exception) -> Dict[str, Any]:
@@ -56,7 +64,7 @@ def _error_payload(exc: Exception) -> Dict[str, Any]:
     if isinstance(exc, RuntimeFault):
         return {'code':exc.code,'message':str(exc),'details':exc.details,'retryable':False}
     if isinstance(exc, WorkflowError):
-        return {"code":"WORKFLOW_ERROR","message":str(exc),"retryable":False}
+        return {"code":getattr(exc,"code","WORKFLOW_ERROR"),"message":str(exc),"retryable":False}
     if isinstance(exc, UsageError):
         return {"code": exc.code, "message": exc.message, "retryable": False}
     if isinstance(exc, OperationError):
@@ -309,6 +317,26 @@ def _tool_definitions() -> List[Dict[str, Any]]:
                          max_changed_ratio={"type":"number","minimum":0,"maximum":1,"default":0},
                          stable_duration={"type":"number","minimum":0,"default":1},
                          color_mode={"type":"string","enum":["gray","bgr"],"default":"gray"})
+    definitions.append({"name": "vision_android_devices",
+                        "description": "Strict read-only online Android discovery; failures differ from empty results.",
+                        "inputSchema": ANDROID_DEVICES_SCHEMA})
+    definitions.append({"name": "vision_asset_revision_register",
+                        "description": "Register an immutable asset revision in an explicit device (and optional session) scope.",
+                        "inputSchema": ASSET_REVISION_REGISTER_SCHEMA})
+    definitions.append({"name": "vision_asset_revision_resolve",
+                        "description": "Resolve the last committed asset revision for an exact device/session scope and name; no fallback.",
+                        "inputSchema": ASSET_REVISION_RESOLVE_SCHEMA})
+    descriptions = {
+        "scoped_find": "Find matches on a stored frame using an exact scoped asset revision.",
+        "guarded_click": "Dispatch one epoch-checked reference click with a durable action ID.",
+    }
+    definitions.extend({"name": f"vision_{op}", "description": descriptions[op], "inputSchema": schema}
+                       for op, schema in PRIMITIVE_SCHEMAS.items())
+    definitions.append({"name": "vision_scoped_transition",
+                        "description": "Record an epoch-checked transition using exact asset revisions.",
+                        "inputSchema": SCOPED_TRANSITION_SCHEMA})
+    definitions.extend({"name":f"vision_{op}","description":op.replace("_"," ").capitalize()+".","inputSchema":schema}
+                       for op,schema in PORTABLE_SCHEMAS.items())
     return definitions
 
 
@@ -367,6 +395,55 @@ class VisionMcpServer:
         }
 
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        operation = name.removeprefix("vision_")
+        if name.startswith("vision_") and operation in PORTABLE_SCHEMAS:
+            payload, _ = PortableService(self.store,observation=self.obs,actions=self.actions).invoke(operation, {} if arguments is None else arguments)
+            result = self._text_tool_result(payload)
+            result["isError"] = not payload["ok"]
+            receipt=payload.get("result",{})
+            fid=receipt.get("last_frame_id") or receipt.get("frame_id")
+            if fid and isinstance(arguments,dict) and arguments.get("return_image") is True:
+                try:
+                    with self.store.pin_frames([fid],device_id=receipt["device"]) as (frame,):
+                        artifact=_artifact_for_record(self.store,frame)
+                        result["content"].append(self._image_tool_result({"artifact":artifact})["content"][0])
+                except (OSError,StoreError,OperationError):
+                    pass
+            return result
+        if name == "vision_scoped_transition":
+            svc = TransitionService(self.store, observation=self.obs, matcher=self.matcher,
+                                    actions=self.actions, waits=self.waits)
+            payload, _ = svc.invoke_scoped({} if arguments is None else arguments)
+            result = self._text_tool_result(payload)
+            result["isError"] = not payload["ok"]
+            fid = payload.get("result", {}).get("last_frame_id")
+            if fid and arguments and arguments.get("return_image") is True:
+                receipt = payload["result"]
+                try:
+                    with self.store.pin_frames([fid], device_id=receipt["device"]) as (frame,):
+                        artifact = _artifact_for_record(self.store, frame)
+                        image = self._image_tool_result({"artifact": artifact})["content"][0]
+                        result["content"].append(image)
+                except (OSError, StoreError, OperationError):
+                    pass
+            return result
+        if name.startswith("vision_") and operation in PRIMITIVE_SCHEMAS:
+            primitive = PrimitiveService(self.obs, matcher=self.matcher, actions=self.actions)
+            payload, _ = primitive.invoke(operation, {} if arguments is None else arguments)
+            result = self._text_tool_result(payload)
+            result["isError"] = not payload["ok"]
+            return result
+        if name == 'vision_android_devices':
+            payload, _ = DiscoveryService(self.obs).invoke({} if arguments is None else arguments)
+            result = self._text_tool_result(payload)
+            result['isError'] = not payload['ok']
+            return result
+        if name in ('vision_asset_revision_register', 'vision_asset_revision_resolve'):
+            operation = name.removeprefix('vision_')
+            payload, _ = AssetRevisionService(self.store).invoke(operation, {} if arguments is None else arguments)
+            result = self._text_tool_result(payload)
+            result['isError'] = not payload['ok']
+            return result
         args = dict(arguments or {})
         try:
             def query(scope,action,service):
@@ -408,7 +485,7 @@ class VisionMcpServer:
             if sid is not None and operation in OPERATIONS:
                 original = []
                 def invoke():
-                    response = self._call_tool(name,args)
+                    response = self._call_tool(name,args,session_id=sid)
                     original.append(response)
                     return json.loads(next(c['text'] for c in response['content'] if c['type']=='text'))
                 receipt = Recorder(self.store).execute(sid, operation, args, invoke)
@@ -417,12 +494,11 @@ class VisionMcpServer:
                 if not result['isError'] and original:
                     result['content'] = [c for c in original[0]['content'] if c['type']=='image'] + result['content']
                 return result
-            with workspace_lock(self.store):
-                return self._call_tool(name,args)
+            return self._call_tool(name,args)
         except Exception as exc:
             return {'content':[{'type':'text','text':json.dumps({'ok':False,'error':_error_payload(exc)})}],'isError':True}
 
-    def _call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None, *, session_id=None) -> Dict[str, Any]:
         args = arguments or {}
         try:
             if name in ("vision_snapshot","vision_crop","vision_resize"):
@@ -493,6 +569,7 @@ class VisionMcpServer:
                     find_all=bool(args.get("all", False)),
                     threshold=float(args.get("threshold", 0.8)),
                     max_results=args.get("max_results",10),color_mode=args.get("color_mode","gray"),
+                    session_id=session_id,
                 )
                 return self._text_tool_result({"ok": True, **res})
 
@@ -511,6 +588,7 @@ class VisionMcpServer:
                     point=point,
                     ref_id=args.get("ref"),
                     max_age_seconds=args.get("max_age_seconds"),
+                    session_id=session_id,
                 )
                 return self._text_tool_result({"ok": True, **res})
 

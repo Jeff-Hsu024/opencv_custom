@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 
+from vision_app.coordinator import Owner, OwnerCoordinator
 from vision_app.store import FrameRecord, FrameStore, OutOfBoundsError, StoreError
 from vision_app.transforms import CoordinateTransform
 
@@ -120,6 +121,11 @@ class ObservationService:
         result.append({"device_id": "desktop", "platform": "desktop"})
         return result
 
+    def android_devices(self) -> Dict[str, Any]:
+        """Strict discovery; legacy devices retains its permissive response."""
+        from vision_app.discovery import android_devices
+        return android_devices(self._platform_factory)
+
     def capabilities(self, device_id: str = "adb") -> Dict[str, Any]:
         """Return capability metadata for the specified device or platform."""
         try:
@@ -140,11 +146,20 @@ class ObservationService:
         *,
         region: Optional[Tuple[int, int, int, int]] = None,
         out: Optional[str] = None,
+        device_owner: Optional[Owner] = None,
     ) -> Dict[str, Any]:
         """Capture a single frame from device_id, optionally crop, and optionally export."""
         if not device_id or not device_id.strip():
             raise UsageError("Device serial/id must not be empty")
 
+        with OwnerCoordinator(self.store).device_owner(
+            device_id, legacy=True, owner=device_owner
+        ) as owner:
+            if owner is None:
+                raise OperationError("DEVICE_BUSY", f"Device {device_id} is busy", retryable=True)
+            return self._snapshot(device_id, region, out, owner)
+
+    def _snapshot(self, device_id, region, out, device_owner):
         try:
             platform = self._platform_factory(device_id)
             image = platform.snapshot()
@@ -189,6 +204,7 @@ class ObservationService:
             source_width=src_w,
             source_height=src_h,
             transform=transform,
+            device_owner=device_owner,
         )
 
         artifact = _export_png(out_image, out) if out else _artifact_for_record(self.store, rec)

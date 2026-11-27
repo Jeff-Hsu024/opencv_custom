@@ -1,0 +1,26 @@
+[
+  {
+    "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "device": "A",
+    "expected": {
+      "task_id": "ptask_5373258ecb58f47d7c5829f99ea0753a",
+      "run_id": "prun_57d900ff4f6a3c402dba3257795558af"
+    }
+  },
+  {
+    "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "device": "B",
+    "expected": {
+      "task_id": "ptask_3873cff4425d35ffe4e36eafb2b7bc4f",
+      "run_id": "prun_b9001c4ba93f961be589f7d18afe8b86"
+    }
+  },
+  {
+    "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "device": "127.0.0.1:16480",
+    "expected": {
+      "task_id": "ptask_c621c04da3eafdae5afecc31026cd9fa",
+      "run_id": "prun_1e19b94ac748d1a06dcc74d465b32f73"
+    }
+  }
+]

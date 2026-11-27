@@ -5,14 +5,16 @@ import hashlib
 import math
 import json
 import os
-import shutil
 import sqlite3
+import tempfile
 import time
 import uuid
 from contextlib import contextmanager, closing
 from pathlib import Path
 from typing import Any
 
+from vision_app.coordinator import OwnerCoordinator
+from vision_app.metadata import metadata_transaction
 from vision_app.store import FrameStore, StoreError, protect_new_frames
 
 OPERATIONS = frozenset(("snapshot", "crop", "resize", "assets_register", "find",
@@ -90,22 +92,11 @@ def _decode(row):
     return result
 
 
-@contextmanager
-def workspace_lock(store):
-    """Cross-process lock for the shared application store; released on process death."""
-    with closing(sqlite3.connect(store.store_dir / "operations.lock.sqlite", timeout=120)) as db:
-        db.execute("BEGIN IMMEDIATE")
-        try:
-            yield
-        finally:
-            db.rollback()
-
-
 class Recorder:
     def __init__(self, store: FrameStore):
         self.store = store
         self.path = store.store_dir / "recorder.sqlite"
-        with self.db() as db:
+        with metadata_transaction(self.store), self.db() as db:
             db.executescript("""
             CREATE TABLE IF NOT EXISTS sessions(
                 session_id TEXT PRIMARY KEY, name TEXT NOT NULL, goal TEXT NOT NULL,
@@ -123,7 +114,19 @@ class Recorder:
                 kind TEXT NOT NULL, annotation TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS event_filter ON events(session_id,operation,status,sequence);
             CREATE INDEX IF NOT EXISTS annotation_filter ON annotations(session_id,timestamp);
+            CREATE TABLE IF NOT EXISTS evidence_revision(
+                session_id TEXT PRIMARY KEY, generation INTEGER NOT NULL);
             """)
+            for table, operation in (("sessions", "UPDATE"), ("events", "INSERT"),
+                                     ("events", "UPDATE"), ("annotations", "INSERT")):
+                db.execute(f"""
+                    CREATE TRIGGER IF NOT EXISTS evidence_{table}_{operation}
+                    AFTER {operation} ON {table}
+                    BEGIN
+                        INSERT INTO evidence_revision VALUES (NEW.session_id, 1)
+                        ON CONFLICT(session_id) DO UPDATE SET generation=generation+1;
+                    END
+                """)
 
     @contextmanager
     def db(self):
@@ -149,18 +152,24 @@ class Recorder:
         return self._session(db, sid)
 
     def start(self, name, goal, device):
-        with self.db() as db:
+        with metadata_transaction(self.store), self.db() as db:
             return self._create_session(db, name, goal, device)
 
     def status(self, sid):
         with self.db() as db:
             return self._session(db, sid)
 
+    def evidence_revision(self, sid):
+        with self.db() as db:
+            row = db.execute("SELECT generation FROM evidence_revision WHERE session_id=?",
+                             (sid,)).fetchone()
+        return row[0] if row else 0
+
     def transition(self, sid, action):
         allowed = {"pause": ("active", "paused"), "resume": ("paused", "active"),
                    "stop": (("active", "paused"), "stopped")}
         before, after = allowed[action]
-        with workspace_lock(self.store), self.db() as db:
+        with self._session_device(sid), metadata_transaction(self.store), self.db() as db:
             session = self._session(db, sid)
             if session["status"] not in ((before,) if isinstance(before, str) else before):
                 raise RecorderError("Invalid session transition")
@@ -188,15 +197,16 @@ class Recorder:
     def _pin(self, fid, device, evidence):
         if not fid or not isinstance(fid, str):
             return
-        try:
-            frame = self.store.get_frame(fid)
-        except StoreError:
-            return  # Original service reports missing/invalid reference.
-        if frame.device_id != device:
-            raise RecorderError("Frame device differs from session",code="SESSION_SCOPE_MISMATCH")
-        if not self.store.resolve_image_path(frame.image_path).is_file():
-            return
-        self.store.set_protected(fid)
+        with metadata_transaction(self.store):
+            try:
+                frame = self.store.get_frame(fid)
+            except StoreError:
+                return  # Original service reports missing/invalid reference.
+            if frame.device_id != device:
+                raise RecorderError("Frame device differs from session",code="SESSION_SCOPE_MISMATCH")
+            if not self.store.resolve_image_path(frame.image_path).is_file():
+                return
+            self.store.set_protected(fid)
         if fid not in evidence["frames"]:
             evidence["frames"].append(fid)
 
@@ -205,27 +215,59 @@ class Recorder:
         if not name or not isinstance(name, str):
             return
         try:
-            asset = AssetRegistry(self.store.store_dir).get(name)
+            # One committed alias: metadata and bytes are never a mixed pair.
+            registry = AssetRegistry(self.store.store_dir)
+            asset, data, revision_id = registry.snapshot(name)
         except StoreError:
             return
         if asset.device_id is not None and asset.device_id != device:
             raise RecorderError("Asset source device differs from session",code="SESSION_SCOPE_MISMATCH")
         self._pin(asset.source_frame_id, device, evidence)
         src = Path(asset.image_path)
-        if not src.resolve().is_relative_to((self.store.store_dir / "assets").resolve()) or not src.is_file():
+        if not src.resolve().is_relative_to((self.store.store_dir / "assets").resolve()):
             return
-        digest = hashlib.sha256(src.read_bytes()).hexdigest()
+        digest = hashlib.sha256(data).hexdigest()
+        item = {**asset.to_dict(), "sha256": digest,
+                "retained_path": self._retain_bytes(digest, data)}
+        if revision_id is not None:
+            item["asset_revision_id"] = revision_id
+        if item not in evidence["assets"]:
+            evidence["assets"].append(item)
+
+    def _retain_bytes(self, digest, data):
         dest = self.store.store_dir / "recorded_assets" / (digest + ".png")
         dest.parent.mkdir(exist_ok=True)
         if not dest.exists():
-            try:
-                os.link(src, dest)
-            except OSError:
-                shutil.copyfile(src, dest)
-        item = {**asset.to_dict(), "sha256": digest,
-                "retained_path": str(dest.relative_to(self.store.store_dir))}
+            with tempfile.TemporaryDirectory(prefix=".retaining_", dir=dest.parent) as staging:
+                from vision_app.store import _atomic_write_bytes
+                candidate = Path(staging) / dest.name
+                _atomic_write_bytes(candidate, data)
+                with metadata_transaction(self.store):
+                    if not dest.exists():
+                        os.replace(candidate, dest)
+        if hashlib.sha256(dest.read_bytes()).hexdigest() != digest:
+            raise RecorderError("Retained asset bytes do not match digest",code="STORE_ERROR")
+        return str(dest.relative_to(self.store.store_dir))
+
+    def retain_asset_revision(self, revision_id, device, evidence, *, session_id=None):
+        """C03 seam: pin one exact immutable revision and retain its digest.
+
+        Scope is device-wide or exactly the given session; never a global alias.
+        Returns the evidence item appended for the same event.
+        """
+        from vision_app.asset_revisions import AssetRevisionStore
+        revisions = AssetRevisionStore(self.store.store_dir, frame_store=self.store)
+        with revisions.pin(revision_id, device=device, session_id=session_id) as pinned:
+            return self._retain_pinned_asset(pinned, device, evidence)
+
+    def _retain_pinned_asset(self, pinned, device, evidence):
+        rev = pinned.revision
+        self._pin(rev["source_frame_id"], device, evidence)
+        item = {**rev, "sha256": rev["png_sha256"],
+                "retained_path": self._retain_bytes(rev["png_sha256"], pinned.png_bytes)}
         if item not in evidence["assets"]:
             evidence["assets"].append(item)
+        return item
 
     def _ref(self, rid, device, evidence):
         from vision_app.assets import RefRegistry
@@ -256,13 +298,30 @@ class Recorder:
 
     def execute(self, sid, operation, inputs, invoke):
         """Invoke once; payload is normalized adapter JSON, never MCP image content."""
-        with workspace_lock(self.store):
-            return self._execute_locked(sid, operation, inputs, invoke)
+        with self._session_device(sid):
+            return self._execute_locked(sid, operation, inputs, invoke, check_ref_session=True)
 
-    def _execute_locked(self, sid, operation, inputs, invoke):
+    @contextmanager
+    def _session_device(self, sid, *, legacy=True):
+        device = self.status(sid)["device_id"]
+        coordinator = OwnerCoordinator(self.store)
+        with coordinator.device_owner(device, legacy=legacy) as owner:
+            if owner is None:
+                raise RecorderError("Session device is busy", code="DEVICE_BUSY")
+            with coordinator.recorded_device(owner):
+                yield
+
+    def _execute_locked(self, sid, operation, inputs, invoke, *,
+                        pinned_asset=None, check_ref_session=False):
+        from vision_app.assets import recorded_asset_snapshots
+        with recorded_asset_snapshots(self.store):
+            return self._execute_event(sid, operation, inputs, invoke, pinned_asset, check_ref_session)
+
+    def _execute_event(self, sid, operation, inputs, invoke, pinned_asset, check_ref_session):
         eid, now = _id("evt"), time.time()
         evidence = {"frames": [], "assets": [], "references": []}
-        with self.db() as db:
+        with metadata_transaction(self.store), self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
             session = self._session(db, sid)
             if session["status"] != "active":
                 raise RecorderError("Session is not active",code="SESSION_INACTIVE")
@@ -275,16 +334,31 @@ class Recorder:
         result, error, status = None, None, "failed"
         token = protect_new_frames.set(True)
         try:
+            asset_revision_id = None
             if inputs.get("device") is not None and inputs["device"] != device:
                 raise RecorderError("Operation device differs from session",code="SESSION_SCOPE_MISMATCH")
             if operation == "find" and inputs.get("max_results", 10) > 100:
                 raise RecorderError("Recorded find max_results must be <= 100")
+            if check_ref_session and operation == "click" and isinstance(inputs.get("ref"), str):
+                from vision_app.epochs import DeviceEpochs
+                epochs = DeviceEpochs(self.store)
+                binding = epochs.ref_binding(inputs["ref"])
+                stamp = epochs.ref_epoch(inputs["ref"])
+                if (binding is not None and (binding["device"], binding["session_id"]) != (device, sid)
+                        or stamp is not None and (stamp.device, stamp.session_id) != (device, sid)):
+                    raise RecorderError("Reference belongs to a different session", code="SCOPE_MISMATCH")
+                if binding is not None:
+                    asset_revision_id = binding["revision_id"]
             self._relations(inputs, device, evidence)
+            if pinned_asset is not None:
+                self._retain_pinned_asset(pinned_asset, device, evidence)
+            elif asset_revision_id is not None:
+                self.retain_asset_revision(asset_revision_id, device, evidence, session_id=sid)
             if operation == "assets_register":
                 self._asset(inputs.get("name"), device, evidence)
-            if operation in ("find", "wait"):
+            if operation in ("find", "wait") and pinned_asset is None:
                 self._asset(inputs.get("target") or inputs.get("image_target"), device, evidence)
-            with self.db() as db:
+            with metadata_transaction(self.store), self.db() as db:
                 db.execute("UPDATE events SET evidence=? WHERE event_id=?",(_json(evidence),eid))
             result = invoke()
             error = result.get("error") if not result.get("ok", False) else None
@@ -312,7 +386,7 @@ class Recorder:
         if operation == "type" and error:
             error = {"code": error.get("code"), "message": "[REDACTED type error]"}
             result = {"ok": False, "error": error}
-        with self.db() as db:
+        with metadata_transaction(self.store), self.db() as db:
             db.execute("UPDATE events SET completed_at=?,status=?,result=?,error=?,evidence=? WHERE event_id=?",
                        (time.time(), status, _json(_clean(result)), _json(_clean(error)),
                         _json(evidence), eid))
@@ -344,9 +418,9 @@ class Recorder:
 
     def annotate(self, sid, event_id, annotation, kind="annotation"):
         validate_annotation(annotation)
-        self.event(sid, event_id)
         aid = _id("ann")
-        with self.db() as db:
+        with metadata_transaction(self.store), self.db() as db:
+            self.event(sid, event_id)
             db.execute("INSERT INTO annotations VALUES (?,?,?,?,?,?)",
                        (aid,sid,event_id,time.time(),kind,_json(_clean(annotation))))
         return {"annotation_id": aid, "event_id": event_id, "kind": kind}

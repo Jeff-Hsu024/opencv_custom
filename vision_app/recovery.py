@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import json
 import time
+from contextlib import ExitStack, nullcontext
 
-from vision_app.recorder import Recorder, workspace_lock
-from vision_app.runtime import WorkflowRuntime
+from vision_app.metadata import metadata_transaction
+from vision_app.recorder import Recorder
+from vision_app.runtime import WorkflowRuntime, check
 from vision_app.workflow import WorkflowBuilder, canonical, digest, require, fields, label, source_frame, decode
 
 KINDS = ("recovery_route", "replacement")
@@ -22,7 +24,7 @@ class RecoveryService:
         self.rec = Recorder(store)
         self.builder = WorkflowBuilder(store)
         self.runtime = WorkflowRuntime(store)
-        with self.rec.db() as db:
+        with metadata_transaction(self.store), self.rec.db() as db:
             db.executescript("""
             CREATE TABLE IF NOT EXISTS recovery_cases(
                 case_id TEXT PRIMARY KEY, run_id TEXT UNIQUE NOT NULL,
@@ -75,48 +77,43 @@ class RecoveryService:
 
     def open(self, run_id):
         """Atomically link one new exploration session to a failed or interrupted run."""
-        with workspace_lock(self.store):
-            run=self.runtime._load("runs",run_id)
-            require(run["status"] in ("running","needs_agent","interrupted"),"Completed run is not recoverable")
-            if run["status"]=="running":
-                # Exclusive adapter lock means there is no active Runtime writer.
-                run["status"]="interrupted"
-                run["reason"]={"code":"INTERRUPTED","message":"Writer ended without terminal receipt; actual state must be observed."}
-                run["finished_at"]=time.time()
-                self.runtime._persist(run)
-            binding=self.runtime._binding(run["binding_id"])
-            require(binding["workflow_id"]==run["workflow_id"] and binding["device"]==run["device"]
-                    and binding["profile"]==run["profile"],"Runtime binding mismatch")
-            with self.rec.db() as db:
-                existing=db.execute("SELECT case_id FROM recovery_cases WHERE run_id=?",(run_id,)).fetchone()
-                if existing:
-                    case=self._row(db,"recovery_cases","case_id",existing["case_id"])
-                    require(seal(run)==case["payload"]["failed_run_sha256"],"Failed run journal changed")
-                    case_id=case["case_id"]
-                else:
-                    parent=self.builder.inspect(run["workflow_id"])["definition"]
-                    require(parent["source"]["device_id"]==run["device"],"Parent source device mismatch")
-                    verified=[{"step_id":s["step_id"],"from":s["from"],"to":s["to"],
-                               "post_frame_id":s["post_frame_id"]} for s in run["steps"] if s["status"]=="verified"]
-                    last_frame=run.get("last_frame_id")
-                    evidence=None
-                    if last_frame:
-                        f,_,sha=self._frame(last_frame,run["device"])
-                        evidence={"frame_id":last_frame,"sha256":sha,"timestamp":f.timestamp}
-                    payload={"failed_run_sha256":seal(run),"parent_workflow_id":run["workflow_id"],
-                             "binding_id":run["binding_id"],"device":run["device"],"profile":run["profile"],
-                             "goal":parent["goal"],"reason":run["reason"],"current_step":run["current_step"],
-                             "action_outcome":run["action_outcome"],"last_confirmed_state":run["last_confirmed_state"],
-                             "last_frame":evidence,"verified_prefix":verified,
-                             "known_states":[{"id":s["id"],"label":s["label"]} for s in parent["states"]],
-                             "remaining_steps":[{"id":s["id"],"from":s["from"],"to":s["to"]}
-                                                for s in parent["steps"][run["completed_steps"]:]],
-                             "initial_state":parent["initial_state"],"final_state":parent["final_state"]}
-                    case_id="rc_"+seal({"run_id":run_id})
-                    session=self.rec._create_session(db,"Recovery "+run_id,
-                        "Observe current state, reconcile original action outcome, and record a safe recovery path.",run["device"])
-                    db.execute("INSERT INTO recovery_cases VALUES (?,?,?,?,?)",
-                               (case_id,run_id,session["session_id"],time.time(),canonical(payload).decode()))
+        observed=self.runtime._observe_run(run_id)
+        check(observed["status"]!="running","DEVICE_BUSY","Runtime request is still active")
+        run=self.runtime._load("runs",run_id)
+        require(run["status"] in ("needs_agent","interrupted"),"Completed run is not recoverable")
+        binding=self.runtime._binding(run["binding_id"])
+        require(binding["workflow_id"]==run["workflow_id"] and binding["device"]==run["device"]
+                and binding["profile"]==run["profile"],"Runtime binding mismatch")
+        case_id="rc_"+seal({"run_id":run_id})
+        with self.rec.db() as db:
+            existing=db.execute("SELECT 1 FROM recovery_cases WHERE case_id=?", (case_id,)).fetchone()
+        if existing:
+            return self.inspect(case_id)
+        parent=self.builder.inspect(run["workflow_id"])["definition"]
+        require(parent["source"]["device_id"]==run["device"],"Parent source device mismatch")
+        verified=[{"step_id":s["step_id"],"from":s["from"],"to":s["to"],
+                   "post_frame_id":s["post_frame_id"]} for s in run["steps"] if s["status"]=="verified"]
+        last_frame=run.get("last_frame_id")
+        evidence=None
+        if last_frame:
+            f,_,sha=self._frame(last_frame,run["device"])
+            evidence={"frame_id":last_frame,"sha256":sha,"timestamp":f.timestamp}
+        payload={"failed_run_sha256":seal(run),"parent_workflow_id":run["workflow_id"],
+                 "binding_id":run["binding_id"],"device":run["device"],"profile":run["profile"],
+                 "goal":parent["goal"],"reason":run["reason"],"current_step":run["current_step"],
+                 "action_outcome":run["action_outcome"],"last_confirmed_state":run["last_confirmed_state"],
+                 "last_frame":evidence,"verified_prefix":verified,
+                 "known_states":[{"id":s["id"],"label":s["label"]} for s in parent["states"]],
+                 "remaining_steps":[{"id":s["id"],"from":s["from"],"to":s["to"]}
+                                    for s in parent["steps"][run["completed_steps"]:]],
+                 "initial_state":parent["initial_state"],"final_state":parent["final_state"]}
+        with metadata_transaction(self.store), self.rec.db() as db:
+            existing=db.execute("SELECT 1 FROM recovery_cases WHERE case_id=?", (case_id,)).fetchone()
+            if not existing:
+                session=self.rec._create_session(db,"Recovery "+run_id,
+                    "Observe current state, reconcile original action outcome, and record a safe recovery path.",run["device"])
+                db.execute("INSERT INTO recovery_cases VALUES (?,?,?,?,?)",
+                           (case_id,run_id,session["session_id"],time.time(),canonical(payload).decode()))
         return self.inspect(case_id)
 
     def inspect(self, case_id, limit=10, after=0):
@@ -157,14 +154,23 @@ class RecoveryService:
 
     def propose(self, case_id, kind, destination_state, reconciliation, plan):
         """Compile an explicit child proposal without changing parent, failed run or device."""
+        from vision_app.validation_context import evidence_snapshot
         require(kind in KINDS,"Invalid proposal kind")
         fields(reconciliation,("anchor_event_id","annotation_id","outcome","note"),"reconciliation")
         require(reconciliation["outcome"] in OUTCOMES,"Invalid reconciliation outcome")
         label(reconciliation["note"],"reconciliation note")
-        with workspace_lock(self.store):
+        with ExitStack() as pins:
             case=self._case(case_id)
+            parent_snapshot = pins.enter_context(evidence_snapshot(
+                self.builder, None, None, wid=case["payload"]["parent_workflow_id"]))
+            parent_seals = parent_snapshot.seals()
             run,parent,templates=self._parent(case)
             sid=case["session_id"]
+            snapshot = pins.enter_context(evidence_snapshot(self.builder, sid, plan))
+            seals = snapshot.seals()
+            anchor_snapshot = pins.enter_context(evidence_snapshot(
+                self.builder, sid, {}, extra_events=(reconciliation["anchor_event_id"],)))
+            anchor_seals = anchor_snapshot.seals()
             require(self.rec.status(sid)["status"]=="stopped","Stop recovery session before proposal")
             events,anns=self.builder._events(sid)
             anchor=events.get(reconciliation["anchor_event_id"])
@@ -226,11 +232,16 @@ class RecoveryService:
                                  "frame_sha256":end_sha,"parent_classification":end},
                      "status":"offline_pass","automatic_resume":False,"automatic_promotion":False}
             pid="rp_"+seal(payload)
-            self.builder._publish_locked(definition,blobs,plan)
-            with self.rec.db() as db:
-                db.execute("INSERT OR IGNORE INTO recovery_proposals VALUES (?,?,?,?)",
-                           (pid,case_id,time.time(),canonical(payload).decode()))
-                return self._row(db,"recovery_proposals","proposal_id",pid)
+            def publish_proposal():
+                with self.rec.db() as db:
+                    db.execute("INSERT OR IGNORE INTO recovery_proposals VALUES (?,?,?,?)",
+                               (pid,case_id,time.time(),canonical(payload).decode()))
+                    return self._row(db,"recovery_proposals","proposal_id",pid)
+
+            return self.builder._publish_locked(
+                definition, blobs, plan, snapshot, seals, publish_proposal,
+                additional=((anchor_snapshot, anchor_seals), (parent_snapshot, parent_seals)),
+            )
 
     def proposal(self, proposal_id, limit=10, after=0):
         self.rec._page(limit,after)
@@ -244,8 +255,7 @@ class RecoveryService:
 
     def verify(self, proposal_id, run_id):
         """Link a later completed child run; never run or promote anything."""
-        with workspace_lock(self.store):
-            return self._verify_locked(proposal_id, run_id)
+        return self._verify_locked(proposal_id, run_id)
 
     def _verify_locked(self, proposal_id, run_id, *, persist=True):
         p=self._proposal(proposal_id)
@@ -296,7 +306,7 @@ class RecoveryService:
                        "parent_state":end["state"],"status":"live_pass",
                        "automatic_resume":False,"automatic_promotion":False}
         qid="rq_"+seal(qualification)
-        with self.rec.db() as db:
+        with (metadata_transaction(self.store) if persist else nullcontext()), self.rec.db() as db:
             existing=db.execute("SELECT qualification_id FROM recovery_qualifications WHERE proposal_id=? AND run_id=?",
                                 (proposal_id,run_id)).fetchone()
             require(not existing or existing["qualification_id"]==qid,"Existing live qualification changed")

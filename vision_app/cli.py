@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from vision_app.actions import ActionService
+from vision_app.portable_service import PortableService, SCHEMAS as PORTABLE_SCHEMAS
+from vision_app.primitives import PrimitiveService, SCHEMAS as PRIMITIVE_SCHEMAS
 from vision_app.assets import (
     AssetNotFoundError,
     AssetRegistry,
@@ -20,6 +22,8 @@ from vision_app.assets import (
     StaleRefError,
 )
 from vision_app.observation import ObservationService, OperationError, UsageError
+from vision_app.discovery import DiscoveryService
+from vision_app.asset_revisions import AssetRevisionService
 from vision_app.store import (
     DeviceMismatchError,
     FrameNotFoundError,
@@ -28,7 +32,7 @@ from vision_app.store import (
     OutOfBoundsError,
 )
 from vision_app.waits import WaitService, WaitFailure
-from vision_app.recorder import Recorder, RecorderError, OPERATIONS, workspace_lock
+from vision_app.recorder import Recorder, RecorderError, OPERATIONS
 from vision_app.workflow import WorkflowBuilder, WorkflowError
 from vision_app.runtime import WorkflowRuntime, RuntimeFault
 from vision_app.recovery import RecoveryService
@@ -76,6 +80,11 @@ def _build_parser() -> _CliParser:
     )
     parser.add_argument('--session', default=os.environ.get('VISION_SESSION_ID'))
     sub = parser.add_subparsers(dest="command", required=True)
+    phase9 = sub.add_parser("phase9", help="Phase 9 request-file API")
+    phase9.add_argument("phase9_operation", choices=["android-devices", "asset-revision-register",
+                                                     "asset-revision-resolve", "scoped-transition",
+                                                     *(op.replace("_", "-") for op in (*PRIMITIVE_SCHEMAS,*PORTABLE_SCHEMAS))])
+    phase9.add_argument("--request", required=True, help="UTF-8 JSON request file")
     transition = sub.add_parser('transition', help='Recorded one-click transition')
     transition.add_argument('transition_action',choices=['execute','inspect'])
     transition.add_argument('--transition-id',required=True)
@@ -384,6 +393,7 @@ def _run_cli(
                     threshold=args.threshold,
                     max_results=args.max_results,
                     color_mode=args.color_mode,
+                    session_id=args.session,
                 )
             except (InvalidAssetNameError, InvalidFrameIdError, ValueError) as exc:
                 raise UsageError(str(exc)) from exc
@@ -415,6 +425,7 @@ def _run_cli(
                         point=point,
                         ref_id=args.ref,
                         max_age_seconds=args.max_age,
+                        session_id=args.session,
                     )
                 elif args.command == "swipe":
                     start = _parse_point(args.from_point, label="From")
@@ -558,6 +569,28 @@ def run_cli(argv=None, *, service=None):
         return _run_cli(argv, service=service)
     try:
         store = service.store if service else FrameStore(Path(args.store_dir))
+        if args.command == 'phase9':
+            try:
+                request = json.loads(Path(args.request).read_text(encoding='utf-8'))
+            except (OSError, UnicodeError, ValueError):
+                _emit_json(DiscoveryService._error('INVALID_ARGUMENT', 'Cannot read a valid UTF-8 JSON request'))
+                return 2
+            if args.phase9_operation != 'android-devices':
+                operation = args.phase9_operation.replace('-', '_')
+                if operation == "scoped_transition":
+                    payload, exit_code = TransitionService(store, observation=service).invoke_scoped(request)
+                elif operation in PORTABLE_SCHEMAS:
+                    payload, exit_code = PortableService(store,observation=service).invoke(operation, request)
+                elif operation in PRIMITIVE_SCHEMAS:
+                    primitive = PrimitiveService(service or ObservationService(store=store))
+                    payload, exit_code = primitive.invoke(operation, request)
+                else:
+                    payload, exit_code = AssetRevisionService(store).invoke(operation, request)
+                _emit_json(payload)
+                return exit_code
+            payload, exit_code = DiscoveryService(service or ObservationService(store=store)).invoke(request)
+            _emit_json(payload)
+            return exit_code
         if args.command in ('task','recovery','runtime','workflow','record'):
             mode=args.response_mode;detail_id=args.detail_id
             action=getattr(args,args.command+'_action')
@@ -626,8 +659,7 @@ def run_cli(argv=None, *, service=None):
             result = Recorder(store).execute(args.session, operation, inputs, invoke)
             _emit_json(result)
             return codes[0] if result.get('ok') and codes else (codes[0] if codes and codes[0] else 3)
-        with workspace_lock(store):
-            return _run_cli(argv, service=service, parsed=args)
+        return _run_cli(argv, service=service, parsed=args)
     except RecorderError as exc:
         _emit_json({"ok":False,"error":{"code":exc.code,"message":str(exc),"details":exc.details,"retryable":False}})
         return 3
@@ -636,7 +668,7 @@ def run_cli(argv=None, *, service=None):
         return 3
     except WorkflowError as exc:
         code={"task":"TASK_ERROR","lifecycle":"LIFECYCLE_ERROR","recovery":"RECOVERY_ERROR","workflow":"WORKFLOW_ERROR","runtime":"RUNTIME_ERROR"}.get(args.command,"WORKFLOW_ERROR")
-        _emit_json({"ok":False,"error":{"code":code,"message":str(exc),"retryable":False}})
+        _emit_json({"ok":False,"error":{"code":getattr(exc,"code",code),"message":str(exc),"retryable":False}})
         return 3
     except AssetNotFoundError as exc:
         _emit_json({"ok":False,"error":{"code":"ASSET_NOT_FOUND","message":str(exc),"retryable":False}})

@@ -1,0 +1,7 @@
+# Agent Vision 0.3.0 — Phase 9 release
+
+Acceptance decision PASS_WITH_NON_BLOCKING_FINDINGS, 24/24 tickets closed. Code fc1d205 passed 1444 cases (466 regression, 978 contract), 27 shards, no failures/skips; independent targeted 13/13. Acceptance HEAD 7ea1aa8; release-only metadata/documentation changes. See final-acceptance/FINAL-CLOSURE.md. Historical two-device Settings live campaigns at 770e1de retained; FA-01/02 closed by independent requalification. FA-03 remains scope limitation.
+
+90 MCP tools (61 unchanged legacy definitions + 29 additive). Same host, explicit compatible Android profiles only. No claim of CZN-specific, heterogeneous profile, cross-host or unattended production automation. Existing device-specific workflows remain supported. Portable definitions and qualification are additive; do not import qualification campaign Stores into production.
+
+NB deployment: retain v0.2.0 venv and tag, back up quiescent official Store, use isolated release venv and existing dev.queqiao.mcp vision-platform server, explicit shared Store. Verify actual version, catalog, legacy registry, native ImageContent and CLI/MCP parity. No extra wrapper. Rollback: stop downstream writers, restore prior config and previous runtime; if writes occurred after cutover, preserve later evidence and use a consistent separate backup rather than overwriting current Store. Local deployment receipt records actual cutover.

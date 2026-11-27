@@ -1,0 +1,5 @@
+# Group P07-B02: shared admission, registry and batch
+
+Direct implementation in the existing worktree; no worker dispatch. P07-P08 and B01-B02 share one admission boundary. Family generations and active revisions, exact device qualification, CAS and task/run claims are used for both single execution and batch. Parent reserves every child ID atomically; bounded threads execute through the same interpreter, with OS owner locks and durable intent. Inspection never replays an unknown action or reconciles a living child. Duplicate requests return existing receipts before new admission.
+
+Actual targeted Windows candidate runs: 15 portable core/qualification/admission tests PASS (47.57 s); 10 batch tests PASS (21.94 s). Batch tests include simultaneous child effects in a separate process, dead parent with surviving child, interruption without replay, bounded concurrency, collision atomicity and aggregate truth table. Fixtures are not live Android qualification. Full regression and copied Store compatibility remain V01 gates.

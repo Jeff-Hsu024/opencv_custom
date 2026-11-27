@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
 import time
 import uuid
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -16,6 +20,9 @@ import numpy as np
 from service.core.opencv.dto import MatchResult, Region
 from service.core.opencv.mat_utility import MatUtility
 from service.core.opencv.open_cv_service import OpenCvService
+from vision_app.asset_revisions import AssetRevisionStore, canonical, revision_id_for
+from vision_app.epochs import DeviceEpochs
+from vision_app.metadata import canonical_store, metadata_transaction
 from vision_app.store import (
     DeviceMismatchError,
     FrameRecord,
@@ -26,6 +33,23 @@ from vision_app.store import (
 )
 
 _SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_recorded_assets = ContextVar("recorded_assets", default=None)
+
+
+@contextmanager
+def recorded_asset_snapshots(store):
+    """Share exact alias reads and publications within a single Recorder event."""
+    root = canonical_store(store)
+    current = _recorded_assets.get()
+    if current is not None and current[0] == root:
+        yield
+        return
+    snapshots = {}
+    token = _recorded_assets.set((root, snapshots))
+    try:
+        yield
+    finally:
+        _recorded_assets.reset(token)
 
 
 class InvalidAssetNameError(StoreError, ValueError):
@@ -164,6 +188,7 @@ class AssetRegistry:
         self.root_dir = Path(root_dir)
         self.assets_dir = self.root_dir / "assets"
         self.assets_dir.mkdir(parents=True, exist_ok=True)
+        self._revisions: Optional[AssetRevisionStore] = None
 
     def _meta_path(self, name: str) -> Path:
         validate_asset_name(name)
@@ -173,6 +198,13 @@ class AssetRegistry:
         validate_asset_name(name)
         return self.assets_dir / f"{name}.png"
 
+    @property
+    def revisions(self) -> AssetRevisionStore:
+        # Lazily shared C03 pointer store; created on first use only.
+        if self._revisions is None:
+            self._revisions = AssetRevisionStore(self.root_dir)
+        return self._revisions
+
     def register_from_frame(
         self,
         name: str,
@@ -181,59 +213,169 @@ class AssetRegistry:
         *,
         region: Optional[Tuple[int, int, int, int]] = None,
     ) -> AssetRecord:
-        """Register a named asset from a stored frame (or a cropped region of it)."""
+        """Register a named asset from a stored frame (or a cropped region of it).
+
+        Legacy shape and global last-committed semantics are retained. Bytes are
+        published as an immutable revision before the global alias pointer
+        commits; ``assets/<name>.{png,json}`` is a projection of that pointer.
+        """
         validate_asset_name(name)
-        frame = frame_store.get_frame(frame_id)
-        image = frame_store.load_image(frame_id)
+        with self.revisions.prepare(
+            frame_id, name=name, region=region, frame_store=frame_store,
+        ) as (rid, content, png_bytes, frame):
+            img_path = self._image_path(name)
+            record = AssetRecord(
+                name=name,
+                image_path=str(img_path),
+                width=content["width"],
+                height=content["height"],
+                created_at=time.time(),
+                source_frame_id=frame.frame_id,
+                device_id=frame.device_id,
+                region=region,
+            )
+            self.revisions.legacy_commit(name, rid, content, record.to_dict(), png_bytes,
+                                         img_path, self._meta_path(name))
+            snapshots = self._recorded_snapshots()
+            if snapshots is not None:
+                snapshots[os.path.normcase(name)] = (record, png_bytes, rid)
+            return record
 
-        if region is not None:
-            image = MatUtility.crop(image, Region(*region))
+    def _recorded_snapshots(self):
+        scope = _recorded_assets.get()
+        return scope[1] if scope is not None and scope[0] == canonical_store(self.root_dir) else None
 
-        h, w = image.shape[:2]
-        png_bytes = MatUtility.encode_png(image)
-        img_path = self._image_path(name)
-        meta_path = self._meta_path(name)
-
-        record = AssetRecord(
-            name=name,
-            image_path=str(img_path),
-            width=int(w),
-            height=int(h),
-            created_at=time.time(),
-            source_frame_id=frame.frame_id,
-            device_id=frame.device_id,
-            region=region,
-        )
-        _atomic_write_bytes(img_path, png_bytes)
-        _atomic_write_json(meta_path, record.to_dict())
-        return record
+    def _project_if_pending(self, row, record, data):
+        if row["projection"] == "pending":
+            self.revisions.repair_projection(row, record.to_dict(), data, self._image_path(record.name),
+                                             self._meta_path(record.name))
 
     def get(self, name: str) -> AssetRecord:
         """Load metadata for a registered asset."""
         meta_path = self._meta_path(name)
+        with metadata_transaction(self.root_dir), self.revisions._db() as db:
+            row = self.revisions.legacy_row(db, name)
+            if row is None:
+                return self._historical_record(meta_path, name)
+            record = AssetRecord.from_dict(json.loads(row["record_json"]))
+            if row["projection"] == "complete":
+                return record
+            sha = self.revisions._revision(db, row["revision_id"])["png_sha256"]
+        self._project_if_pending(row, record, self.revisions.read_blob(sha))
+        return record
+
+    @staticmethod
+    def _historical_record(meta_path, name):
         if not meta_path.exists():
             raise AssetNotFoundError(f"Asset not found: {name}")
-        data = json.loads(meta_path.read_text(encoding="utf-8"))
-        return AssetRecord.from_dict(data)
+        return AssetRecord.from_dict(json.loads(meta_path.read_text(encoding="utf-8")))
+
+    def snapshot(self, name: str) -> Tuple[AssetRecord, bytes, Optional[str]]:
+        """Coherent (record, PNG bytes, revision ID or None) for one committed alias."""
+        snapshots = self._recorded_snapshots()
+        if snapshots is None:
+            return self._snapshot(name)
+        key = os.path.normcase(name)
+        if key not in snapshots:
+            try:
+                snapshots[key] = self._snapshot(name)
+            except AssetNotFoundError as exc:
+                snapshots[key] = exc
+        snapshot = snapshots[key]
+        if isinstance(snapshot, AssetNotFoundError):
+            raise snapshot
+        return snapshot
+
+    def _snapshot(self, name):
+        meta_path = self._meta_path(name)
+        with metadata_transaction(self.root_dir), self.revisions._db() as db:
+            row = self.revisions.legacy_row(db, name)
+            if row is None:
+                record = self._historical_record(meta_path, name)
+                try:
+                    data = Path(record.image_path).read_bytes()
+                except OSError:
+                    raise AssetNotFoundError(f"Asset image missing for {name}: {record.image_path}") from None
+                return record, data, None
+            record = AssetRecord.from_dict(json.loads(row["record_json"]))
+            sha = self.revisions._revision(db, row["revision_id"])["png_sha256"]
+        data = self.revisions.read_blob(sha)
+        self._project_if_pending(row, record, data)
+        return record, data, row["revision_id"]
 
     def load_image(self, name: str) -> np.ndarray:
         """Load the BGR image for a registered asset."""
-        record = self.get(name)
-        img_path = Path(record.image_path)
-        if not img_path.exists():
-            raise AssetNotFoundError(f"Asset image missing for {name}: {img_path}")
-        img = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
+        record, data, _ = self.snapshot(name)
+        return self.decode(data, f"{name}: {record.image_path}")
+
+    @staticmethod
+    def decode(data, label):
+        img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
         if img is None:
-            raise AssetNotFoundError(f"Failed to decode asset image for {name}: {img_path}")
+            raise AssetNotFoundError(f"Failed to decode asset image for {label}")
         return img
 
     def list_assets(self) -> List[AssetRecord]:
         """List all registered assets sorted by name."""
-        records: List[AssetRecord] = []
-        for meta_path in sorted(self.assets_dir.glob("*.json")):
-            data = json.loads(meta_path.read_text(encoding="utf-8"))
-            records.append(AssetRecord.from_dict(data))
-        return records
+        with metadata_transaction(self.root_dir), self.revisions._db() as db:
+            rows = db.execute("SELECT * FROM legacy_asset_alias").fetchall()
+            records = {row["name"]: AssetRecord.from_dict(json.loads(row["record_json"])) for row in rows}
+            pending = [
+                (row, records[row["name"]], self.revisions._revision(db, row["revision_id"])["png_sha256"])
+                for row in rows if row["projection"] == "pending"
+            ]
+            for meta_path in self.assets_dir.glob("*.json"):
+                key = os.path.normcase(meta_path.stem)
+                if key not in records:
+                    records[key] = self._historical_record(meta_path, meta_path.stem)
+        for row, record, sha in pending:
+            self._project_if_pending(row, record, self.revisions.read_blob(sha))
+        return sorted(records.values(), key=lambda record: record.name)
+
+    def adopt_legacy(self, name: str, frame_store: FrameStore) -> str:
+        """Return the legacy alias revision, lazily adopting a historical asset.
+
+        Adoption validates JSON, PNG, frame device and exact cropped pixels and
+        otherwise fails. Historical projection files are never rewritten.
+        """
+        record, data, rid = self.snapshot(name)
+        if rid is not None:
+            return rid
+        img_path = Path(record.image_path)
+        if record.name != name or record.device_id is None or record.source_frame_id is None \
+                or img_path.resolve() != self._image_path(name).resolve():
+            raise StoreError(f"Legacy asset {name} metadata is not adoptable")
+        image = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+        with frame_store.pin_frames([record.source_frame_id], device_id=record.device_id) as recs:
+            frame_bytes = frame_store.resolve_image_path(recs[0].image_path).read_bytes()
+            frame_img = cv2.imdecode(np.frombuffer(frame_bytes, np.uint8), cv2.IMREAD_COLOR)
+            expected = frame_img if record.region is None else MatUtility.crop(frame_img, Region(*record.region))
+            if image is None or expected is None or image.shape[:2] != (record.height, record.width) \
+                    or expected.shape != image.shape or not np.array_equal(expected, image):
+                raise StoreError(f"Legacy asset {name} PNG does not match its source frame")
+            content = {
+                "device": record.device_id, "session_id": None, "name": name,
+                "source_frame_id": record.source_frame_id,
+                "source_frame_sha256": hashlib.sha256(frame_bytes).hexdigest(),
+                "region": list(record.region) if record.region is not None else None,
+                "png_sha256": self.revisions._publish_blob(data),
+                "width": record.width, "height": record.height,
+            }
+            rid = revision_id_for(content)
+            record_json = canonical(record.to_dict())
+            with metadata_transaction(self.root_dir), self.revisions._db() as db:
+                row = self.revisions.legacy_row(db, name)
+                if row is not None:
+                    if row["revision_id"] == rid:
+                        return rid
+                    raise StoreError(f"Legacy asset {name} changed during adoption")
+                current = self._historical_record(self._meta_path(name), name)
+                if current != record or img_path.read_bytes() != data:
+                    raise StoreError(f"Legacy asset {name} changed during adoption")
+                self.revisions._insert_revision(db, rid, content)
+                db.execute("INSERT INTO legacy_asset_alias VALUES (?,?,?,?,?,?)",
+                           (os.path.normcase(name), rid, record_json, 1, "complete", time.time()))
+            return rid
 
 
 class RefRegistry:
@@ -248,9 +390,14 @@ class RefRegistry:
         validate_ref_id(ref_id)
         return self.refs_dir / f"{ref_id}.json"
 
-    def save(self, ref: ScopedRef) -> ScopedRef:
+    def save(self, ref: ScopedRef, *, session_id: Optional[str] = None, revision_id=None) -> ScopedRef:
         """Persist a scoped reference atomically."""
-        _atomic_write_json(self._ref_path(ref.ref_id), ref.to_dict())
+        path = self._ref_path(ref.ref_id)
+        with metadata_transaction(self.root_dir):
+            DeviceEpochs(self.root_dir).publish_ref_stamp(
+                ref, session_id=session_id, exists=path.exists(), revision_id=revision_id
+            )
+            _atomic_write_json(path, ref.to_dict())
         return ref
 
     def get(self, ref_id: str) -> ScopedRef:
@@ -347,12 +494,20 @@ class MatchingService:
         max_results: int = 10,
         iou_threshold: float = 0.5,
         color_mode: str = "gray",
+        session_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Match a named asset against a stored frame and return scoped refs."""
-        frame = self.store.get_frame(frame_id)
-        source_img = self.store.load_image(frame_id)
-        template_img = self.assets.load_image(target)
+        with self.store.pin_frames([frame_id]) as (frame,):
+            asset, data, revision_id = self.assets.snapshot(target)
+            return self.match_frame(frame, target, self.assets.decode(data, f"{target}: {asset.image_path}"),
+                                    find_all=find_all, threshold=threshold, max_results=max_results,
+                                    iou_threshold=iou_threshold, color_mode=color_mode,
+                                    session_id=session_id, revision_id=revision_id)
 
+    def match_frame(self, frame, target, template_img, *, find_all=True, threshold=0.8,
+                    max_results=10, iou_threshold=0.5, color_mode="gray",
+                    session_id=None, revision_id=None):
+        source_img = self.store.load_image(frame.frame_id)
         if find_all:
             raw_matches = self.opencv.find_all(
                 source_img,
@@ -374,7 +529,7 @@ class MatchingService:
         scoped_refs: List[Dict[str, Any]] = []
         for match in raw_matches:
             ref = _map_match_to_ref(frame, target, match)
-            self.refs.save(ref)
+            self.refs.save(ref, session_id=session_id, revision_id=revision_id)
             scoped_refs.append(ref.to_dict())
 
         return {

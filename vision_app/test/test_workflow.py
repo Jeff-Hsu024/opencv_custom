@@ -204,3 +204,105 @@ def test_annotation_provenance_tamper(recorded):
         db.execute("UPDATE annotations SET annotation=? WHERE annotation_id=?",
                    (json.dumps({"state":"B","observation":"different observation","verification":"PASS"}),aid))
     with pytest.raises(WorkflowError,match="changed"): b.validate(item["workflow_id"])
+
+
+def test_annotation_during_validation_rejects_and_preserves_history(recorded, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from vision_app.metadata import metadata_held
+    from vision_app.validation_context import EvidenceChanged, validation_scope
+
+    server, rec, sid, plan, _ = recorded
+    builder = WorkflowBuilder(server.store)
+    item = builder.build(sid, plan)
+    wid = item["workflow_id"]
+    original = builder._validate_uncached
+    def disputed(workflow_id):
+        result = original(workflow_id)
+        assert not metadata_held()
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pool.submit(rec.annotate, sid, plan["steps"][0]["post_event_id"],
+                        {"verification": "FAIL", "observation": "Disputed"}).result(timeout=5)
+        return result
+
+    with validation_scope(server.store):
+        monkeypatch.setattr(builder, "_validate_uncached", disputed)
+        with pytest.raises(EvidenceChanged):
+            builder.validate(wid)
+        monkeypatch.setattr(builder, "_validate_uncached", original)
+        with pytest.raises(EvidenceChanged):
+            builder.validate(wid)
+    assert builder.inspect(wid) == item
+
+
+def test_annotation_after_staging_rejects_publication(recorded, monkeypatch):
+    import vision_app.workflow as workflow
+    from vision_app.metadata import metadata_held
+    from vision_app.validation_context import EvidenceChanged
+
+    server, rec, sid, plan, _ = recorded
+    builder = WorkflowBuilder(server.store)
+    write = workflow._atomic_write_json
+
+    def annotate_after_seal(path, data):
+        write(path, data)
+        if path.name == "source-seal.json":
+            assert not metadata_held()
+            rec.annotate(sid, plan["steps"][0]["post_event_id"], {"observation": "New evidence"})
+
+    monkeypatch.setattr(workflow, "_atomic_write_json", annotate_after_seal)
+    with pytest.raises(EvidenceChanged):
+        builder.build(sid, plan)
+    assert list(builder.root.iterdir()) == []
+
+
+def test_pinned_frame_survives_cleanup_but_protection_revision_rejects_aba(recorded, monkeypatch):
+    from vision_app.validation_context import EvidenceChanged
+
+    server, rec, sid, plan, _ = recorded
+    store = server.store
+    builder = WorkflowBuilder(store)
+    compile_plan = builder._compile
+
+    def protection_changed(session_id, candidate):
+        definition, blobs = compile_plan(session_id, candidate)
+        fid = next(iter(definition["source"]["frame_sha256"]))
+        store.set_protected(fid, False)
+        assert fid not in store.cleanup(now=10**12)
+        store.set_protected(fid, True)
+        assert store.get_frame(fid).protected
+        return definition, blobs
+
+    monkeypatch.setattr(builder, "_compile", protection_changed)
+    with pytest.raises(EvidenceChanged):
+        builder.build(sid, plan)
+    assert builder.list()["items"] == []
+    assert store._lifetimes()["pins"] == {}
+
+
+def test_concurrent_identical_publication_returns_same_bundle(recorded, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    import vision_app.workflow as workflow
+    from vision_app.metadata import metadata_held
+
+    server, rec, sid, plan, _ = recorded
+    ready = Barrier(2, timeout=15)
+    write = workflow._atomic_write_json
+
+    def stage_together(path, data):
+        write(path, data)
+        if path.name == "source-seal.json":
+            assert not metadata_held()
+            ready.wait()
+
+    monkeypatch.setattr(workflow, "_atomic_write_json", stage_together)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(WorkflowBuilder(server.store).build, sid, copy.deepcopy(plan))
+                   for _ in range(2)]
+        first, second = [future.result(timeout=30) for future in futures]
+
+    assert first == second
+    builder = WorkflowBuilder(server.store)
+    assert builder.validate(first["workflow_id"])["status"] == "offline_pass"
+    assert [p.name for p in builder.root.iterdir()] == [first["workflow_id"]]
+    assert server.store._lifetimes()["pins"] == {}

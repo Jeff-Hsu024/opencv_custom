@@ -1,0 +1,9 @@
+{
+  "verified": true,
+  "nodes": 24,
+  "edges": 25,
+  "extra_native_tasks": [
+    "task_785ea82990b2"
+  ],
+  "note": "Spec comparison normalizes native CRLF; initial verification assertion was line-ending-only. No registration replay."
+}

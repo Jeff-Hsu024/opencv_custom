@@ -1,0 +1,329 @@
+{
+  "status": "REVIEW_RESOLVED_DESIGN",
+  "baseline": "bfbec17fe55b25a2ea7ddbd9051cc3937ccd3efb",
+  "review_commit": "bba029ebb6900f0366ce8925e6a411fb9c387c25",
+  "contract_version": 1,
+  "hash_encoding": "UTF-8 LF normalized",
+  "hashes": {
+    "use_cases": "429bcb6f4f552e9f3dc4b939e40ce63b4a7870e33ff532b596d601cf8028b5f3",
+    "spec": "6011ce89ad766a6be1c3ed3137a7c0900d273a943ab10ad472c49fdcb583d32d",
+    "contract": "c032178e4d072058bac98f9132f3c37b6e56d3363ead42fcd6574aafacd8d701",
+    "schemas": "be3d1b3fbd88fbfda43320bc7abbc0ddeeb16beaa7af68d31274850310c9a415",
+    "fixtures": "5f6e5e6adab8dc74e9fa22bc098e546690f73213a775e39e54c8cd4aae75b49a"
+  },
+  "supersedes": "MD-01..MD-15 (preserved in planning commit d53b986)",
+  "tickets": [
+    {
+      "id": "C00",
+      "file": ".scratch/agent-vision-phase9/issues/C00-contract-freeze.md",
+      "title": "Contract fixture freeze",
+      "blocked_by": [],
+      "use_cases": "UC01-UC21",
+      "requirements": "R01-R16",
+      "acceptance": "A01-A17",
+      "findings": "F01-F07",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "C01",
+      "file": ".scratch/agent-vision-phase9/issues/C01-strict-discovery.md",
+      "title": "Strict Android discovery",
+      "blocked_by": [
+        "C00"
+      ],
+      "use_cases": "UC01,UC09,UC21",
+      "requirements": "R01,R16",
+      "acceptance": "A01,A17",
+      "findings": "F07",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "C02",
+      "file": ".scratch/agent-vision-phase9/issues/C02-frame-store-transactions.md",
+      "title": "Frame index transactions and active pins",
+      "blocked_by": [
+        "C00"
+      ],
+      "use_cases": "UC13,UC14",
+      "requirements": "R07,R15",
+      "acceptance": "A06,A09,A16",
+      "findings": "F06",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "C03",
+      "file": ".scratch/agent-vision-phase9/issues/C03-asset-revisions.md",
+      "title": "Immutable scoped asset revisions",
+      "blocked_by": [
+        "C02"
+      ],
+      "use_cases": "UC15,UC13,UC14",
+      "requirements": "R10,R15",
+      "acceptance": "A11,A16,A09",
+      "findings": "F01,F06",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "C04",
+      "file": ".scratch/agent-vision-phase9/issues/C04-execution-coordinator.md",
+      "title": "Device and request owner coordinator",
+      "blocked_by": [
+        "C02"
+      ],
+      "use_cases": "UC08,UC11,UC18",
+      "requirements": "R07,R14",
+      "acceptance": "A06,A08,A15",
+      "findings": "F05",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "C05",
+      "file": ".scratch/agent-vision-phase9/issues/C05-device-action-epoch.md",
+      "title": "Durable Device Action Epoch",
+      "blocked_by": [
+        "C01",
+        "C04"
+      ],
+      "use_cases": "UC16,UC08,UC09",
+      "requirements": "R11,R07",
+      "acceptance": "A12,A06",
+      "findings": "F02",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "C06",
+      "file": ".scratch/agent-vision-phase9/issues/C06-primitive-recorder-migration.md",
+      "title": "Primitive and Recorder migration",
+      "blocked_by": [
+        "C03",
+        "C05"
+      ],
+      "use_cases": "UC01,UC08,UC13,UC15,UC16",
+      "requirements": "R01,R07,R10,R11,R14",
+      "acceptance": "A01,A06,A11,A12,A15",
+      "findings": "F01,F02,F05",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "C07",
+      "file": ".scratch/agent-vision-phase9/issues/C07-transition-migration.md",
+      "title": "Recorded Transition migration",
+      "blocked_by": [
+        "C06"
+      ],
+      "use_cases": "UC08,UC09,UC11,UC15,UC16",
+      "requirements": "R07,R10,R11,R14",
+      "acceptance": "A06,A08,A11,A12,A15",
+      "findings": "F01,F02,F05",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "C08",
+      "file": ".scratch/agent-vision-phase9/issues/C08-legacy-runtime-recovery.md",
+      "title": "Legacy Runtime and Recovery migration",
+      "blocked_by": [
+        "C07"
+      ],
+      "use_cases": "UC08,UC09,UC11,UC14",
+      "requirements": "R06,R07,R11,R14",
+      "acceptance": "A06,A08,A09,A12",
+      "findings": "F02,F05",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "C09",
+      "file": ".scratch/agent-vision-phase9/issues/C09-evidence-snapshot.md",
+      "title": "Evidence snapshot and publication seal",
+      "blocked_by": [
+        "C08"
+      ],
+      "use_cases": "UC03,UC13,UC19",
+      "requirements": "R02,R07,R15",
+      "acceptance": "A02,A06,A16",
+      "findings": "F06",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "C10",
+      "file": ".scratch/agent-vision-phase9/issues/C10-legacy-registry-admission.md",
+      "title": "Legacy registry and task admission",
+      "blocked_by": [
+        "C09"
+      ],
+      "use_cases": "UC08,UC11,UC12,UC20",
+      "requirements": "R05,R07,R14,R16",
+      "acceptance": "A05,A06,A08,A17",
+      "findings": "F05,F07",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "C11",
+      "file": ".scratch/agent-vision-phase9/issues/C11-contract-parallel-execution.md",
+      "title": "Contract old gate and verify device overlap",
+      "blocked_by": [
+        "C10"
+      ],
+      "use_cases": "UC07,UC08,UC13,UC14,UC20",
+      "requirements": "R07,R16",
+      "acceptance": "A06,A09,A17",
+      "findings": "F02,F05,F06,F07",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "P01",
+      "file": ".scratch/agent-vision-phase9/issues/P01-definition-proof-seam.md",
+      "title": "Immutable definition resolver and proof verifier",
+      "blocked_by": [
+        "C11"
+      ],
+      "use_cases": "UC02,UC03,UC05,UC14",
+      "requirements": "R02,R12",
+      "acceptance": "A02,A13,A09",
+      "findings": "F03,F06",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "P02",
+      "file": ".scratch/agent-vision-phase9/issues/P02-shared-interpreter.md",
+      "title": "Shared target-bound deterministic interpreter",
+      "blocked_by": [
+        "P01"
+      ],
+      "use_cases": "UC05,UC06,UC09,UC11",
+      "requirements": "R06,R11,R12",
+      "acceptance": "A04,A08,A12,A13",
+      "findings": "F02,F03",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "P03",
+      "file": ".scratch/agent-vision-phase9/issues/P03-portable-publication.md",
+      "title": "Publish proven portable definition",
+      "blocked_by": [
+        "P02"
+      ],
+      "use_cases": "UC02,UC03,UC19",
+      "requirements": "R02,R12,R15",
+      "acceptance": "A02,A13,A16",
+      "findings": "F03,F06",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "P04",
+      "file": ".scratch/agent-vision-phase9/issues/P04-portable-preflight.md",
+      "title": "Read-only portable preflight",
+      "blocked_by": [
+        "P03"
+      ],
+      "use_cases": "UC04,UC09,UC17,UC21",
+      "requirements": "R03,R13,R16",
+      "acceptance": "A03,A14,A17",
+      "findings": "F04,F07",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "P05",
+      "file": ".scratch/agent-vision-phase9/issues/P05-qualification-trial.md",
+      "title": "Explicit target-device trial",
+      "blocked_by": [
+        "P04"
+      ],
+      "use_cases": "UC05,UC09,UC11",
+      "requirements": "R04,R06,R11,R12,R14",
+      "acceptance": "A04,A08,A13,A15",
+      "findings": "F02,F03,F05",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "P06",
+      "file": ".scratch/agent-vision-phase9/issues/P06-qualification-slots.md",
+      "title": "Per-device Qualification Slot CAS",
+      "blocked_by": [
+        "P05"
+      ],
+      "use_cases": "UC05,UC09,UC12,UC17",
+      "requirements": "R04,R13,R14",
+      "acceptance": "A04,A05,A14,A15",
+      "findings": "F04,F05",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "P07",
+      "file": ".scratch/agent-vision-phase9/issues/P07-portable-family-registry.md",
+      "title": "Portable family revision registry",
+      "blocked_by": [
+        "P06"
+      ],
+      "use_cases": "UC12,UC17,UC14",
+      "requirements": "R05,R13,R15",
+      "acceptance": "A05,A14,A16",
+      "findings": "F04,F06",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "P08",
+      "file": ".scratch/agent-vision-phase9/issues/P08-portable-single-execute.md",
+      "title": "Pinned single-device portable execution",
+      "blocked_by": [
+        "P07"
+      ],
+      "use_cases": "UC06,UC09,UC11,UC12,UC17",
+      "requirements": "R05,R06,R11,R12,R13,R14",
+      "acceptance": "A05,A08,A12,A13,A14,A15",
+      "findings": "F02,F03,F04,F05",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "B01",
+      "file": ".scratch/agent-vision-phase9/issues/B01-atomic-batch-admission.md",
+      "title": "Atomic parent admission and child reservations",
+      "blocked_by": [
+        "P08"
+      ],
+      "use_cases": "UC07,UC10,UC11,UC18",
+      "requirements": "R08,R13,R14",
+      "acceptance": "A07,A14,A15",
+      "findings": "F04,F05",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "B02",
+      "file": ".scratch/agent-vision-phase9/issues/B02-parallel-batch-reconcile.md",
+      "title": "Bounded parallel execution and reconciliation",
+      "blocked_by": [
+        "B01"
+      ],
+      "use_cases": "UC07,UC10,UC11,UC18",
+      "requirements": "R07,R08,R14",
+      "acceptance": "A06,A07,A08,A15",
+      "findings": "F05",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "V01",
+      "file": ".scratch/agent-vision-phase9/issues/V01-compatibility-verification.md",
+      "title": "Compatibility and frozen store verification",
+      "blocked_by": [
+        "B02"
+      ],
+      "use_cases": "UC01-UC21",
+      "requirements": "R01-R16",
+      "acceptance": "A01-A17",
+      "findings": "F01-F07",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    },
+    {
+      "id": "V02",
+      "file": ".scratch/agent-vision-phase9/issues/V02-independent-live-qualification.md",
+      "title": "Independent two-device qualification",
+      "blocked_by": [
+        "V01"
+      ],
+      "use_cases": "UC01-UC21",
+      "requirements": "R01-R16",
+      "acceptance": "A01-A17",
+      "findings": "F01-F07",
+      "status": "REVIEW_RESOLVED_DESIGN"
+    }
+  ]
+}

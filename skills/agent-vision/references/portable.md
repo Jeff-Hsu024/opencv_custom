@@ -1,0 +1,19 @@
+# Phase 9 portable workflows (0.3.0)
+
+Use only when the deployed tool discovery includes the Phase 9 operations. The legacy device-bound workflow and recovery APIs remain available unchanged. Release 0.3.0 passed same-profile, same-host two-device platform qualification. Each application/device still requires its own qualification.
+
+## Transport
+
+For every additive operation, call MCP `vision_<operation>` with the corresponding JSON object, or CLI `vision --store-dir <store> phase9 <operation-with-hyphens> --request <UTF-8 JSON file>`. Discover exact arguments from MCP tool definitions or the frozen Phase 9 CONTRACT_SCHEMAS.json. Keep the same Store and use actual IDs from receipts, not guessed IDs. New operations default to metadata-only; supported single-device observation/inspection requests accept return_image=true. Batch responses intentionally do not fan out images.
+
+## Flow
+
+1. Use android_devices; choose only explicitly authorized serials. Learn on source A through the legacy recorder, builder and runtime. Publish a portable definition with portable_publish(source_workflow_id, source_run_id) only after a completed verified source run. The definition pins source proof and templates.
+2. For each target, use portable_preflight(portable_id, device). Inspect exact profile, geometry and initial state. A passing preflight is not a qualification. On the target, use portable_trial(preflight_id, device, run_id) with a fresh prun_<32 hex> ID. Inspect the actual terminal evidence, verify the intended semantic outcome, and explicitly commit portable_qualify_commit with portable_id, device, proof_kind (source or trial), proof_id, expected_slot_generation and semantic_pass (verification PASS, observation, reviewer). A source proof applies only to the source device.
+3. Publish a family revision with portable_family_publish(family_id, portable_id, expected_generation, reason). Explicitly activate it with portable_family_activate(family_id, revision, expected_generation, reason). A null revision disables the family. Inspect generation before each CAS. Qualification slot generation is independent of family generation; revocation or confirmed device drift invalidates only that device slot. Restoring an old profile does not revive a revoked/invalidated slot.
+4. Use portable_execute(family_id, expected_generation, device, task_id), with a fresh ptask_<32 hex> ID, or portable_batch_execute(batch_id, family_id, expected_generation, devices, max_concurrency), with a fresh batch_<32 hex> ID. Batch requires 1-16 unique explicit devices; concurrency 1-4, default 2. Admission reserves parent/child identities atomically and pins exact qualifications/revision. A batch may finish partial.
+5. On timeout or unknown action, inspect the same portable_task_inspect, portable_run_inspect, portable_trial_inspect or portable_batch_inspect ID. Do not blindly replay or invent replacement IDs. Duplicates return existing receipts; conflicting identity is rejected. A live owner is not reconciled by another request. No portable automatic recovery. Review actual evidence and requalify or explicitly choose a new operation only when the outcome is understood.
+
+Use portable_inspect/list, portable_preflight_inspect, portable_qualification_inspect/list/record, portable_family_inspect/list, portable_task_list and portable_batch_list for read-only inspection. Use portable_qualification_revoke for explicit revocation with CAS. Operation status and semantic PASS are distinct from transport success.
+
+One workspace Store and OS owner locks coordinate CLI and MCP, including parallel child execution. Never mix separate Store copies as a shared registry. Back up with all writers quiescent; restore into a separate directory and verify retained hashes before migration. Never overwrite frozen evidence or an existing terminal receipt. The release qualification does not establish arbitrary unattended automation or heterogeneous profile portability.

@@ -164,7 +164,7 @@ class AdbPlatform(PlatformService):
         for line in stdout.split('\n'):
             if line.startswith("List of devices attached") or not line.strip():
                 continue
-            if "device" in line and "\t" in line:
+            if "\t" in line and line.split("\t", 1)[1].strip() == "device":
                 device_id = line.split("\t")[0].strip()
                 if device_id:
                     device_id_list.append(device_id)

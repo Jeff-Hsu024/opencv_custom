@@ -1,0 +1,3311 @@
+[
+  {
+    "op": "android_devices",
+    "valid": true,
+    "request": {},
+    "case": "minimal"
+  },
+  {
+    "op": "android_devices",
+    "valid": false,
+    "request": {
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": true,
+    "request": {
+      "device": "A",
+      "name": "A",
+      "frame_id": "frm_fixture"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "name": "A",
+      "frame_id": "frm_fixture",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "name": "A",
+      "frame_id": "frm_fixture"
+    },
+    "case": "missing-device"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture"
+    },
+    "case": "missing-name"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "name": "A"
+    },
+    "case": "missing-frame_id"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "../wrong-kind",
+      "name": "A",
+      "frame_id": "frm_fixture"
+    },
+    "case": "pattern-device"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "A\n",
+      "name": "A",
+      "frame_id": "frm_fixture"
+    },
+    "case": "suffix-device"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "adb",
+      "name": "A",
+      "frame_id": "frm_fixture"
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "desktop",
+      "name": "A",
+      "frame_id": "frm_fixture"
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "../escape",
+      "name": "A",
+      "frame_id": "frm_fixture"
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "A\n",
+      "name": "A",
+      "frame_id": "frm_fixture"
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "name": "../wrong-kind",
+      "frame_id": "frm_fixture"
+    },
+    "case": "pattern-name"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "name": "A\n",
+      "frame_id": "frm_fixture"
+    },
+    "case": "suffix-name"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "name": "A",
+      "frame_id": "../wrong-kind"
+    },
+    "case": "pattern-frame_id"
+  },
+  {
+    "op": "asset_revision_register",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "name": "A",
+      "frame_id": "frm_fixture\n"
+    },
+    "case": "suffix-frame_id"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": true,
+    "request": {
+      "device": "A",
+      "name": "A"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "name": "A",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": false,
+    "request": {
+      "name": "A"
+    },
+    "case": "missing-device"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": false,
+    "request": {
+      "device": "A"
+    },
+    "case": "missing-name"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": false,
+    "request": {
+      "device": "../wrong-kind",
+      "name": "A"
+    },
+    "case": "pattern-device"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": false,
+    "request": {
+      "device": "A\n",
+      "name": "A"
+    },
+    "case": "suffix-device"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": false,
+    "request": {
+      "device": "adb",
+      "name": "A"
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": false,
+    "request": {
+      "device": "desktop",
+      "name": "A"
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": false,
+    "request": {
+      "device": "../escape",
+      "name": "A"
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": false,
+    "request": {
+      "device": "A\n",
+      "name": "A"
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "name": "../wrong-kind"
+    },
+    "case": "pattern-name"
+  },
+  {
+    "op": "asset_revision_resolve",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "name": "A\n"
+    },
+    "case": "suffix-name"
+  },
+  {
+    "op": "scoped_find",
+    "valid": true,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-device"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-frame_id"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture"
+    },
+    "case": "missing-asset_revision_id"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "../wrong-kind",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "pattern-device"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A\n",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "suffix-device"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "adb",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "desktop",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "../escape",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A\n",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "../wrong-kind",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "pattern-frame_id"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture\n",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "suffix-frame_id"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "../wrong-kind"
+    },
+    "case": "pattern-asset_revision_id"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-asset_revision_id"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "threshold": -0.19999999999999996
+    },
+    "case": "minimum-threshold"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "threshold": 2
+    },
+    "case": "maximum-threshold"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "threshold": true
+    },
+    "case": "bool-threshold"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max_results": 0
+    },
+    "case": "minimum-max_results"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max_results": 101
+    },
+    "case": "maximum-max_results"
+  },
+  {
+    "op": "scoped_find",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "frame_id": "frm_fixture",
+      "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "max_results": true
+    },
+    "case": "bool-max_results"
+  },
+  {
+    "op": "guarded_click",
+    "valid": true,
+    "request": {
+      "device": "A",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture"
+    },
+    "case": "missing-device"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "ref_id": "ref_fixture"
+    },
+    "case": "missing-action_id"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-ref_id"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "../wrong-kind",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture"
+    },
+    "case": "pattern-device"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A\n",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture"
+    },
+    "case": "suffix-device"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "adb",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture"
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "desktop",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture"
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "../escape",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture"
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A\n",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture"
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "action_id": "../wrong-kind",
+      "ref_id": "ref_fixture"
+    },
+    "case": "pattern-action_id"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "ref_id": "ref_fixture"
+    },
+    "case": "suffix-action_id"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "../wrong-kind"
+    },
+    "case": "pattern-ref_id"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture\n"
+    },
+    "case": "suffix-ref_id"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture",
+      "max_ref_age_seconds": 0
+    },
+    "case": "exclusive-max_ref_age_seconds"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture",
+      "max_ref_age_seconds": 61
+    },
+    "case": "maximum-max_ref_age_seconds"
+  },
+  {
+    "op": "guarded_click",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "action_id": "act_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref_id": "ref_fixture",
+      "max_ref_age_seconds": true
+    },
+    "case": "bool-max_ref_age_seconds"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": true,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": true,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "image",
+        "timeout": 1,
+        "asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    "case": "image-postcondition"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      },
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "missing-device"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "missing-session_id"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "missing-transition_id"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "missing-target_asset_revision_id"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-postcondition"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "../wrong-kind",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "pattern-device"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A\n",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "suffix-device"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "adb",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "desktop",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "../escape",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A\n",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "../wrong-kind",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "pattern-session_id"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture\n",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "suffix-session_id"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "../wrong-kind",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "pattern-transition_id"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "suffix-transition_id"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "../wrong-kind",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "pattern-target_asset_revision_id"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      }
+    },
+    "case": "suffix-target_asset_revision_id"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      },
+      "threshold": -0.19999999999999996
+    },
+    "case": "minimum-threshold"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      },
+      "threshold": 2
+    },
+    "case": "maximum-threshold"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      },
+      "threshold": true
+    },
+    "case": "bool-threshold"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      },
+      "max_ref_age_seconds": 0
+    },
+    "case": "exclusive-max_ref_age_seconds"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      },
+      "max_ref_age_seconds": 61
+    },
+    "case": "maximum-max_ref_age_seconds"
+  },
+  {
+    "op": "scoped_transition",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "session_id": "ses_fixture",
+      "transition_id": "strans_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_asset_revision_id": "ar_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "postcondition": {
+        "mode": "changed",
+        "timeout": 1
+      },
+      "max_ref_age_seconds": true
+    },
+    "case": "bool-max_ref_age_seconds"
+  },
+  {
+    "op": "portable_publish",
+    "valid": true,
+    "request": {
+      "source_workflow_id": "wf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_run_id": "run_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_publish",
+    "valid": false,
+    "request": {
+      "source_workflow_id": "wf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_run_id": "run_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_publish",
+    "valid": false,
+    "request": {
+      "source_run_id": "run_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-source_workflow_id"
+  },
+  {
+    "op": "portable_publish",
+    "valid": false,
+    "request": {
+      "source_workflow_id": "wf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-source_run_id"
+  },
+  {
+    "op": "portable_publish",
+    "valid": false,
+    "request": {
+      "source_workflow_id": "../wrong-kind",
+      "source_run_id": "run_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "pattern-source_workflow_id"
+  },
+  {
+    "op": "portable_publish",
+    "valid": false,
+    "request": {
+      "source_workflow_id": "wf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "source_run_id": "run_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "suffix-source_workflow_id"
+  },
+  {
+    "op": "portable_publish",
+    "valid": false,
+    "request": {
+      "source_workflow_id": "wf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_run_id": "../wrong-kind"
+    },
+    "case": "pattern-source_run_id"
+  },
+  {
+    "op": "portable_publish",
+    "valid": false,
+    "request": {
+      "source_workflow_id": "wf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_run_id": "run_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-source_run_id"
+  },
+  {
+    "op": "portable_inspect",
+    "valid": true,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_inspect",
+    "valid": false,
+    "request": {},
+    "case": "missing-portable_id"
+  },
+  {
+    "op": "portable_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "../wrong-kind"
+    },
+    "case": "pattern-portable_id"
+  },
+  {
+    "op": "portable_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-portable_id"
+  },
+  {
+    "op": "portable_list",
+    "valid": true,
+    "request": {},
+    "case": "minimal"
+  },
+  {
+    "op": "portable_list",
+    "valid": false,
+    "request": {
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_list",
+    "valid": false,
+    "request": {
+      "limit": 0
+    },
+    "case": "minimum-limit"
+  },
+  {
+    "op": "portable_list",
+    "valid": false,
+    "request": {
+      "limit": 51
+    },
+    "case": "maximum-limit"
+  },
+  {
+    "op": "portable_list",
+    "valid": false,
+    "request": {
+      "limit": true
+    },
+    "case": "bool-limit"
+  },
+  {
+    "op": "portable_list",
+    "valid": false,
+    "request": {
+      "after": -1
+    },
+    "case": "minimum-after"
+  },
+  {
+    "op": "portable_list",
+    "valid": false,
+    "request": {
+      "after": true
+    },
+    "case": "bool-after"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": true,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": false,
+    "request": {
+      "device": "A"
+    },
+    "case": "missing-portable_id"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-device"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": false,
+    "request": {
+      "portable_id": "../wrong-kind",
+      "device": "A"
+    },
+    "case": "pattern-portable_id"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "device": "A"
+    },
+    "case": "suffix-portable_id"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "../wrong-kind"
+    },
+    "case": "pattern-device"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A\n"
+    },
+    "case": "suffix-device"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "adb"
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "desktop"
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "../escape"
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "portable_preflight",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A\n"
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "portable_preflight_inspect",
+    "valid": true,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_preflight_inspect",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_preflight_inspect",
+    "valid": false,
+    "request": {},
+    "case": "missing-preflight_id"
+  },
+  {
+    "op": "portable_preflight_inspect",
+    "valid": false,
+    "request": {
+      "preflight_id": "../wrong-kind"
+    },
+    "case": "pattern-preflight_id"
+  },
+  {
+    "op": "portable_preflight_inspect",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-preflight_id"
+  },
+  {
+    "op": "portable_trial",
+    "valid": true,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-preflight_id"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-device"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A"
+    },
+    "case": "missing-run_id"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "../wrong-kind",
+      "device": "A",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "pattern-preflight_id"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "device": "A",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "suffix-preflight_id"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "../wrong-kind",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "pattern-device"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A\n",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "suffix-device"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "adb",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "desktop",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "../escape",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A\n",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "run_id": "../wrong-kind"
+    },
+    "case": "pattern-run_id"
+  },
+  {
+    "op": "portable_trial",
+    "valid": false,
+    "request": {
+      "preflight_id": "preflight_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-run_id"
+  },
+  {
+    "op": "portable_trial_inspect",
+    "valid": true,
+    "request": {
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_trial_inspect",
+    "valid": false,
+    "request": {
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_trial_inspect",
+    "valid": false,
+    "request": {},
+    "case": "missing-run_id"
+  },
+  {
+    "op": "portable_trial_inspect",
+    "valid": false,
+    "request": {
+      "run_id": "../wrong-kind"
+    },
+    "case": "pattern-run_id"
+  },
+  {
+    "op": "portable_trial_inspect",
+    "valid": false,
+    "request": {
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-run_id"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": true,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": true,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "proof_kind": "source",
+      "proof_id": "run_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "source-proof"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      },
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "missing-portable_id"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "missing-device"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "missing-expected_slot_generation"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "missing-proof_kind"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "missing-proof_id"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-semantic_pass"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "../wrong-kind",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "pattern-portable_id"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "suffix-portable_id"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "../wrong-kind",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "pattern-device"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A\n",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "suffix-device"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "adb",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "desktop",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "../escape",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A\n",
+      "expected_slot_generation": 0,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": -1,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "minimum-expected_slot_generation"
+  },
+  {
+    "op": "portable_qualify_commit",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": true,
+      "proof_kind": "trial",
+      "proof_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "semantic_pass": {
+        "verification": "PASS",
+        "observation": "A",
+        "reviewer": "A"
+      }
+    },
+    "case": "bool-expected_slot_generation"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": true,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "reason": "A"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "reason": "A",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "device": "A",
+      "expected_slot_generation": 0,
+      "reason": "A"
+    },
+    "case": "missing-portable_id"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_slot_generation": 0,
+      "reason": "A"
+    },
+    "case": "missing-device"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "reason": "A"
+    },
+    "case": "missing-expected_slot_generation"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": 0
+    },
+    "case": "missing-reason"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "../wrong-kind",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "reason": "A"
+    },
+    "case": "pattern-portable_id"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "device": "A",
+      "expected_slot_generation": 0,
+      "reason": "A"
+    },
+    "case": "suffix-portable_id"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "../wrong-kind",
+      "expected_slot_generation": 0,
+      "reason": "A"
+    },
+    "case": "pattern-device"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A\n",
+      "expected_slot_generation": 0,
+      "reason": "A"
+    },
+    "case": "suffix-device"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "adb",
+      "expected_slot_generation": 0,
+      "reason": "A"
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "desktop",
+      "expected_slot_generation": 0,
+      "reason": "A"
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "../escape",
+      "expected_slot_generation": 0,
+      "reason": "A"
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A\n",
+      "expected_slot_generation": 0,
+      "reason": "A"
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": -1,
+      "reason": "A"
+    },
+    "case": "minimum-expected_slot_generation"
+  },
+  {
+    "op": "portable_qualification_revoke",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "expected_slot_generation": true,
+      "reason": "A"
+    },
+    "case": "bool-expected_slot_generation"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": true,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": false,
+    "request": {
+      "device": "A"
+    },
+    "case": "missing-portable_id"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-device"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "../wrong-kind",
+      "device": "A"
+    },
+    "case": "pattern-portable_id"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "device": "A"
+    },
+    "case": "suffix-portable_id"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "../wrong-kind"
+    },
+    "case": "pattern-device"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A\n"
+    },
+    "case": "suffix-device"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "adb"
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "desktop"
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "../escape"
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "portable_qualification_inspect",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "device": "A\n"
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "portable_qualification_record",
+    "valid": true,
+    "request": {
+      "qualification_id": "qlf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_qualification_record",
+    "valid": false,
+    "request": {
+      "qualification_id": "qlf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_qualification_record",
+    "valid": false,
+    "request": {},
+    "case": "missing-qualification_id"
+  },
+  {
+    "op": "portable_qualification_record",
+    "valid": false,
+    "request": {
+      "qualification_id": "../wrong-kind"
+    },
+    "case": "pattern-qualification_id"
+  },
+  {
+    "op": "portable_qualification_record",
+    "valid": false,
+    "request": {
+      "qualification_id": "qlf_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-qualification_id"
+  },
+  {
+    "op": "portable_qualification_list",
+    "valid": true,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_qualification_list",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_qualification_list",
+    "valid": false,
+    "request": {},
+    "case": "missing-portable_id"
+  },
+  {
+    "op": "portable_qualification_list",
+    "valid": false,
+    "request": {
+      "portable_id": "../wrong-kind"
+    },
+    "case": "pattern-portable_id"
+  },
+  {
+    "op": "portable_qualification_list",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-portable_id"
+  },
+  {
+    "op": "portable_qualification_list",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "limit": 0
+    },
+    "case": "minimum-limit"
+  },
+  {
+    "op": "portable_qualification_list",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "limit": 51
+    },
+    "case": "maximum-limit"
+  },
+  {
+    "op": "portable_qualification_list",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "limit": true
+    },
+    "case": "bool-limit"
+  },
+  {
+    "op": "portable_qualification_list",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "after": -1
+    },
+    "case": "minimum-after"
+  },
+  {
+    "op": "portable_qualification_list",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "after": true
+    },
+    "case": "bool-after"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": true,
+    "request": {
+      "family_id": "settings",
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_generation": 0,
+      "reason": "A",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": false,
+    "request": {
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "missing-family_id"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "missing-portable_id"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "reason": "A"
+    },
+    "case": "missing-expected_generation"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_generation": 0
+    },
+    "case": "missing-reason"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": false,
+    "request": {
+      "family_id": "../wrong-kind",
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "pattern-family_id"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": false,
+    "request": {
+      "family_id": "settings\n",
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "suffix-family_id"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "portable_id": "../wrong-kind",
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "pattern-portable_id"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "suffix-portable_id"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_generation": -1,
+      "reason": "A"
+    },
+    "case": "minimum-expected_generation"
+  },
+  {
+    "op": "portable_family_publish",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "portable_id": "portable_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_generation": true,
+      "reason": "A"
+    },
+    "case": "bool-expected_generation"
+  },
+  {
+    "op": "portable_family_activate",
+    "valid": true,
+    "request": {
+      "family_id": "settings",
+      "revision": 1,
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_family_activate",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "revision": 1,
+      "expected_generation": 0,
+      "reason": "A",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_family_activate",
+    "valid": false,
+    "request": {
+      "revision": 1,
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "missing-family_id"
+  },
+  {
+    "op": "portable_family_activate",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "missing-revision"
+  },
+  {
+    "op": "portable_family_activate",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "revision": 1,
+      "reason": "A"
+    },
+    "case": "missing-expected_generation"
+  },
+  {
+    "op": "portable_family_activate",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "revision": 1,
+      "expected_generation": 0
+    },
+    "case": "missing-reason"
+  },
+  {
+    "op": "portable_family_activate",
+    "valid": false,
+    "request": {
+      "family_id": "../wrong-kind",
+      "revision": 1,
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "pattern-family_id"
+  },
+  {
+    "op": "portable_family_activate",
+    "valid": false,
+    "request": {
+      "family_id": "settings\n",
+      "revision": 1,
+      "expected_generation": 0,
+      "reason": "A"
+    },
+    "case": "suffix-family_id"
+  },
+  {
+    "op": "portable_family_activate",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "revision": 1,
+      "expected_generation": -1,
+      "reason": "A"
+    },
+    "case": "minimum-expected_generation"
+  },
+  {
+    "op": "portable_family_activate",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "revision": 1,
+      "expected_generation": true,
+      "reason": "A"
+    },
+    "case": "bool-expected_generation"
+  },
+  {
+    "op": "portable_family_inspect",
+    "valid": true,
+    "request": {
+      "family_id": "settings"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_family_inspect",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_family_inspect",
+    "valid": false,
+    "request": {},
+    "case": "missing-family_id"
+  },
+  {
+    "op": "portable_family_inspect",
+    "valid": false,
+    "request": {
+      "family_id": "../wrong-kind"
+    },
+    "case": "pattern-family_id"
+  },
+  {
+    "op": "portable_family_inspect",
+    "valid": false,
+    "request": {
+      "family_id": "settings\n"
+    },
+    "case": "suffix-family_id"
+  },
+  {
+    "op": "portable_family_list",
+    "valid": true,
+    "request": {},
+    "case": "minimal"
+  },
+  {
+    "op": "portable_family_list",
+    "valid": false,
+    "request": {
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_family_list",
+    "valid": false,
+    "request": {
+      "limit": 0
+    },
+    "case": "minimum-limit"
+  },
+  {
+    "op": "portable_family_list",
+    "valid": false,
+    "request": {
+      "limit": 51
+    },
+    "case": "maximum-limit"
+  },
+  {
+    "op": "portable_family_list",
+    "valid": false,
+    "request": {
+      "limit": true
+    },
+    "case": "bool-limit"
+  },
+  {
+    "op": "portable_family_list",
+    "valid": false,
+    "request": {
+      "after": -1
+    },
+    "case": "minimum-after"
+  },
+  {
+    "op": "portable_family_list",
+    "valid": false,
+    "request": {
+      "after": true
+    },
+    "case": "bool-after"
+  },
+  {
+    "op": "portable_execute",
+    "valid": true,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "device": "A",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "device": "A",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "expected_generation": 0,
+      "device": "A",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-family_id"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "device": "A",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-expected_generation"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "missing-device"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "device": "A"
+    },
+    "case": "missing-task_id"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "../wrong-kind",
+      "expected_generation": 0,
+      "device": "A",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "pattern-family_id"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings\n",
+      "expected_generation": 0,
+      "device": "A",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "suffix-family_id"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": -1,
+      "device": "A",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimum-expected_generation"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": true,
+      "device": "A",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "bool-expected_generation"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "device": "../wrong-kind",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "pattern-device"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "device": "A\n",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "suffix-device"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "device": "adb",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "device": "desktop",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "device": "../escape",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "device": "A\n",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "device": "A",
+      "task_id": "../wrong-kind"
+    },
+    "case": "pattern-task_id"
+  },
+  {
+    "op": "portable_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "device": "A",
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-task_id"
+  },
+  {
+    "op": "portable_task_inspect",
+    "valid": true,
+    "request": {
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_task_inspect",
+    "valid": false,
+    "request": {
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_task_inspect",
+    "valid": false,
+    "request": {},
+    "case": "missing-task_id"
+  },
+  {
+    "op": "portable_task_inspect",
+    "valid": false,
+    "request": {
+      "task_id": "../wrong-kind"
+    },
+    "case": "pattern-task_id"
+  },
+  {
+    "op": "portable_task_inspect",
+    "valid": false,
+    "request": {
+      "task_id": "ptask_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-task_id"
+  },
+  {
+    "op": "portable_run_inspect",
+    "valid": true,
+    "request": {
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_run_inspect",
+    "valid": false,
+    "request": {
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_run_inspect",
+    "valid": false,
+    "request": {},
+    "case": "missing-run_id"
+  },
+  {
+    "op": "portable_run_inspect",
+    "valid": false,
+    "request": {
+      "run_id": "../wrong-kind"
+    },
+    "case": "pattern-run_id"
+  },
+  {
+    "op": "portable_run_inspect",
+    "valid": false,
+    "request": {
+      "run_id": "prun_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-run_id"
+  },
+  {
+    "op": "portable_task_list",
+    "valid": true,
+    "request": {},
+    "case": "minimal"
+  },
+  {
+    "op": "portable_task_list",
+    "valid": false,
+    "request": {
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_task_list",
+    "valid": false,
+    "request": {
+      "limit": 0
+    },
+    "case": "minimum-limit"
+  },
+  {
+    "op": "portable_task_list",
+    "valid": false,
+    "request": {
+      "limit": 51
+    },
+    "case": "maximum-limit"
+  },
+  {
+    "op": "portable_task_list",
+    "valid": false,
+    "request": {
+      "limit": true
+    },
+    "case": "bool-limit"
+  },
+  {
+    "op": "portable_task_list",
+    "valid": false,
+    "request": {
+      "after": -1
+    },
+    "case": "minimum-after"
+  },
+  {
+    "op": "portable_task_list",
+    "valid": false,
+    "request": {
+      "after": true
+    },
+    "case": "bool-after"
+  },
+  {
+    "op": "portable_task_list",
+    "valid": false,
+    "request": {
+      "device": "adb"
+    },
+    "case": "device-adb"
+  },
+  {
+    "op": "portable_task_list",
+    "valid": false,
+    "request": {
+      "device": "desktop"
+    },
+    "case": "device-desktop"
+  },
+  {
+    "op": "portable_task_list",
+    "valid": false,
+    "request": {
+      "device": "../escape"
+    },
+    "case": "device-../escape"
+  },
+  {
+    "op": "portable_task_list",
+    "valid": false,
+    "request": {
+      "device": "A\n"
+    },
+    "case": "device-A\n"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": true,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": [
+        "A"
+      ]
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": [
+        "A"
+      ],
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": [
+        "A"
+      ]
+    },
+    "case": "missing-batch_id"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected_generation": 0,
+      "devices": [
+        "A"
+      ]
+    },
+    "case": "missing-family_id"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "devices": [
+        "A"
+      ]
+    },
+    "case": "missing-expected_generation"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": 0
+    },
+    "case": "missing-devices"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "../wrong-kind",
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": [
+        "A"
+      ]
+    },
+    "case": "pattern-batch_id"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n",
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": [
+        "A"
+      ]
+    },
+    "case": "suffix-batch_id"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "../wrong-kind",
+      "expected_generation": 0,
+      "devices": [
+        "A"
+      ]
+    },
+    "case": "pattern-family_id"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings\n",
+      "expected_generation": 0,
+      "devices": [
+        "A"
+      ]
+    },
+    "case": "suffix-family_id"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": -1,
+      "devices": [
+        "A"
+      ]
+    },
+    "case": "minimum-expected_generation"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": true,
+      "devices": [
+        "A"
+      ]
+    },
+    "case": "bool-expected_generation"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": []
+    },
+    "case": "devices-empty"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": [
+        "A",
+        "A"
+      ]
+    },
+    "case": "devices-duplicate"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": [
+        "A0",
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "A7",
+        "A8",
+        "A9",
+        "A10",
+        "A11",
+        "A12",
+        "A13",
+        "A14",
+        "A15",
+        "A16"
+      ]
+    },
+    "case": "devices-oversize"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": [
+        "adb"
+      ]
+    },
+    "case": "devices-alias"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": [
+        "A"
+      ],
+      "max_concurrency": 0
+    },
+    "case": "minimum-max_concurrency"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": [
+        "A"
+      ],
+      "max_concurrency": 5
+    },
+    "case": "maximum-max_concurrency"
+  },
+  {
+    "op": "portable_batch_execute",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "family_id": "settings",
+      "expected_generation": 0,
+      "devices": [
+        "A"
+      ],
+      "max_concurrency": true
+    },
+    "case": "bool-max_concurrency"
+  },
+  {
+    "op": "portable_batch_inspect",
+    "valid": true,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "case": "minimal"
+  },
+  {
+    "op": "portable_batch_inspect",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_batch_inspect",
+    "valid": false,
+    "request": {},
+    "case": "missing-batch_id"
+  },
+  {
+    "op": "portable_batch_inspect",
+    "valid": false,
+    "request": {
+      "batch_id": "../wrong-kind"
+    },
+    "case": "pattern-batch_id"
+  },
+  {
+    "op": "portable_batch_inspect",
+    "valid": false,
+    "request": {
+      "batch_id": "batch_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+    },
+    "case": "suffix-batch_id"
+  },
+  {
+    "op": "portable_batch_list",
+    "valid": true,
+    "request": {},
+    "case": "minimal"
+  },
+  {
+    "op": "portable_batch_list",
+    "valid": false,
+    "request": {
+      "unexpected": true
+    },
+    "case": "unknown"
+  },
+  {
+    "op": "portable_batch_list",
+    "valid": false,
+    "request": {
+      "limit": 0
+    },
+    "case": "minimum-limit"
+  },
+  {
+    "op": "portable_batch_list",
+    "valid": false,
+    "request": {
+      "limit": 51
+    },
+    "case": "maximum-limit"
+  },
+  {
+    "op": "portable_batch_list",
+    "valid": false,
+    "request": {
+      "limit": true
+    },
+    "case": "bool-limit"
+  },
+  {
+    "op": "portable_batch_list",
+    "valid": false,
+    "request": {
+      "after": -1
+    },
+    "case": "minimum-after"
+  },
+  {
+    "op": "portable_batch_list",
+    "valid": false,
+    "request": {
+      "after": true
+    },
+    "case": "bool-after"
+  }
+]

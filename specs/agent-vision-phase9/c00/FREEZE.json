@@ -1,0 +1,42 @@
+{
+  "contract_version": 1,
+  "amendment": "K08 C00 response freeze amendment 1",
+  "hash_encoding": "UTF-8 LF normalized",
+  "baseline": "bfbec17fe55b25a2ea7ddbd9051cc3937ccd3efb",
+  "planning_parent": "9a3bffcf9b8a2d5090343121d01cceda74a9456e",
+  "original_planning_hashes": {
+    "use_cases": "429bcb6f4f552e9f3dc4b939e40ce63b4a7870e33ff532b596d601cf8028b5f3",
+    "spec": "2e3afdd95a9e3ba243afc4210a621506478a57e4435cf62e67aeb4f79b42d99e",
+    "contract": "74766e3303105152d099e35ad6115b1215acaacf73381c619ce1ffb655c77dd4",
+    "schemas": "23cba6b4b823f17b94051ca7c16c1a54b01a4aea7aa54d07bd5c132bf9375dab",
+    "fixtures": "5f6e5e6adab8dc74e9fa22bc098e546690f73213a775e39e54c8cd4aae75b49a"
+  },
+  "lf_sha256": {
+    "c00/baseline-output.txt": "28dc8d92c03c34ae81c178d77c69cf6c32f025e0312dc41deca2f0e5b0c67dab",
+    "c00/baseline.py": "5da099110410cfb6fa4fccdcfe6ea6a954db5d62df62e63fde88fbf740ac60fb",
+    "c00/build_assets.py": "ff979c5fe69dcc120882ce19be439673defc312205e4653d36d34046be3f9ffb",
+    "c00/candidate-requirements.txt": "3a54b9a8ab6d8704b1f21e536e6e1109f1044b070a8a4ae4d7bb66d35de72db0",
+    "c00/contract-output.txt": "b73fcd7e380185da2be3fd3ab31656ae7485a6a2ae4027421dc575a3f5728387",
+    "c00/freeze.py": "a3a34e65e8551b146e3fadd4adf7e339948619e45d4b970e714fa7d5953e5202",
+    "c00/ID_EXAMPLES.json": "d0bc3b260719ad6eb264b239ff73960b02003ead498dea63573880e05bbdd685",
+    "c00/LEGACY_BASELINE.json": "485391c3ab7d88717680cbf257306535f1f82feb7f1d7bf7ecc6fbb00ccd1869",
+    "c00/ORIGINAL_REQUEST_SCHEMAS.json": "23cba6b4b823f17b94051ca7c16c1a54b01a4aea7aa54d07bd5c132bf9375dab",
+    "c00/REQUEST_EXAMPLES.json": "378b352848a66a1e3d0dfa77d1bfe2bf22b86f6fc4efcc8f2700104e36e169f0",
+    "c00/RESPONSE_EXAMPLES.json": "1690a91ddbef4f86859ac53ca22e32eed7fdcb6991e06ae3788436d61021e3c6",
+    "c00/RESPONSE_SCHEMAS.json": "2f80dcf801ddbd8e7b956203d59f12cc62d2040d841c810735b65af8df3163dd",
+    "c00/SEMANTIC_EXAMPLES.json": "bb5c52a5b09101cdbc933135a8df07344e97265e1d00c01ff90bd5ae007e485a",
+    "c00/semantic_model.py": "27671488c27f1310785e60fec0c6bd307ae7d46c0db7d27b71aade49c6a453a5",
+    "c00/STATES.md": "088cc20409bbbd58d2f9e2b799441c01c4f6623c31cb0356f6ff7d89c6b14515",
+    "c00/test_contract.py": "12d12e9f3385fd843bde7683df6d682e423e2b50ecb48f96842aad2e47368ba1",
+    "c00/worktree-receipt.json": "f5de6904d210bb2f3b5c52a90e2a7748487190cc69484059ccbc2123c7203d84",
+    "CONTRACT.md": "c032178e4d072058bac98f9132f3c37b6e56d3363ead42fcd6574aafacd8d701",
+    "CONTRACT_FIXTURES.json": "5f6e5e6adab8dc74e9fa22bc098e546690f73213a775e39e54c8cd4aae75b49a",
+    "CONTRACT_SCHEMAS.json": "be3d1b3fbd88fbfda43320bc7abbc0ddeeb16beaa7af68d31274850310c9a415",
+    "RESOLUTION.md": "be10c458da181afbe06e4cdd0e37d970d7f8bf1fb8da61b2155aa07466a597b3",
+    "REVIEW.md": "f1953ec5809405fa9e59ad739427a28303e2d5bc6c517f9b92da706b8bcaa2c1",
+    "SPEC.md": "6011ce89ad766a6be1c3ed3137a7c0900d273a943ab10ad472c49fdcb583d32d",
+    "ticket-manifest.json": "cfe2ae29703310f885adfc7fc7fd2fdd258de6c0175319a3f557d2b3815bec58",
+    "TICKETS.md": "a048ac95f66e765594cc949ea95784fa16180021487aafa29b74457bd0fa0218",
+    "USE_CASES.md": "429bcb6f4f552e9f3dc4b939e40ce63b4a7870e33ff532b596d601cf8028b5f3"
+  }
+}

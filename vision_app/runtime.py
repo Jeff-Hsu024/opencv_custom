@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
 import re
 import time
 from pathlib import Path
@@ -9,8 +10,10 @@ from pathlib import Path
 from service.core.opencv.open_cv_service import OpenCvService
 from vision_app.actions import ActionService
 from vision_app.assets import RefRegistry, _map_match_to_ref
+from vision_app.coordinator import Claim, ClaimError
+from vision_app.epochs import ActionIntent, DeviceEpochs
+from vision_app.metadata import metadata_transaction
 from vision_app.observation import ObservationService
-from vision_app.recorder import workspace_lock
 from vision_app.store import FrameStore, _atomic_write_json, protect_new_frames
 from vision_app.workflow import WorkflowBuilder, canonical, digest, decode, require, fields
 
@@ -77,6 +80,7 @@ class WorkflowRuntime:
         self.obs=observation or ObservationService(store)
         self.actions=actions or ActionService(store,platform_factory=self.obs._platform_factory)
         self.refs=RefRegistry(store.store_dir)
+        self.epochs=DeviceEpochs(store)
         self.probe=probe or adb_profile
         self.clock=clock or time.monotonic
         self.sleep=sleep or time.sleep
@@ -95,49 +99,48 @@ class WorkflowRuntime:
 
     def _persist(self,run):
         run["updated_at"]=time.time()
-        _atomic_write_json(self._path("runs",run["run_id"]),run)
+        with metadata_transaction(self.store):
+            _atomic_write_json(self._path("runs",run["run_id"]),run)
+
+    def _resolve(self,wid,device,profile):
+        from vision_app.definition_core import resolve_legacy
+        return resolve_legacy(self,wid,device,profile)
 
     def _definition(self,wid,device,profile):
-        profile_shape(profile)
-        require(isinstance(device,str) and device not in ("adb","desktop") and re.fullmatch(r"[A-Za-z0-9_.:-]+",device),
-                "Explicit Android serial required")
-        self.builder._validate(wid)
-        item=self.builder.inspect(wid)
-        d=item["definition"]
-        require(d["schema_version"]==1 and d["validation"]["status"]=="offline_pass","Unsupported workflow schema")
-        require(d["source"]["device_id"]==device,"Device differs from source workflow")
-        require(d["geometry"]["rotation"] is None or d["geometry"]["rotation"]==profile["rotation"],"Source rotation differs")
-        templates={}
-        directory=Path(item["bundle_path"])
-        for spec in [s["guard"]["template"] for s in d["states"]]+[s["action"]["template"] for s in d["steps"]]:
-            sha=spec["sha256"]
-            require(spec["path"]==f"templates/{sha}.png","Invalid template path")
-            data=(directory/spec["path"]).read_bytes()
-            require(digest(data)==sha,"Template hash mismatch")
-            templates[sha]=decode(data)
-        return d,templates
+        resolved=self._resolve(wid,device,profile)
+        return resolved.definition,resolved.templates()
 
-    def _profile(self,device,expected):
+    def _profile(self,device,expected,*,portable=False):
         observed=self.probe(device,expected["package"])
+        if portable:
+            try:
+                profile_shape(observed)
+            except Exception as exc:
+                raise RuntimeFault("PROFILE_UNKNOWN","Cannot establish Android profile") from exc
         check(observed==expected,"PROFILE_MISMATCH","Android profile changed",{"expected":expected,"observed":observed})
         return observed
 
-    def _capture(self,device,profile,definition,observe):
-        self._profile(device,profile)
+    def _capture(self,device,profile,definition,observe,owner,*,portable=False):
+        self._profile(device,profile,portable=portable)
         token=protect_new_frames.set(True)
         try:
-            snap=self.obs.snapshot(device)
+            snap=self.obs.snapshot(device,device_owner=owner)
         finally:
             protect_new_frames.reset(token)
         f=snap["frame"]
         fid=f["frame_id"]
         # Journal actual frame even if the subsequent profile/geometry check fails.
         observe(fid)
-        self._profile(device,profile)
+        # A confirmed capture mismatch must take precedence over any later
+        # transient focus failure. Keep the actual frame in the journal.
         geometry=definition["geometry"]
         check(f["device_id"]==device and f["width"]==geometry["width"] and f["height"]==geometry["height"],
               "GEOMETRY_MISMATCH","Live frame geometry differs from workflow",
               {"frame_id":fid,"width":f["width"],"height":f["height"]})
+        if portable:
+            check(f["rotation"] is None or f["rotation"]==geometry["rotation"],"GEOMETRY_MISMATCH",
+                  "Live frame rotation differs",{"frame_id":fid,"rotation":f["rotation"]})
+        self._profile(device,profile,portable=portable)
         return self.store.get_frame(fid,device_id=device),self.store.load_image(fid,device_id=device)
 
     def _matches(self,image,spec,templates):
@@ -162,25 +165,29 @@ class WorkflowRuntime:
 
     def qualify(self,workflow_id,device,profile):
         """Read-only live preflight. Does not assert runtime completion."""
-        with workspace_lock(self.store):
-            d,templates=self._definition(workflow_id,device,profile)
-            frames=[]
-            f,img=self._capture(device,profile,d,frames.append)
-            state=self._classify(img,d,templates)
-            check(state["state"]==d["initial_state"] and not state["ambiguous"],"INITIAL_STATE_MISMATCH",
-                  "Current screen is not uniquely the workflow initial state",{"frame_id":f.frame_id,**state})
-            m=self._target(img,d["steps"][0],templates)
-            body={"workflow_id":workflow_id,"device":device,"profile":profile}
-            bid="bind_"+digest(canonical(body))
-            path=self._path("bindings",bid)
-            if not path.exists():
+        d,templates=self._definition(workflow_id,device,profile)
+        with self.epochs.device_owner(device,legacy=True) as owner:
+            check(owner is not None,"DEVICE_BUSY","Runtime device is busy")
+            return self._qualify_owned(workflow_id,device,profile,d,templates,owner)
+
+    def _qualify_owned(self,workflow_id,device,profile,d,templates,owner):
+        f,img=self._capture(device,profile,d,lambda _:None,owner)
+        state=self._classify(img,d,templates)
+        check(state["state"]==d["initial_state"] and not state["ambiguous"],"INITIAL_STATE_MISMATCH",
+              "Current screen is not uniquely the workflow initial state",{"frame_id":f.frame_id,**state})
+        m=self._target(img,d["steps"][0],templates)
+        body={"workflow_id":workflow_id,"device":device,"profile":profile}
+        bid="bind_"+digest(canonical(body))
+        path=self._path("bindings",bid)
+        if not path.exists():
+            with metadata_transaction(self.store):
                 _atomic_write_json(path,{"binding_id":bid,**body,"qualified_at":time.time(),
                                          "frame_id":f.frame_id,"state":state,"first_target_score":m.score})
-            else:
-                saved=self._load("bindings",bid)
-                require(all(saved.get(k)==v for k,v in {"binding_id":bid,**body}.items()),"Binding changed")
-            return {"binding_id":bid,**body,"status":"preflight_pass","frame_id":f.frame_id,
-                    "state":state,"first_target_score":m.score,"live_runtime_qualified":False}
+        else:
+            saved=self._load("bindings",bid)
+            require(all(saved.get(k)==v for k,v in {"binding_id":bid,**body}.items()),"Binding changed")
+        return {"binding_id":bid,**body,"status":"preflight_pass","frame_id":f.frame_id,
+                "state":state,"first_target_score":m.score,"live_runtime_qualified":False}
 
     def _binding(self,bid):
         binding=self._load("bindings",bid)
@@ -199,28 +206,41 @@ class WorkflowRuntime:
         return result
 
     def run(self,binding_id,run_id):
-        with workspace_lock(self.store):
-            return self._run_locked(binding_id,run_id)
-
-    def _run_locked(self,binding_id,run_id):
         path=self._path("runs",run_id)
-        if path.exists():
-            old=self._load("runs",run_id)
-            require(old["binding_id"]==binding_id,"Run ID already bound to another request")
-            # Lock acquired: an unfinished receipt has no active writer. Never replay it.
-            if old["status"]=="running":
-                old["status"]="interrupted"
-                old["reason"]={"code":"INTERRUPTED","message":"Previous process ended without terminal receipt; inspect actual state before any new action."}
-                old["finished_at"]=time.time()
-                self._persist(old)
-            return {**self._summary(old),"duplicate_request":True}
+        if not path.exists() or self._load("runs",run_id)["status"]=="running":
+            with self.epochs.request_owner(run_id,legacy=True,timeout=120) as request_owner:
+                if not path.exists():
+                    check(request_owner is not None,"DEVICE_BUSY","Runtime request is busy")
+                    b=self._binding(binding_id)
+                    with self.epochs.device_owner(b["device"],legacy=True) as owner:
+                        check(owner is not None,"DEVICE_BUSY","Runtime device is busy")
+                        return self._run_locked(binding_id,run_id,request_owner,owner)
+        old=self._load("runs",run_id)
+        require(old["binding_id"]==binding_id,"Run ID already bound to another request")
+        return {**self._summary(self._observe_run(run_id)),"duplicate_request":True}
+
+    def _run_locked(self,binding_id,run_id,request_owner,owner):
+        require(not self._path("runs",run_id).exists(),"Run ID collision")
         b=self._binding(binding_id)
         device,profile,wid=b["device"],b["profile"],b["workflow_id"]
+        check(owner.active and owner.key==device,"DEVICE_SCOPE_MISMATCH","Runtime owner differs from bound device")
+        initial={"action_outcome":"not_attempted"}
         run={"run_id":run_id,"workflow_id":wid,"binding_id":binding_id,"device":device,"profile":profile,
              "status":"running","started_at":time.time(),"finished_at":None,"current_step":None,
              "last_frame_id":None,"last_confirmed_state":None,"reason":None,
              "action_outcome":"not_attempted","completed_steps":0,"steps":[],"frames":[]}
-        self._persist(run)
+        # Standalone runs and task reservations share the same ID namespace.
+        # Keep the historical journal-first ordering within one metadata lock.
+        with metadata_transaction(self.store):
+            if request_owner.key == run_id:
+                request={"binding_id":binding_id}
+                duplicate=self.epochs.duplicate(run_id,"legacy_run",request)
+                require(duplicate is None,"Run ID collision")
+                self._persist(run)
+                self.epochs.admit(request_owner,Claim(run_id,"legacy_run",request,initial,device=device))
+            else:
+                require(self.epochs.start_nested(request_owner,run_id),"Child run ID collision")
+                self._persist(run)
         def observe(fid):
             run["frames"].append(fid)
             run["last_frame_id"]=fid
@@ -228,61 +248,10 @@ class WorkflowRuntime:
         try:
             from vision_app.lifecycle import LifecycleService
             LifecycleService(self.store, runtime=self).guard_run(wid,device,profile)
-            d,templates=self._definition(wid,device,profile)
-            for step in d["steps"]:
-                rec={"step_id":step["id"],"from":step["from"],"to":step["to"],"status":"observing",
-                     "pre_frame_id":None,"post_frame_id":None,"target":None,"action_receipt":None,
-                     "post_observations":[]}
-                run["steps"].append(rec)
-                run["current_step"]=step["id"]
-                run["action_outcome"]="not_attempted"
-                self._persist(run)
-                f,img=self._capture(device,profile,d,observe)
-                rec["pre_frame_id"]=f.frame_id
-                classification=self._classify(img,d,templates)
-                rec["pre_state"]=classification
-                check(classification["state"]==step["from"] and not classification["ambiguous"],
-                      "PRECONDITION_FAILED","Expected state is not uniquely recognized",classification)
-                run["last_confirmed_state"]=step["from"]
-                m=self._target(img,step,templates)
-                ref=self.refs.save(_map_match_to_ref(f,"workflow_"+step["id"],m))
-                rec["target"]={"ref_id":ref.ref_id,"frame_id":f.frame_id,"score":m.score,
-                               "device_bbox":list(ref.device_bbox),"template_sha256":step["action"]["template"]["sha256"]}
-                self._profile(device,profile)
-                age=step["action"]["max_ref_age_seconds"]
-                check(0<=time.time()-f.timestamp<=age,"FRAME_STALE","Live pre-frame expired before click")
-                rec["status"]="action_pending"
-                run["action_outcome"]="unknown"
-                self._persist(run)
-                receipt=self.actions.click(device,ref_id=ref.ref_id,max_age_seconds=age)
-                rec["action_receipt"]=receipt
-                rec["status"]="verifying"
-                run["action_outcome"]="executed_unverified"
-                self._persist(run)
-                deadline=self.clock()+step["postcondition"]["timeout_seconds"]
-                for _ in range(MAX_CAPTURES):
-                    if self.clock()>deadline:
-                        break
-                    post,pimg=self._capture(device,profile,d,observe)
-                    state=self._classify(pimg,d,templates)
-                    rec["post_observations"].append({"frame_id":post.frame_id,**state})
-                    self._persist(run)
-                    if self.clock()>deadline:
-                        break
-                    check(not state["ambiguous"],"POST_STATE_AMBIGUOUS","Ambiguous live post-state",state)
-                    if state["state"]==step["to"]:
-                        rec["status"]="verified"
-                        rec["post_frame_id"]=post.frame_id
-                        run["last_confirmed_state"]=step["to"]
-                        run["completed_steps"]+=1
-                        run["action_outcome"]="verified"
-                        self._persist(run)
-                        break
-                    check(state["state"] in (None,step["from"]),"UNEXPECTED_STATE","Unexpected known destination state",state)
-                    remaining=deadline-self.clock()
-                    if remaining>0:
-                        self.sleep(min(POLL_SECONDS,remaining))
-                check(rec["status"]=="verified","POSTCONDITION_TIMEOUT","Destination guard not verified within wait budget")
+            from vision_app.definition_core import ExecutionContext
+            resolved=self._resolve(wid,device,profile)
+            context=ExecutionContext.create(resolved,"legacy",device,profile,run_id,binding_id=binding_id)
+            self._interpret(resolved,context,request_owner,owner,run,self._persist,observe)
             run["status"]="completed"
             run["current_step"]=None
         except Exception as exc:
@@ -293,11 +262,178 @@ class WorkflowRuntime:
                 run["steps"][-1]["status"]="needs_agent"
         run["finished_at"]=time.time()
         self._persist(run)
+        self.epochs.record(request_owner,run_id,{"action_outcome":run["action_outcome"]},terminal=True)
         return self._summary(run)
 
+    def _interpret(self,resolved,context,request_owner,owner,run,persist,observe,*,guard=nullcontext):
+        """One deterministic interpreter; admission and journal policy stay with callers."""
+        context.verify(resolved)
+        self.epochs._require_owner(owner,context.device,"device")
+        self.epochs._require_owner(request_owner,request_owner.key,"request")
+        device,profile=context.device,context.profile
+        run_id=context.admission_id
+        portable=context.kind!="legacy"
+        check(run.get("id" if portable else "run_id")==run_id and run["device"]==device,
+              "PROOF_INVALID","Runtime journal identity mismatch")
+        if portable:
+            check(run.get("context")==context.to_dict() and run.get("kind")==context.kind,
+                  "PROOF_INVALID","Runtime context mismatch")
+        d,templates=resolved.definition,resolved.templates()
+        initial={"action_outcome":"not_attempted"}
+        for step in d["steps"]:
+            rec={"step_id":step["id"],"from":step["from"],"to":step["to"],"status":"observing",
+                 "pre_frame_id":None,"post_frame_id":None,"target":None,"action_receipt":None,
+                 "post_observations":[]}
+            run["steps"].append(rec)
+            if not portable: run["current_step"]=step["id"]
+            run["action_outcome"]="not_attempted"
+            persist(run)
+            def pre_observe(fid):
+                if portable: run["observation_phase"]="pre_action"
+                observe(fid)
+            with guard():
+                f,img=self._capture(device,profile,d,pre_observe,owner,portable=portable)
+            rec["pre_frame_id"]=f.frame_id
+            classification=self._classify(img,d,templates)
+            rec["pre_state"]=classification
+            check(classification["state"]==step["from"] and not classification["ambiguous"],
+                  "PRECONDITION_FAILED","Expected state is not uniquely recognized",classification)
+            run["last_confirmed_state"]=step["from"]
+            m=self._target(img,step,templates)
+            ref=self.refs.save(_map_match_to_ref(f,"workflow_"+step["id"],m))
+            rec["target"]={"ref_id":ref.ref_id,"frame_id":f.frame_id,"score":m.score,
+                           "device_bbox":list(ref.device_bbox),"template_sha256":step["action"]["template"]["sha256"]}
+            if portable:
+                stamp=self.epochs.ref_epoch(ref.ref_id)
+                check(stamp is not None and stamp.device==device and stamp.session_id is None,
+                      "REF_UNVERSIONED","Runtime reference lacks target epoch")
+                rec["target"]["epoch"]=stamp.epoch
+            with guard():
+                self._profile(device,profile,portable=portable)
+            age=step["action"]["max_ref_age_seconds"]
+            check(0<=time.time()-f.timestamp<=age,"FRAME_STALE","Live pre-frame expired before click")
+            persist(run)
+            self.epochs.record(request_owner,run_id,run if portable else initial)
+            def pending(receipt,epoch):
+                if portable:
+                    receipt["steps"][-1]["status"]="action_pending"
+                    receipt["steps"][-1]["action_epoch"]=epoch
+                return {**receipt,"step_id":step["id"]} if not portable else receipt
+            intent=ActionIntent(request_owner,run_id,step["id"],pending)
+            try:
+                receipt=self.actions.click(device,ref_id=ref.ref_id,max_age_seconds=age,
+                                           device_owner=owner,intent=intent)
+            finally:
+                claim=self.epochs.inspect(run_id)
+                if portable and claim.get("action_outcome")=="unknown":
+                    rec["status"]="action_pending"
+                    rec["action_epoch"]=claim["steps"][-1]["action_epoch"]
+                    run["action_outcome"]="unknown"
+                    run["last_frame_id"]=None
+                    run["observation_phase"]="post_action_unknown"
+                    persist(run)
+                elif not portable and self._restore_pending(run,claim):
+                    persist(run)
+            rec["action_receipt"]=receipt
+            if portable: run["action_receipt"]=receipt
+            rec["status"]="verifying"
+            run["action_outcome"]="executed_unverified"
+            persist(run)
+            deadline=self.clock()+step["postcondition"]["timeout_seconds"]
+            focus_unknown=None
+            for _ in range(MAX_CAPTURES):
+                if self.clock()>deadline:
+                    break
+                def post_observe(fid):
+                    if portable: run["observation_phase"]="post_action"
+                    observe(fid)
+                try:
+                    with guard():
+                        post,pimg=self._capture(device,profile,d,post_observe,owner,portable=portable)
+                except RuntimeFault as exc:
+                    # Android can briefly report no unique focused/resumed Activity
+                    # during an already-issued navigation. Only re-observe within
+                    # the existing postcondition budget; never retry an input or
+                    # waive a confirmed package/profile/geometry mismatch.
+                    if exc.code!="PROFILE_UNKNOWN" or str(exc) not in (
+                            "Cannot establish unique focused package","Cannot establish unique resumed package"):
+                        raise
+                    focus_unknown=exc
+                    remaining=deadline-self.clock()
+                    if remaining>0:
+                        self.sleep(min(POLL_SECONDS,remaining))
+                    continue
+                focus_unknown=None
+                state=self._classify(pimg,d,templates)
+                rec["post_observations"].append({"frame_id":post.frame_id,**state})
+                persist(run)
+                if self.clock()>deadline:
+                    break
+                check(not state["ambiguous"],"POST_STATE_AMBIGUOUS","Ambiguous live post-state",state)
+                if state["state"]==step["to"]:
+                    rec["status"]="verified"
+                    rec["post_frame_id"]=post.frame_id
+                    run["last_confirmed_state"]=step["to"]
+                    run["completed_steps"]+=1
+                    run["action_outcome"]="verified"
+                    persist(run)
+                    break
+                check(state["state"] in (None,step["from"]),"UNEXPECTED_STATE","Unexpected known destination state",state)
+                remaining=deadline-self.clock()
+                if remaining>0:
+                    self.sleep(min(POLL_SECONDS,remaining))
+            if rec["status"]!="verified" and focus_unknown is not None:
+                raise focus_unknown
+            check(rec["status"]=="verified","POSTCONDITION_TIMEOUT","Destination guard not verified within wait budget")
+
+    @staticmethod
+    def _restore_pending(run,claim):
+        if (claim.get("action_outcome")=="unknown" and claim.get("step_id")==run["current_step"]
+                and run["steps"] and run["steps"][-1]["status"]=="observing"):
+            run["steps"][-1]["status"]="action_pending"
+            run["action_outcome"]="unknown"
+            return True
+        return False
+
+    def _observe_run(self,run_id,*,request_owner=None):
+        run=self._load("runs",run_id)
+        if run["status"]!="running":
+            return run
+
+        def interrupt(owner,claim):
+            current=self._load("runs",run_id)
+            if current["status"]=="running":
+                self._restore_pending(current,claim)
+                current["status"]="interrupted"
+                current["reason"]={"code":"INTERRUPTED","message":"Previous process ended without terminal receipt; inspect actual state before any new action."}
+                current["finished_at"]=time.time()
+                self._persist(current)
+            return {"action_outcome":current["action_outcome"]}
+
+        try:
+            claim=self.epochs.inspect(run_id,interrupt,owner=request_owner)
+        except ClaimError as exc:
+            if exc.code!="NOT_FOUND" or request_owner is not None:
+                raise
+            # Historical receipt or a crash before writing the sidecar claim.
+            claim={}
+            with self.epochs.request_owner(run_id,legacy=True) as owner:
+                if owner is not None:
+                    try:
+                        claim=self.epochs.inspect(run_id)
+                    except ClaimError as missing:
+                        if missing.code!="NOT_FOUND":
+                            raise
+                        interrupt(owner,{})
+            if claim:
+                claim=self.epochs.inspect(run_id,interrupt)
+        current=self._load("runs",run_id)
+        if current["status"]=="running":
+            self._restore_pending(current,claim)
+        return current
 
     def inspect(self,run_id):
-        run=self._load("runs",run_id)
+        run=self._observe_run(run_id)
         return {**run,"note":"running receipt may be active or interrupted; never blindly replay. Same run ID is idempotent."}
 
     def list(self,limit=20,after=None):
@@ -316,7 +452,8 @@ class WorkflowRuntime:
               "INVALID_DEVICE","Explicit Android device serial required")
         check(isinstance(package,str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+",package),
               "INVALID_PACKAGE","Valid Android package required")
-        with workspace_lock(self.store):
+        with self.epochs.device_owner(device,legacy=True) as owner:
+            check(owner is not None,"DEVICE_BUSY","Runtime device is busy")
             observed=self.probe(device,package)
             profile_shape(observed)
             check(observed["package"]==package,"APP_MISMATCH","Observed app does not match expected package")
