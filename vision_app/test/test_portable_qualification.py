@@ -145,3 +145,18 @@ def test_frozen_schema_catalog_and_preflight_image(devices,monkeypatch):
     import base64
     assert base64.b64decode(result["content"][1]["data"])==svc.store.resolve_image_path(
         svc.store.get_frame(payload["result"]["frame_id"]).image_path).read_bytes()
+
+
+def test_preflight_timeout_receipt_and_exit_code(devices,monkeypatch):
+    svc,record,p,target,profiles,online=devices
+    def timeout(*args,**kwargs):
+        raise OperationError("CAPTURE_TIMEOUT","Fixture capture timeout",exit_code=4)
+    monkeypatch.setattr(svc.rt.obs,"snapshot",timeout)
+    reply,code=svc.invoke("portable_preflight",{"portable_id":record["portable_id"],"device":"device-B"})
+    assert code==4 and reply["ok"] is True
+    receipt=reply["result"]
+    assert receipt["status"]=="fail" and receipt["reason"]["code"]=="CAPTURE_TIMEOUT"
+    assert receipt["frame_id"] is None and target.actions==[]
+    validate_response("portable_preflight",receipt)
+    inspected,code=svc.invoke("portable_preflight_inspect",{"preflight_id":receipt["preflight_id"]})
+    assert code==0 and inspected["result"]==receipt

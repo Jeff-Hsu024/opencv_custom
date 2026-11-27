@@ -270,6 +270,10 @@ class PortableService:
             status=result.get("status")
             code=0 if (operation.endswith(("_inspect","_record","_list")) or status not in
                         ("fail","needs_agent","busy","rejected","interrupted","not_attempted","partial")) else 3
+            # Preflight performs no durable effect admission: capture/transport
+            # timeout retains its observation receipt but uses K01 exit 4.
+            if operation=="portable_preflight" and status=="fail" and (result.get("reason") or {}).get("code")=="CAPTURE_TIMEOUT":
+                code=4
             return {"ok":True,"result":result},code
         except Exception as exc:
             reason=error_reason(exc)
