@@ -372,12 +372,13 @@ class WaitService:
         threshold: float = 0.8,
         color_mode: str = "gray",
         device_owner: Optional[Owner] = None,
+        template_image: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         """Wait until a registered asset template is matched on the device."""
         from service.core.opencv.open_cv_service import OpenCvService
 
         timeout_f, interval_f, max_cap = _validate_wait_params(timeout, interval, max_captures)
-        template = self.asset_registry.load_image(target_name)
+        template = self.asset_registry.load_image(target_name) if template_image is None else template_image
         opencv = OpenCvService()
         start = self._clock()
         deadline = start + timeout_f

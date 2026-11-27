@@ -27,7 +27,7 @@ from vision_app.assets import (
     RefRegistry,
     StaleRefError,
 )
-from vision_app.observation import ObservationService, OperationError, UsageError
+from vision_app.observation import ObservationService, OperationError, UsageError, _artifact_for_record
 from vision_app.discovery import ANDROID_DEVICES_SCHEMA, DiscoveryService
 from vision_app.asset_revisions import (
     ASSET_REVISION_REGISTER_SCHEMA,
@@ -49,7 +49,7 @@ from vision_app.runtime import WorkflowRuntime, RuntimeFault, runtime_tool_defin
 from vision_app.recovery import RecoveryService, recovery_tool_definitions
 from vision_app.lifecycle import LifecycleService, lifecycle_tool_definitions
 from vision_app.orchestrator import ExecutionOrchestrator, orchestrator_tool_definitions
-from vision_app.transition import TransitionService, transition_tool_definitions
+from vision_app.transition import SCOPED_TRANSITION_SCHEMA, TransitionService, transition_tool_definitions
 from vision_app.responses import schema_for, validate as validate_response, project
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
@@ -331,6 +331,9 @@ def _tool_definitions() -> List[Dict[str, Any]]:
     }
     definitions.extend({"name": f"vision_{op}", "description": descriptions[op], "inputSchema": schema}
                        for op, schema in PRIMITIVE_SCHEMAS.items())
+    definitions.append({"name": "vision_scoped_transition",
+                        "description": "Record an epoch-checked transition using exact asset revisions.",
+                        "inputSchema": SCOPED_TRANSITION_SCHEMA})
     return definitions
 
 
@@ -390,6 +393,23 @@ class VisionMcpServer:
 
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         operation = name.removeprefix("vision_")
+        if name == "vision_scoped_transition":
+            svc = TransitionService(self.store, observation=self.obs, matcher=self.matcher,
+                                    actions=self.actions, waits=self.waits)
+            payload, _ = svc.invoke_scoped({} if arguments is None else arguments)
+            result = self._text_tool_result(payload)
+            result["isError"] = not payload["ok"]
+            fid = payload.get("result", {}).get("last_frame_id")
+            if fid and arguments and arguments.get("return_image") is True:
+                receipt = payload["result"]
+                try:
+                    with self.store.pin_frames([fid], device_id=receipt["device"]) as (frame,):
+                        artifact = _artifact_for_record(self.store, frame)
+                        image = self._image_tool_result({"artifact": artifact})["content"][0]
+                        result["content"].append(image)
+                except (OSError, StoreError, OperationError):
+                    pass
+            return result
         if name.startswith("vision_") and operation in PRIMITIVE_SCHEMAS:
             primitive = PrimitiveService(self.obs, matcher=self.matcher, actions=self.actions)
             payload, _ = primitive.invoke(operation, {} if arguments is None else arguments)
