@@ -217,3 +217,48 @@ def test_receipt_restart_cli_mcp(prepared):
                         capture_output=True,text=True,env={**os.environ,"VISION_STORE_DIR":str(server.store.store_dir)},check=True)
     payload=json.loads(json.loads(proc.stdout)["result"]["content"][0]["text"])
     assert payload["result"]["status"]=="completed"
+
+
+@pytest.mark.parametrize("unknown",["focused","resumed"])
+def test_post_navigation_transient_focus_read_only(prepared,unknown):
+    rt,b,server,p,*_=prepared
+    before=len(p.actions)
+    remaining=2
+    def probe(*_):
+        nonlocal remaining
+        if p.state==1 and remaining:
+            remaining-=1
+            raise RuntimeFault("PROFILE_UNKNOWN",f"Cannot establish unique {unknown} package")
+        return dict(PROFILE)
+    rt.probe=probe
+    result=rt.run(b["binding_id"],RID)
+    assert result["status"]=="completed" and remaining==0
+    assert len(p.actions)==before+1
+    assert rt.run(b["binding_id"],RID)["duplicate_request"]
+    assert len(p.actions)==before+1
+
+def test_post_navigation_persistent_focus_unknown_no_replay(prepared):
+    rt,b,server,p,*_=prepared
+    before=len(p.actions)
+    def probe(*_):
+        if p.state==1:
+            raise RuntimeFault("PROFILE_UNKNOWN","Cannot establish unique focused package")
+        return dict(PROFILE)
+    rt.probe=probe
+    result=rt.run(b["binding_id"],RID)
+    assert result["status"]=="needs_agent" and result["reason"]["code"]=="PROFILE_UNKNOWN"
+    assert result["action_outcome"]=="executed_unverified"
+    assert len(p.actions)==before+1
+    assert rt.run(b["binding_id"],RID)["duplicate_request"]
+    assert len(p.actions)==before+1
+
+def test_pre_navigation_focus_unknown_still_rejects(prepared):
+    rt,b,server,p,*_=prepared
+    before=len(p.actions)
+    def probe(*_):
+        raise RuntimeFault("PROFILE_UNKNOWN","Cannot establish unique focused package")
+    rt.probe=probe
+    result=rt.run(b["binding_id"],RID)
+    assert result["status"]=="needs_agent" and result["reason"]["code"]=="PROFILE_UNKNOWN"
+    assert result["action_outcome"]=="not_attempted"
+    assert len(p.actions)==before

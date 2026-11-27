@@ -338,14 +338,30 @@ class WorkflowRuntime:
             run["action_outcome"]="executed_unverified"
             persist(run)
             deadline=self.clock()+step["postcondition"]["timeout_seconds"]
+            focus_unknown=None
             for _ in range(MAX_CAPTURES):
                 if self.clock()>deadline:
                     break
                 def post_observe(fid):
                     if portable: run["observation_phase"]="post_action"
                     observe(fid)
-                with guard():
-                    post,pimg=self._capture(device,profile,d,post_observe,owner,portable=portable)
+                try:
+                    with guard():
+                        post,pimg=self._capture(device,profile,d,post_observe,owner,portable=portable)
+                except RuntimeFault as exc:
+                    # Android can briefly report no unique focused/resumed Activity
+                    # during an already-issued navigation. Only re-observe within
+                    # the existing postcondition budget; never retry an input or
+                    # waive a confirmed package/profile/geometry mismatch.
+                    if exc.code!="PROFILE_UNKNOWN" or str(exc) not in (
+                            "Cannot establish unique focused package","Cannot establish unique resumed package"):
+                        raise
+                    focus_unknown=exc
+                    remaining=deadline-self.clock()
+                    if remaining>0:
+                        self.sleep(min(POLL_SECONDS,remaining))
+                    continue
+                focus_unknown=None
                 state=self._classify(pimg,d,templates)
                 rec["post_observations"].append({"frame_id":post.frame_id,**state})
                 persist(run)
@@ -364,6 +380,8 @@ class WorkflowRuntime:
                 remaining=deadline-self.clock()
                 if remaining>0:
                     self.sleep(min(POLL_SECONDS,remaining))
+            if rec["status"]!="verified" and focus_unknown is not None:
+                raise focus_unknown
             check(rec["status"]=="verified","POSTCONDITION_TIMEOUT","Destination guard not verified within wait budget")
 
     @staticmethod
