@@ -163,3 +163,7 @@ C11 worker question msg_19601e36d629 documented a real Recorder pinned evidence 
 ## Direct takeover — autonomous DAG cancelled
 
 All dispatched workers settled; Codex coordinator stopped after quota exhaustion. Preserved native run and completed C00–C11 receipts; remaining 12 native Tasks cancelled (status failed, result cancelled) solely to stop automatic dispatch, not software failure. No new agents or workers. C00–C10 independently accepted. C11 worker commit 6450cc9, prior 425 regressions; coordinator's unfinished concurrent identical publication fix retained and independently tested: pre-fix reproducible WinError 5, post-fix passes; 1006 workflow/gate/frozen contract tests pass. See c11/DIRECT_AUDIT.md. Full post-fix regression still pending before P01; direct execution by current ChatGPT session only.
+
+## Direct grouped portable implementation
+
+P01-P03 ef2053d: shared definition/proof/interpreter, 1058 concentrated tests passed. P04-P06 ef9a1ca: preflight/trial/qualification slots, 11 concentrated tests passed. P07-B02: single and batch admission, registry, atomic reservations, owner reconciliation; 15 portable integration and 10 batch tests passed. Counts overlap earlier suites; no additive total claimed. All implementation direct, native cancelled task history unchanged. V01 consolidated regression and frozen Store verification remain; V02 requires authorized compatible live devices and independent evidence.

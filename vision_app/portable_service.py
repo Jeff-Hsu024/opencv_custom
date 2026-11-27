@@ -24,7 +24,13 @@ _QUALIFICATION_OPS={
     "portable_qualification_inspect":"inspect","portable_qualification_list":"list",
     "portable_qualification_record":"record",
 }
-SCHEMAS={op:CATALOG[op] for op in (*_DEFINITION_OPS,*_DEVICE_OPS,*_QUALIFICATION_OPS)}
+_FAMILY_OPS={
+    "portable_family_publish":"publish","portable_family_activate":"activate",
+    "portable_family_inspect":"inspect","portable_family_list":"list",
+}
+_ADMISSION_OPS=("portable_execute","portable_task_inspect","portable_run_inspect","portable_task_list")
+_BATCH_OPS=("portable_batch_execute","portable_batch_inspect","portable_batch_list")
+SCHEMAS={op:CATALOG[op] for op in (*_DEFINITION_OPS,*_DEVICE_OPS,*_QUALIFICATION_OPS,*_FAMILY_OPS,*_ADMISSION_OPS,*_BATCH_OPS)}
 _RETRYABLE={"DEVICE_BUSY","DEVICE_UNAVAILABLE","DISCOVERY_FAILED","CAPTURE_TIMEOUT"}
 _CODES={"INVALID_ARGUMENT","INVALID_DEVICE","DEVICE_UNAVAILABLE","DISCOVERY_FAILED","NOT_FOUND",
         "SCOPE_MISMATCH","DEVICE_BUSY","STALE_REF_EPOCH","REF_UNVERSIONED","FRAME_STALE","PROFILE_MISMATCH",
@@ -79,6 +85,12 @@ class PortableService:
         self.ledger=self.rt.epochs
         self.slots=QualificationSlots(self.definitions)
         self.discovery=DiscoveryService(self.rt.obs)
+        from vision_app.portable_family import PortableFamilies
+        from vision_app.portable_admission import PortableAdmission
+        self.families=PortableFamilies(self.definitions)
+        self.admission=PortableAdmission(self)
+        from vision_app.portable_batch import PortableBatches
+        self.batches=PortableBatches(self)
 
     @staticmethod
     def _preflight_table(db):
@@ -247,11 +259,17 @@ class PortableService:
                 result=getattr(self.definitions,operation.removeprefix("portable_"))(**req)
             elif operation in _QUALIFICATION_OPS:
                 result=getattr(self.slots,_QUALIFICATION_OPS[operation])(**req)
+            elif operation in _FAMILY_OPS:
+                result=getattr(self.families,_FAMILY_OPS[operation])(**req)
+            elif operation in _ADMISSION_OPS:
+                result=getattr(self.admission,operation.removeprefix("portable_"))(**req)
+            elif operation in _BATCH_OPS:
+                result=getattr(self.batches,operation.removeprefix("portable_"))(**req)
             else:
                 result=getattr(self,operation.removeprefix("portable_"))(**req)
             status=result.get("status")
             code=0 if (operation.endswith(("_inspect","_record","_list")) or status not in
-                        ("fail","needs_agent","busy","rejected","interrupted","not_attempted")) else 3
+                        ("fail","needs_agent","busy","rejected","interrupted","not_attempted","partial")) else 3
             return {"ok":True,"result":result},code
         except Exception as exc:
             reason=error_reason(exc)
