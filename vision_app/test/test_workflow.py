@@ -277,3 +277,32 @@ def test_pinned_frame_survives_cleanup_but_protection_revision_rejects_aba(recor
         builder.build(sid, plan)
     assert builder.list()["items"] == []
     assert store._lifetimes()["pins"] == {}
+
+
+def test_concurrent_identical_publication_returns_same_bundle(recorded, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    import vision_app.workflow as workflow
+    from vision_app.metadata import metadata_held
+
+    server, rec, sid, plan, _ = recorded
+    ready = Barrier(2, timeout=15)
+    write = workflow._atomic_write_json
+
+    def stage_together(path, data):
+        write(path, data)
+        if path.name == "source-seal.json":
+            assert not metadata_held()
+            ready.wait()
+
+    monkeypatch.setattr(workflow, "_atomic_write_json", stage_together)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(WorkflowBuilder(server.store).build, sid, copy.deepcopy(plan))
+                   for _ in range(2)]
+        first, second = [future.result(timeout=30) for future in futures]
+
+    assert first == second
+    builder = WorkflowBuilder(server.store)
+    assert builder.validate(first["workflow_id"])["status"] == "offline_pass"
+    assert [p.name for p in builder.root.iterdir()] == [first["workflow_id"]]
+    assert server.store._lifetimes()["pins"] == {}

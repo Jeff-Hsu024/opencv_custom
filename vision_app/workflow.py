@@ -376,24 +376,23 @@ class WorkflowBuilder:
         workflow_id="wf_"+digest(canonical({"definition":definition,"plan":plan}))
         target=self.root/workflow_id
         self.root.mkdir(parents=True,exist_ok=True)
-        if target.exists():
-            self._validate(workflow_id)
-            with snapshot.commit(seals, additional=additional):
-                return finalize() if finalize else self.inspect(workflow_id)
-        staging=Path(tempfile.mkdtemp(prefix=".building_",dir=self.root))
-        try:
-            for sha,data in blobs.items():
-                _atomic_write_bytes(staging/"templates"/(sha+".png"),data)
-            _atomic_write_json(staging/"plan.json",plan)
-            _atomic_write_json(staging/"definition.json",{"workflow_id":workflow_id,**definition})
-            _atomic_write_json(staging/"source-seal.json", {"source_seal": seals[0]})
-            with snapshot.commit(seals, additional=additional):
-                os.replace(staging,target)
-                if finalize:
-                    return finalize()
-        finally:
-            if staging.exists(): shutil.rmtree(staging)
-        return self.inspect(workflow_id)
+        if not target.exists():
+            staging=Path(tempfile.mkdtemp(prefix=".building_",dir=self.root))
+            try:
+                for sha,data in blobs.items():
+                    _atomic_write_bytes(staging/"templates"/(sha+".png"),data)
+                _atomic_write_json(staging/"plan.json",plan)
+                _atomic_write_json(staging/"definition.json",{"workflow_id":workflow_id,**definition})
+                _atomic_write_json(staging/"source-seal.json", {"source_seal": seals[0]})
+                with snapshot.commit(seals, additional=additional):
+                    if not target.exists():
+                        os.replace(staging,target)
+                        return finalize() if finalize else self.inspect(workflow_id)
+            finally:
+                if staging.exists(): shutil.rmtree(staging)
+        self._validate(workflow_id)
+        with snapshot.commit(seals, additional=additional):
+            return finalize() if finalize else self.inspect(workflow_id)
 
 
     def _directory(self,wid):
