@@ -1,11 +1,14 @@
 """Orchestrator tests over real Runtime, lifecycle and recovery fixtures."""
 import json,subprocess,sys,os
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager, nullcontext
+from threading import Event
 import pytest
 from test_workflow import recorded
 from test_runtime import prepared
 from test_recovery import recovery
 from test_lifecycle import registered, linked, F
+from vision_app.coordinator import Claim, ClaimError
 from vision_app.orchestrator import ExecutionOrchestrator
 from vision_app.workflow import WorkflowError
 
@@ -157,3 +160,104 @@ def test_interrupted_after_recovery_before_restart(linked,monkeypatch):
     assert result["status"]=="interrupted" and result["recovered"]
     assert result["handoff"]["original_task_completed"] is False
     assert len(result["children"])==2 and len(p.actions)==n+1
+
+
+@pytest.mark.parametrize("mutation",["disable","route"])
+def test_legacy_mutation_waits_through_recovery_and_restart(linked,monkeypatch,mutation):
+    o,p=engine(linked)
+    p.state=1
+    # Exercise the inner owners independently of C10's retained outer gate.
+    monkeypatch.setattr("vision_app.lifecycle.workspace_lock",lambda _:nullcontext())
+    parked=Event()
+    release=Event()
+    waiting=Event()
+    original_owner=o.rt.epochs.device_owner
+    original_click=p.click
+
+    @contextmanager
+    def observed_owner(*args,**kwargs):
+        waiting.set()
+        with original_owner(*args,**kwargs) as owner:
+            yield owner
+
+    def click(x,y):
+        if p.state==1:
+            parked.set()
+            assert release.wait(10)
+        return original_click(x,y)
+
+    p.click=click
+    lc=linked[4]
+    # Observe the registry call at the actual OS lock boundary.
+    registry=type(lc)(o.store)
+    monkeypatch.setattr(registry.rt.epochs,"device_owner",observed_owner)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        task=pool.submit(o.execute,F,T,3,True)
+        try:
+            assert parked.wait(10)
+            if mutation=="disable":
+                change=pool.submit(registry.disable,F,3,"disable")
+            else:
+                change=pool.submit(registry.route_status,F,linked[6]["route_id"],False,3,"disable route")
+            assert waiting.wait(10)
+            assert not change.done()
+            assert registry.inspect(F)["family"]["generation"]==3
+        finally:
+            release.set()
+        result=task.result(timeout=10)
+        assert result["status"]=="completed"
+        assert [c["role"] for c in result["children"]]==["primary","recovery","restart"]
+        assert change.result(timeout=10)["family"]["generation"]==4
+    assert o.execute(F,T,3,True)=={**result,"duplicate_request":True}
+
+
+@pytest.mark.parametrize("mutation",["route","activation"])
+def test_generation_is_checked_after_device_acquisition(linked,monkeypatch,mutation):
+    o,p=engine(linked)
+    monkeypatch.setattr("vision_app.orchestrator.workspace_lock",lambda _:nullcontext())
+    waiting=Event()
+    release=Event()
+    registry=type(o.lc)(o.store)
+    device_owner=o.rt.epochs.device_owner
+    count=len(p.actions)
+
+    @contextmanager
+    def pause_before_owner(*args,**kwargs):
+        waiting.set()
+        assert release.wait(10)
+        with device_owner(*args,**kwargs) as owner:
+            yield owner
+
+    monkeypatch.setattr(o.rt.epochs,"device_owner",pause_before_owner)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        task=pool.submit(o.execute,F,T,3,True)
+        try:
+            assert waiting.wait(10)
+            if mutation=="route":
+                assert registry.route_status(F,linked[6]["route_id"],False,3,"disable route")["family"]["generation"]==4
+            else:
+                registry.disable(F,3,"disable")
+                assert registry.activate(F,1,4,"activate")["family"]["generation"]==5
+        finally:
+            release.set()
+        with pytest.raises(WorkflowError,match="Stale registry generation"):
+            task.result(timeout=10)
+    assert len(p.actions)==count and o.list()["items"]==[]
+    assert o.rt.epochs.duplicate(T,"legacy_task",{"family_id":F,"expected_generation":3,"auto_recover":True}) is None
+
+
+def test_late_child_claim_collision_rolls_back_whole_task(linked):
+    o,p=engine(linked)
+    count=len(p.actions)
+    epochs=o.rt.epochs
+    collision=o._run_id(T,"restart")
+    with epochs.request_owner(collision,legacy=True) as owner:
+        assert epochs.admit(owner,Claim(collision,"legacy_run",{},{"action_outcome":"not_attempted"})) is None
+    with pytest.raises(ClaimError,match=collision):
+        o.execute(F,T,3,True)
+    for identifier in (T,o._run_id(T,"primary"),o._run_id(T,"recovery")):
+        with pytest.raises(ClaimError) as exc:
+            epochs.inspect(identifier)
+        assert exc.value.code=="NOT_FOUND"
+    assert epochs.inspect(collision)=={"action_outcome":"not_attempted"}
+    assert len(p.actions)==count and o.list()["items"]==[]

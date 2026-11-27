@@ -228,18 +228,22 @@ class WorkflowRuntime:
         device,profile,wid=b["device"],b["profile"],b["workflow_id"]
         check(owner.active and owner.key==device,"DEVICE_SCOPE_MISMATCH","Runtime owner differs from bound device")
         initial={"action_outcome":"not_attempted"}
-        if request_owner.key == run_id:
-            duplicate=self.epochs.duplicate(run_id,"legacy_run",{"binding_id":binding_id})
-            require(duplicate is None,"Run ID collision")
-        else:
-            require(self.epochs.start_nested(request_owner,run_id),"Child run ID collision")
         run={"run_id":run_id,"workflow_id":wid,"binding_id":binding_id,"device":device,"profile":profile,
              "status":"running","started_at":time.time(),"finished_at":None,"current_step":None,
              "last_frame_id":None,"last_confirmed_state":None,"reason":None,
              "action_outcome":"not_attempted","completed_steps":0,"steps":[],"frames":[]}
-        self._persist(run)
-        if request_owner.key == run_id:
-            self.epochs.admit(request_owner,Claim(run_id,"legacy_run",{"binding_id":binding_id},initial,device=device))
+        # Standalone runs and task reservations share the same ID namespace.
+        # Keep the historical journal-first ordering within one metadata lock.
+        with metadata_transaction(self.store):
+            if request_owner.key == run_id:
+                request={"binding_id":binding_id}
+                duplicate=self.epochs.duplicate(run_id,"legacy_run",request)
+                require(duplicate is None,"Run ID collision")
+                self._persist(run)
+                self.epochs.admit(request_owner,Claim(run_id,"legacy_run",request,initial,device=device))
+            else:
+                require(self.epochs.start_nested(request_owner,run_id),"Child run ID collision")
+                self._persist(run)
         def observe(fid):
             run["frames"].append(fid)
             run["last_frame_id"]=fid
@@ -330,7 +334,7 @@ class WorkflowRuntime:
             return True
         return False
 
-    def _observe_run(self,run_id):
+    def _observe_run(self,run_id,*,request_owner=None):
         run=self._load("runs",run_id)
         if run["status"]!="running":
             return run
@@ -346,9 +350,9 @@ class WorkflowRuntime:
             return {"action_outcome":current["action_outcome"]}
 
         try:
-            claim=self.epochs.inspect(run_id,interrupt)
+            claim=self.epochs.inspect(run_id,interrupt,owner=request_owner)
         except ClaimError as exc:
-            if exc.code!="NOT_FOUND":
+            if exc.code!="NOT_FOUND" or request_owner is not None:
                 raise
             # Historical receipt or a crash before writing the sidecar claim.
             claim={}

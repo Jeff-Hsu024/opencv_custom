@@ -1,6 +1,6 @@
 """Phase 9 owner and claim primitives, inside the compatibility outer gate."""
 
-from contextlib import closing, contextmanager
+from contextlib import closing, contextmanager, nullcontext
 from dataclasses import dataclass, replace
 import hashlib
 import json
@@ -314,7 +314,7 @@ class RequestLedger(OwnerCoordinator):
                 self._finish_batch(db, request_id)
             self._write(db, request_id, "terminal" if terminal else "running", receipt)
 
-    def inspect(self, request_id, reconcile=None):
+    def inspect(self, request_id, reconcile=None, *, owner=None):
         """Read current facts, optionally reconciling a running claim under its OS owner.
 
         The callback receives the active owner and current receipt outside metadata.
@@ -326,9 +326,14 @@ class RequestLedger(OwnerCoordinator):
                 raise ClaimError("NOT_FOUND", request_id)
             receipt = self._receipt(row)
             parent = db.execute("SELECT 1 FROM batch_admission WHERE batch_id = ?", (request_id,)).fetchone() is not None
-        if reconcile is None or row["state"] != "running" or self._owns_request(self.root, row["owner_id"]):
+        role = "parent" if parent else "request"
+        if owner is not None:
+            self._require_owner(owner, row["owner_id"], role)
+        if (reconcile is None or row["state"] != "running" or
+                (owner is None and self._owns_request(self.root, row["owner_id"]))):
             return receipt
-        with self.request_owner(row["owner_id"], parent=parent) as owner:
+        lock = nullcontext(owner) if owner is not None else self.request_owner(row["owner_id"], parent=parent)
+        with lock as owner:
             with self.transaction() as db:
                 current = self._row(db, request_id)
                 receipt = self._receipt(current)

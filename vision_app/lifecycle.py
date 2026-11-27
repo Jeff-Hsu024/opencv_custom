@@ -4,7 +4,9 @@ from __future__ import annotations
 import json
 import re
 import time
+from contextlib import contextmanager
 
+from vision_app.metadata import metadata_transaction
 from vision_app.recorder import Recorder, workspace_lock
 from vision_app.recovery import RecoveryService, seal
 from vision_app.runtime import WorkflowRuntime, RuntimeFault
@@ -65,6 +67,24 @@ class LifecycleService:
     def _cas(self,f,expected):
         require(type(expected) is int and expected==f["generation"],"Stale registry generation")
 
+    @contextmanager
+    def _mutation_owner(self,family_id,new_device=None):
+        """Resolve the immutable device before waiting, then validate under its owner."""
+        with self.rec.db() as db:
+            self._slug(family_id)
+            row=db.execute("SELECT device FROM workflow_families WHERE family_id=?",(family_id,)).fetchone()
+            require(row is not None or new_device is not None,"Registry record not found")
+            device=row["device"] if row is not None else new_device
+        with self.rt.epochs.device_owner(device,legacy=True) as owner:
+            require(owner is not None,"Registry device is busy")
+            yield device
+
+    def _mutation_family(self,db,family_id,device,expected_generation):
+        f=self._family(db,family_id)
+        require(f["device"]==device,"Family device/profile mismatch")
+        self._cas(f,expected_generation)
+        return f
+
     def _log(self,db,f,op,reason,detail):
         label(reason,"reason")
         generation=f["generation"]+1
@@ -123,60 +143,78 @@ class LifecycleService:
         require(proof==v["proof"],"Registered proof changed")
         return run,d
 
+    @staticmethod
+    def _require_unmanaged(db,workflow_id):
+        require(not db.execute("SELECT 1 FROM workflow_versions WHERE workflow_id=?",(workflow_id,)).fetchone()
+                and not db.execute("SELECT 1 FROM workflow_routes WHERE child_workflow_id=?",(workflow_id,)).fetchone(),
+                "Workflow already managed")
+
     def register(self,family_id,workflow_id,run_id,expected_generation,reason,parent_version=None):
         self._slug(family_id);label(reason,"reason")
         with workspace_lock(self.store):
-            proof,run,d=self._proof(workflow_id,run_id)
-            with self.rec.db() as db:
-                existing=db.execute("SELECT * FROM workflow_families WHERE family_id=?",(family_id,)).fetchone()
-                require(not db.execute("SELECT 1 FROM workflow_versions WHERE workflow_id=?",(workflow_id,)).fetchone()
-                        and not db.execute("SELECT 1 FROM workflow_routes WHERE child_workflow_id=?",(workflow_id,)).fetchone(),
-                        "Workflow already managed")
-                if existing is None:
-                    require(expected_generation==0 and type(expected_generation) is int and parent_version is None,
-                            "New family requires generation 0 and no parent version")
-                    db.execute("INSERT INTO workflow_families VALUES(?,?,?,?,NULL)",
-                               (family_id,run["device"],json.dumps(run["profile"],ensure_ascii=True),0))
-                    version=1
-                else:
-                    f=self._family(db,family_id);self._cas(f,expected_generation)
-                    require(f["device"]==run["device"] and f["profile"]==run["profile"],"Family device/profile mismatch")
-                    require(parent_version is not None,"Explicit parent version required")
-                    parent=self._version(db,family_id,parent_version)
-                    self._check_version(parent)
-                    pd,pt=self.rt._definition(parent["workflow_id"],run["device"],run["profile"])
-                    require(d["goal"]==pd["goal"],"Version goal differs from parent")
-                    for fid,expected in ((run["steps"][0]["pre_frame_id"],pd["initial_state"]),
-                                         (run["last_frame_id"],pd["final_state"])):
-                        img,_=self._frame(fid,run["device"],pd["geometry"])
-                        state=self.rt._classify(img,pd,pt)
-                        require(state["state"]==expected and not state["ambiguous"],"Version endpoint differs from parent")
-                    version=db.execute("SELECT max(version)+1 FROM workflow_versions WHERE family_id=?",(family_id,)).fetchone()[0]
-                f=self._family(db,family_id)
-                self._cas(f,expected_generation)
-                db.execute("INSERT INTO workflow_versions VALUES(?,?,?,?,?,?)",
-                           (family_id,version,workflow_id,parent_version,json.dumps(proof,ensure_ascii=True),time.time()))
-                self._log(db,f,"register",reason,{"version":version,"workflow_id":workflow_id,"parent_version":parent_version})
+            device=self.rt._load("runs",run_id)["device"]
+            with self._mutation_owner(family_id,device) as owned_device:
+                self._register_owned(family_id,workflow_id,run_id,expected_generation,reason,parent_version,owned_device)
         return self.inspect(family_id)
+
+    def _register_owned(self,family_id,workflow_id,run_id,expected_generation,reason,parent_version,device):
+        proof,run,d=self._proof(workflow_id,run_id)
+        require(run["device"]==device,"Family device/profile mismatch")
+        with self.rec.db() as db:
+            self._require_unmanaged(db,workflow_id)
+            existing=db.execute("SELECT * FROM workflow_families WHERE family_id=?",(family_id,)).fetchone()
+            if existing is not None:
+                f=self._mutation_family(db,family_id,device,expected_generation)
+                require(f["profile"]==run["profile"],"Family device/profile mismatch")
+                require(parent_version is not None,"Explicit parent version required")
+                parent=self._version(db,family_id,parent_version)
+        if existing is not None:
+            self._check_version(parent)
+            pd,pt=self.rt._definition(parent["workflow_id"],device,run["profile"])
+            require(d["goal"]==pd["goal"],"Version goal differs from parent")
+            for fid,expected in ((run["steps"][0]["pre_frame_id"],pd["initial_state"]),
+                                 (run["last_frame_id"],pd["final_state"])):
+                img,_=self._frame(fid,device,pd["geometry"])
+                state=self.rt._classify(img,pd,pt)
+                require(state["state"]==expected and not state["ambiguous"],"Version endpoint differs from parent")
+        with metadata_transaction(self.store),self.rec.db() as db:
+            current=db.execute("SELECT * FROM workflow_families WHERE family_id=?",(family_id,)).fetchone()
+            require((current is None)==(existing is None),"Stale registry generation")
+            self._require_unmanaged(db,workflow_id)
+            if existing is None:
+                require(expected_generation==0 and type(expected_generation) is int and parent_version is None,
+                        "New family requires generation 0 and no parent version")
+                db.execute("INSERT INTO workflow_families VALUES(?,?,?,?,NULL)",
+                           (family_id,run["device"],json.dumps(run["profile"],ensure_ascii=True),0))
+                version=1
+            else:
+                version=db.execute("SELECT max(version)+1 FROM workflow_versions WHERE family_id=?",(family_id,)).fetchone()[0]
+            f=self._mutation_family(db,family_id,device,expected_generation)
+            db.execute("INSERT INTO workflow_versions VALUES(?,?,?,?,?,?)",
+                       (family_id,version,workflow_id,parent_version,json.dumps(proof,ensure_ascii=True),time.time()))
+            self._log(db,f,"register",reason,{"version":version,"workflow_id":workflow_id,"parent_version":parent_version})
 
     def _switch(self,family_id,version,expected_generation,reason,op):
         label(reason,"reason")
-        with workspace_lock(self.store),self.rec.db() as db:
-            f=self._family(db,family_id);self._cas(f,expected_generation)
+        with workspace_lock(self.store),self._mutation_owner(family_id) as device:
+            with self.rec.db() as db:
+                f=self._mutation_family(db,family_id,device,expected_generation)
+                v=self._version(db,family_id,version) if op!="disable" and version!=f["active_version"] else None
             old=f["active_version"]
             if op=="disable":
                 require(old is not None,"Family already disabled")
                 version=None
             else:
                 require(version!=old,"Version already active")
-                v=self._version(db,family_id,version)
                 self._check_version(v)
+            with metadata_transaction(self.store),self.rec.db() as db:
+                f=self._mutation_family(db,family_id,device,expected_generation)
                 if op=="rollback":
                     logs=db.execute("SELECT payload FROM workflow_lifecycle_log WHERE family_id=? AND operation IN ('activate','rollback')",
                                     (family_id,)).fetchall()
                     require(any(json.loads(r["payload"])["to_version"]==version for r in logs),"Rollback requires previously active version")
-            db.execute("UPDATE workflow_families SET active_version=? WHERE family_id=?",(version,family_id))
-            self._log(db,f,op,reason,{"from_version":old,"to_version":version})
+                db.execute("UPDATE workflow_families SET active_version=? WHERE family_id=?",(version,family_id))
+                self._log(db,f,op,reason,{"from_version":old,"to_version":version})
         return self.inspect(family_id)
 
     def activate(self,family_id,version,expected_generation,reason):
@@ -198,9 +236,9 @@ class LifecycleService:
 
     def link(self,family_id,parent_version,proposal_id,qualification_id,expected_generation,reason):
         label(reason,"reason")
-        with workspace_lock(self.store):
+        with workspace_lock(self.store),self._mutation_owner(family_id) as device:
             with self.rec.db() as db:
-                f=self._family(db,family_id);self._cas(f,expected_generation)
+                f=self._mutation_family(db,family_id,device,expected_generation)
                 v=self._version(db,family_id,parent_version)
                 q=self.recovery._row(db,"recovery_qualifications","qualification_id",qualification_id)
             route={"proposal_id":proposal_id,"qualification_id":qualification_id,
@@ -210,7 +248,8 @@ class LifecycleService:
                     and p["profile"]==f["profile"],"Route parent/profile mismatch")
             rid="route_"+seal({"family_id":family_id,"parent_version":parent_version,**route})
             self._check_version(v)
-            with self.rec.db() as db:
+            with metadata_transaction(self.store),self.rec.db() as db:
+                f=self._mutation_family(db,family_id,device,expected_generation)
                 require(not db.execute("SELECT 1 FROM workflow_versions WHERE workflow_id=?",(route["child_workflow_id"],)).fetchone(),
                         "Recovery child already managed as primary")
                 require(db.execute("SELECT count(*) FROM workflow_routes WHERE family_id=? AND parent_version=?",
@@ -224,13 +263,14 @@ class LifecycleService:
 
     def route_status(self,family_id,route_id,enabled,expected_generation,reason):
         require(type(enabled) is bool,"enabled must be boolean");label(reason,"reason")
-        with workspace_lock(self.store):
+        with workspace_lock(self.store),self._mutation_owner(family_id) as device:
             with self.rec.db() as db:
-                f=self._family(db,family_id);self._cas(f,expected_generation)
+                self._mutation_family(db,family_id,device,expected_generation)
                 route=self._dict(db.execute("SELECT * FROM workflow_routes WHERE family_id=? AND route_id=?",(family_id,route_id)).fetchone())
             require(bool(route["enabled"])!=enabled,"Route already in requested state")
             if enabled:self._qualified_route(route)
-            with self.rec.db() as db:
+            with metadata_transaction(self.store),self.rec.db() as db:
+                f=self._mutation_family(db,family_id,device,expected_generation)
                 db.execute("UPDATE workflow_routes SET enabled=? WHERE route_id=?",(int(enabled),route_id))
                 self._log(db,f,"route_status",reason,{"route_id":route_id,"enabled":enabled})
         return self.inspect(family_id)

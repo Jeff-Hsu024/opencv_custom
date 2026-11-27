@@ -53,6 +53,34 @@ class ExecutionOrchestrator:
         return t
 
     def _reconcile(self,t):
+        task_id=t["task_id"]
+
+        def finish_interrupted():
+            self._handoff_context(t)
+            self._finish(t,"interrupted","TASK_INTERRUPTED",
+                         "Previous task ended without terminal receipt. Inspect child journals and fresh state; never replay automatically.")
+
+        def abandon(owner,_receipt):
+            nonlocal t
+            if self._path(task_id).exists():
+                t=self._load(task_id)
+            if not self._reconcile_children(t,owner):
+                return None
+            if t["status"]=="running":
+                finish_interrupted()
+            return {"status":t["status"]}
+
+        try:
+            self.rt.epochs.inspect(task_id,abandon)
+        except ClaimError as exc:
+            if exc.code!="NOT_FOUND":
+                raise
+            # Pre-ledger journals still use the compatibility gate.
+            if t["status"]=="running" and self._reconcile_children(t):
+                finish_interrupted()
+        return self._load(task_id) if self._path(task_id).exists() else t
+
+    def _reconcile_children(self,t,owner=None):
         # Never resume; child journals are authoritative about any attempted effect.
         for child in t["children"]:
             path=self.rt._path("runs",child["run_id"])
@@ -61,36 +89,19 @@ class ExecutionOrchestrator:
                 require(run["binding_id"]==child["binding_id"] and run["workflow_id"]==child["workflow_id"],
                         "Child run identity mismatch")
                 if run["status"]=="running":
-                    run=self.rt._observe_run(child["run_id"])
+                    run=self.rt._observe_run(child["run_id"],request_owner=owner)
                 if run["status"]=="running":
-                    return t
+                    return False
                 child["receipt"]=self._receipt(run)
-
-        def finish_interrupted():
-            self._handoff_context(t)
-            return self._finish(t,"interrupted","TASK_INTERRUPTED",
-                                "Previous task ended without terminal receipt. Inspect child journals and fresh state; never replay automatically.")
-
-        def abandon(owner,receipt):
-            for child in t["children"]:
-                if not self.rt._path("runs",child["run_id"]).exists():
-                    self.rt.epochs.abandon_unpublished_child(owner,child["run_id"])
+            elif owner is not None:
+                self.rt.epochs.abandon_unpublished_child(owner,child["run_id"])
+        if owner is not None:
             self.rt.epochs.close_nested(owner,{"action_outcome":"not_attempted"})
-            finish_interrupted()
-            return {"status":"interrupted"}
-        try:
-            receipt=self.rt.epochs.inspect(t["task_id"],abandon)
-            if receipt["status"]=="running":
-                return t
-        except ClaimError as exc:
-            if exc.code!="NOT_FOUND":
-                raise
-        return t if t["status"]=="interrupted" else finish_interrupted()
+        return True
 
-    def _pin(self,family_id,expected_generation):
+    def _pin(self,family_id,expected_generation,device):
         with self.lc.rec.db() as db:
-            f=self.lc._family(db,family_id)
-            self.lc._cas(f,expected_generation)
+            f=self.lc._mutation_family(db,family_id,device,expected_generation)
             require(f["active_version"] is not None,"Family is disabled")
             v=self.lc._version(db,family_id,f["active_version"])
         return f,v
@@ -119,33 +130,41 @@ class ExecutionOrchestrator:
         return (step["target"] is None and step["action_receipt"] is None
                 and step.get("pre_state") is not None and not step["pre_state"]["ambiguous"])
 
+    def _duplicate(self,task_id,request,*,reconcile=True):
+        if self._path(task_id).exists():
+            old=self._load(task_id)
+            require(old["request"]==request,"Task ID already bound to another request")
+        else:
+            prior=self.rt.epochs.duplicate(task_id,"legacy_task",request)
+            if prior is None:
+                return None
+            # The parent claim committed before the compatibility journal.
+            old=prior["initial_task"]
+        if reconcile:
+            old=self._reconcile(old)
+        return {**old,"duplicate_request":True}
+
     def execute(self,family_id,task_id,expected_generation,auto_recover=False):
         self.lc._slug(family_id)
         require(type(expected_generation) is int and expected_generation>=0,"Invalid generation")
         require(type(auto_recover) is bool,"auto_recover must be boolean")
         request={"family_id":family_id,"expected_generation":expected_generation,"auto_recover":auto_recover}
-        path=self._path(task_id)
+        self._path(task_id)
         with workspace_lock(self.store), validation_scope(self.store):
-            if path.exists():
-                old=self._load(task_id)
-                require(old["request"]==request,"Task ID already bound to another request")
-                if old["status"]=="running":
-                    old=self._reconcile(old)
-                return {**old,"duplicate_request":True}
-            prior=self.rt.epochs.duplicate(task_id,"legacy_task",request)
-            if prior is not None:
-                # Admission committed but the initial compatibility journal was
-                # never published. No child may start before that publication.
-                return {**self._reconcile(prior["initial_task"]),"duplicate_request":True}
-            f,v=self._pin(family_id,expected_generation)
+            duplicate=self._duplicate(task_id,request)
+            if duplicate is not None:
+                return duplicate
             ids=[self._run_id(task_id,role) for role in ("primary","recovery","restart")]
-            for rid in ids:
-                require(not self.rt._path("runs",rid).exists(),"Child run ID collision")
-            with self.rt.epochs.request_owner(task_id,legacy=True) as request_owner:
+            with self.rt.epochs.request_owner(task_id,legacy=True,timeout=120) as request_owner:
                 require(request_owner is not None,"Task request is busy")
-                with self.rt.epochs.device_owner(f["device"],legacy=True) as owner:
-                    require(owner is not None,"Task device is busy")
-                    return self._execute_owned(task_id,request,f,v,ids,request_owner,owner)
+                if self._duplicate(task_id,request,reconcile=False) is None:
+                    with self.lc.rec.db() as db:
+                        device=self.lc._family(db,family_id)["device"]
+                    with self.rt.epochs.device_owner(device,legacy=True) as owner:
+                        require(owner is not None,"Task device is busy")
+                        f,v=self._pin(family_id,expected_generation,device)
+                        return self._execute_owned(task_id,request,f,v,ids,request_owner,owner)
+            return self._duplicate(task_id,request)
 
     def _execute_owned(self,task_id,request,f,v,ids,request_owner,owner):
         family_id=request["family_id"]
@@ -156,9 +175,14 @@ class ExecutionOrchestrator:
            "reason":None,"handoff":None}
         reservations=[Claim(rid,"legacy_task_run",{},{"action_outcome":"not_attempted"},
                             device=f["device"],owner_id=task_id) for rid in ids]
+
+        def check_legacy_journals(_db):
+            for rid in ids:
+                require(not self.rt._path("runs",rid).exists(),"Child run ID collision")
+
         admitted=self.rt.epochs.admit(
             request_owner,Claim(task_id,"legacy_task",request,{"status":"running","initial_task":t},device=f["device"]),
-            reservations=reservations,
+            reservations=reservations,recheck=check_legacy_journals,
         )
         require(admitted is None,"Task ID collision")
         self._persist(t)
