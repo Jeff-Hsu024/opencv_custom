@@ -1,5 +1,6 @@
 """Orchestrator tests over real Runtime, lifecycle and recovery fixtures."""
 import json,subprocess,sys,os
+from concurrent.futures import ThreadPoolExecutor
 import pytest
 from test_workflow import recorded
 from test_runtime import prepared
@@ -30,12 +31,25 @@ def test_normal_and_duplicate(linked):
 def test_recovery_then_full_restart(linked):
     o,p=engine(linked)
     p.state=1;n=len(p.actions)
-    t=o.execute(F,T,3,True)
+    epoch=o.rt.epochs.current("dev")
+    click=p.click
+    epochs=[]
+    def contend():
+        with o.rt.epochs.device_owner("dev",timeout=0) as owner:
+            return owner is None
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        def record_owner(x,y):
+            assert pool.submit(contend).result(timeout=5)
+            epochs.append(o.rt.epochs.current("dev"))
+            return click(x,y)
+        p.click=record_owner
+        t=o.execute(F,T,3,True)
     assert t["status"]=="completed" and t["recovered"]
     assert [c["role"] for c in t["children"]]==["primary","recovery","restart"]
     assert [c["receipt"]["status"] for c in t["children"]]==["needs_agent","completed","completed"]
     assert t["selection"]["status"]=="selected" and t["recovery_endpoint"]["state"]=="a"
     assert len(p.actions)==n+2
+    assert epochs==[epoch+1,epoch+2]
     assert o.execute(F,T,3,True)["duplicate_request"] and len(p.actions)==n+2
 
 @pytest.mark.parametrize("mode",["disabled_policy","disabled_route","unknown","uncertain","ambiguous","unsafe_endpoint"])
@@ -122,7 +136,6 @@ def test_cli_mcp_inspect_restart(linked):
     assert json.loads(r["content"][0]["text"])["result"]["task_id"]==T
 
 def test_concurrent_duplicate_serialized(linked):
-    from concurrent.futures import ThreadPoolExecutor
     o,p=engine(linked);p.state=0;n=len(p.actions)
     def submit(_):
         return ExecutionOrchestrator(o.store,runtime=o.rt).execute(F,T,3,True)

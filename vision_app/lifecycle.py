@@ -236,7 +236,7 @@ class LifecycleService:
         return self.inspect(family_id)
 
     def guard_run(self,wid,device,profile):
-        """Called inside Runtime's workspace lock before a new run, not on duplicate receipts."""
+        """Check registry admission while Runtime holds the device owner."""
         with self.rec.db() as db:
             v=db.execute("SELECT * FROM workflow_versions WHERE workflow_id=?",(wid,)).fetchone()
             r=db.execute("SELECT * FROM workflow_routes WHERE child_workflow_id=?",(wid,)).fetchone()
@@ -251,9 +251,14 @@ class LifecycleService:
     def select(self,family_id,run_id):
         """Read-only recommendation from a fresh frame. Never clicks or resumes."""
         with workspace_lock(self.store):
-            return self._select_locked(family_id,run_id)
+            with self.rec.db() as db:
+                device=self._family(db,family_id)["device"]
+            with self.rt.epochs.device_owner(device,legacy=True) as owner:
+                if owner is None:
+                    raise RuntimeFault("DEVICE_BUSY","Recovery selector device is busy")
+                return self._select_locked(family_id,run_id,owner)
 
-    def _select_locked(self,family_id,run_id):
+    def _select_locked(self,family_id,run_id,owner):
         with self.rec.db() as db:
             f=self._family(db,family_id)
             require(f["active_version"] is not None,"Family is disabled")
@@ -269,7 +274,7 @@ class LifecycleService:
             return {"status":"manual_review","reason":"Uncertain action outcome or unsupported failure type","run_id":run_id,"selected":None}
         self._check_version(v)
         d,t=self.rt._definition(v["workflow_id"],f["device"],f["profile"])
-        frame,img=self.rt._capture(f["device"],f["profile"],d,lambda _:None)
+        frame,img=self.rt._capture(f["device"],f["profile"],d,lambda _:None,owner)
         parent=self.rt._classify(img,d,t)
         base={"run_id":run_id,"family_id":family_id,"generation":f["generation"],"frame_id":frame.frame_id,
               "parent_state":parent,"selected":None,"automatic_execution":False}

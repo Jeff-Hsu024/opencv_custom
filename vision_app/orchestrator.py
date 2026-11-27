@@ -6,6 +6,8 @@ import re
 import time
 
 from vision_app.lifecycle import LifecycleService
+from vision_app.coordinator import Claim, ClaimError
+from vision_app.metadata import metadata_transaction
 from vision_app.recorder import workspace_lock
 from vision_app.validation_context import validation_scope
 from vision_app.runtime import WorkflowRuntime
@@ -31,7 +33,8 @@ class ExecutionOrchestrator:
 
     def _persist(self,task):
         task["updated_at"]=time.time()
-        _atomic_write_json(self._path(task["task_id"]),task)
+        with metadata_transaction(self.store):
+            _atomic_write_json(self._path(task["task_id"]),task)
 
     @staticmethod
     def _run_id(task_id,role):
@@ -58,11 +61,31 @@ class ExecutionOrchestrator:
                 require(run["binding_id"]==child["binding_id"] and run["workflow_id"]==child["workflow_id"],
                         "Child run identity mismatch")
                 if run["status"]=="running":
-                    run=self.rt._run_locked(child["binding_id"],child["run_id"])
+                    run=self.rt._observe_run(child["run_id"])
+                if run["status"]=="running":
+                    return t
                 child["receipt"]=self._receipt(run)
-        self._handoff_context(t)
-        return self._finish(t,"interrupted","TASK_INTERRUPTED",
-                            "Previous task ended without terminal receipt. Inspect child journals and fresh state; never replay automatically.")
+
+        def finish_interrupted():
+            self._handoff_context(t)
+            return self._finish(t,"interrupted","TASK_INTERRUPTED",
+                                "Previous task ended without terminal receipt. Inspect child journals and fresh state; never replay automatically.")
+
+        def abandon(owner,receipt):
+            for child in t["children"]:
+                if not self.rt._path("runs",child["run_id"]).exists():
+                    self.rt.epochs.abandon_unpublished_child(owner,child["run_id"])
+            self.rt.epochs.close_nested(owner,{"action_outcome":"not_attempted"})
+            finish_interrupted()
+            return {"status":"interrupted"}
+        try:
+            receipt=self.rt.epochs.inspect(t["task_id"],abandon)
+            if receipt["status"]=="running":
+                return t
+        except ClaimError as exc:
+            if exc.code!="NOT_FOUND":
+                raise
+        return t if t["status"]=="interrupted" else finish_interrupted()
 
     def _pin(self,family_id,expected_generation):
         with self.lc.rec.db() as db:
@@ -72,14 +95,14 @@ class ExecutionOrchestrator:
             v=self.lc._version(db,family_id,f["active_version"])
         return f,v
 
-    def _child(self,t,role,wid,binding_id):
+    def _child(self,t,role,wid,binding_id,request_owner,owner):
         rid=self._run_id(t["task_id"],role)
         require(not self.rt._path("runs",rid).exists(),"Child run ID collision")
         child={"role":role,"workflow_id":wid,"binding_id":binding_id,"run_id":rid,"receipt":None}
         t["children"].append(child)
         t["phase"]=role
         self._persist(t)
-        result=self.rt._run_locked(binding_id,rid)
+        result=self.rt._run_locked(binding_id,rid,request_owner,owner)
         require(result["run_id"]==rid and result["workflow_id"]==wid and
                 result["binding_id"]==binding_id and not result.get("duplicate_request"),"Unexpected child run receipt")
         child["receipt"]=self._receipt(result)
@@ -109,57 +132,82 @@ class ExecutionOrchestrator:
                 if old["status"]=="running":
                     old=self._reconcile(old)
                 return {**old,"duplicate_request":True}
+            prior=self.rt.epochs.duplicate(task_id,"legacy_task",request)
+            if prior is not None:
+                # Admission committed but the initial compatibility journal was
+                # never published. No child may start before that publication.
+                return {**self._reconcile(prior["initial_task"]),"duplicate_request":True}
             f,v=self._pin(family_id,expected_generation)
-            for role in ("primary","recovery","restart"):
-                require(not self.rt._path("runs",self._run_id(task_id,role)).exists(),"Child run ID collision")
-            t={"task_id":task_id,"request":request,"family_id":family_id,"generation":f["generation"],
-               "version":v["version"],"workflow_id":v["workflow_id"],"device":f["device"],
-               "profile":f["profile"],"status":"running","phase":"preflight","children":[],
-               "selection":None,"recovered":False,"started_at":time.time(),"finished_at":None,
-               "reason":None,"handoff":None}
+            ids=[self._run_id(task_id,role) for role in ("primary","recovery","restart")]
+            for rid in ids:
+                require(not self.rt._path("runs",rid).exists(),"Child run ID collision")
+            with self.rt.epochs.request_owner(task_id,legacy=True) as request_owner:
+                require(request_owner is not None,"Task request is busy")
+                with self.rt.epochs.device_owner(f["device"],legacy=True) as owner:
+                    require(owner is not None,"Task device is busy")
+                    return self._execute_owned(task_id,request,f,v,ids,request_owner,owner)
+
+    def _execute_owned(self,task_id,request,f,v,ids,request_owner,owner):
+        family_id=request["family_id"]
+        t={"task_id":task_id,"request":request,"family_id":family_id,"generation":f["generation"],
+           "version":v["version"],"workflow_id":v["workflow_id"],"device":f["device"],
+           "profile":f["profile"],"status":"running","phase":"preflight","children":[],
+           "selection":None,"recovered":False,"started_at":time.time(),"finished_at":None,
+           "reason":None,"handoff":None}
+        reservations=[Claim(rid,"legacy_task_run",{},{"action_outcome":"not_attempted"},
+                            device=f["device"],owner_id=task_id) for rid in ids]
+        admitted=self.rt.epochs.admit(
+            request_owner,Claim(task_id,"legacy_task",request,{"status":"running","initial_task":t},device=f["device"]),
+            reservations=reservations,
+        )
+        require(admitted is None,"Task ID collision")
+        self._persist(t)
+        try:
+            proof,d=self.lc._check_version(v)
+            binding_id=proof["binding_id"]
+            first=self._child(t,"primary",v["workflow_id"],binding_id,request_owner,owner)
+            if first["status"]=="completed":
+                return self._finish(t,"completed")
+            if not request["auto_recover"] or not self._eligible(first):
+                return self._handoff(t,"PRIMARY_NEEDS_AGENT","Automatic recovery disabled or failure is not eligible.")
+            t["phase"]="select"
             self._persist(t)
-            try:
-                proof,d=self.lc._check_version(v)
-                binding_id=proof["binding_id"]
-                first=self._child(t,"primary",v["workflow_id"],binding_id)
-                if first["status"]=="completed":
-                    return self._finish(t,"completed")
-                if not auto_recover or not self._eligible(first):
-                    return self._handoff(t,"PRIMARY_NEEDS_AGENT","Automatic recovery disabled or failure is not eligible.")
-                t["phase"]="select"
-                self._persist(t)
-                selection=self.lc._select_locked(family_id,first["run_id"])
-                t["selection"]=selection
-                self._persist(t)
-                if selection["status"]!="selected":
-                    return self._handoff(t,"RECOVERY_NOT_SELECTED","No unique qualified recovery route.")
-                selected=selection["selected"]
-                if selected["destination_state"]!=d["initial_state"]:
-                    return self._handoff(t,"RECOVERY_ENDPOINT_UNSAFE","Selected route does not return to original initial state.")
-                with self.lc.rec.db() as db:
-                    route=self.lc._dict(db.execute("SELECT * FROM workflow_routes WHERE route_id=? AND family_id=? AND parent_version=? AND enabled=1",
-                                                  (selected["route_id"],family_id,v["version"])).fetchone())
-                require(route["child_workflow_id"]==selected["workflow_id"] and
-                        route["qualification_id"]==selected["qualification_id"],"Selected route identity mismatch")
-                qualified=self.rt._load("runs",route["run_id"])
-                child=self._child(t,"recovery",route["child_workflow_id"],qualified["binding_id"])
-                if child["status"]!="completed":
-                    return self._handoff(t,"RECOVERY_FAILED","Recovery did not complete; no retry.")
-                parent,templates=self.rt._definition(v["workflow_id"],f["device"],f["profile"])
-                image,_=self.lc._frame(child["last_frame_id"],f["device"],parent["geometry"])
-                classification=self.rt._classify(image,parent,templates)
-                t["recovery_endpoint"]={"frame_id":child["last_frame_id"],**classification}
-                self._persist(t)
-                if classification["ambiguous"] or classification["state"]!=d["initial_state"]:
-                    return self._handoff(t,"RECOVERY_ENDPOINT_UNVERIFIED","Child final frame does not uniquely match parent initial state.")
-                t["recovered"]=True
-                self._persist(t)
-                retry=self._child(t,"restart",v["workflow_id"],binding_id)
-                if retry["status"]=="completed":
-                    return self._finish(t,"completed")
-                return self._handoff(t,"RESTART_FAILED","Original task did not complete after recovery; no second attempt.")
-            except Exception as exc:
-                return self._handoff(t,getattr(exc,"code","ORCHESTRATOR_ERROR"),str(exc))
+            selection=self.lc._select_locked(family_id,first["run_id"],owner)
+            t["selection"]=selection
+            self._persist(t)
+            if selection["status"]!="selected":
+                return self._handoff(t,"RECOVERY_NOT_SELECTED","No unique qualified recovery route.")
+            selected=selection["selected"]
+            if selected["destination_state"]!=d["initial_state"]:
+                return self._handoff(t,"RECOVERY_ENDPOINT_UNSAFE","Selected route does not return to original initial state.")
+            with self.lc.rec.db() as db:
+                route=self.lc._dict(db.execute("SELECT * FROM workflow_routes WHERE route_id=? AND family_id=? AND parent_version=? AND enabled=1",
+                                              (selected["route_id"],family_id,v["version"])).fetchone())
+            require(route["child_workflow_id"]==selected["workflow_id"] and
+                    route["qualification_id"]==selected["qualification_id"],"Selected route identity mismatch")
+            qualified=self.rt._load("runs",route["run_id"])
+            child=self._child(t,"recovery",route["child_workflow_id"],qualified["binding_id"],request_owner,owner)
+            if child["status"]!="completed":
+                return self._handoff(t,"RECOVERY_FAILED","Recovery did not complete; no retry.")
+            parent,templates=self.rt._definition(v["workflow_id"],f["device"],f["profile"])
+            image,_=self.lc._frame(child["last_frame_id"],f["device"],parent["geometry"])
+            classification=self.rt._classify(image,parent,templates)
+            t["recovery_endpoint"]={"frame_id":child["last_frame_id"],**classification}
+            self._persist(t)
+            if classification["ambiguous"] or classification["state"]!=d["initial_state"]:
+                return self._handoff(t,"RECOVERY_ENDPOINT_UNVERIFIED","Child final frame does not uniquely match parent initial state.")
+            t["recovered"]=True
+            self._persist(t)
+            retry=self._child(t,"restart",v["workflow_id"],binding_id,request_owner,owner)
+            if retry["status"]=="completed":
+                return self._finish(t,"completed")
+            return self._handoff(t,"RESTART_FAILED","Original task did not complete after recovery; no second attempt.")
+        except Exception as exc:
+            return self._handoff(t,getattr(exc,"code","ORCHESTRATOR_ERROR"),str(exc))
+        finally:
+            if t["status"]!="running":
+                self.rt.epochs.close_nested(request_owner,{"action_outcome":"not_attempted"})
+                self.rt.epochs.record(request_owner,task_id,{"status":t["status"]},terminal=True)
 
     def _handoff_context(self,t):
         last=t["children"][-1] if t["children"] else None

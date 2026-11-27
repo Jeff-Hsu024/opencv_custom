@@ -11,7 +11,9 @@ import pytest
 
 from test_workflow import recorded
 from vision_app.mcp_server import VisionMcpServer
+from vision_app.recovery import RecoveryService
 from vision_app.runtime import WorkflowRuntime, RuntimeFault
+from vision_app.test.test_coordinator import worker
 from vision_app.workflow import WorkflowBuilder, WorkflowError
 
 PROFILE={"package":"com.example.app","version_code":1,"rotation":1,"locale":"zh-Hant-TW","ui_mode":"0x21"}
@@ -79,11 +81,19 @@ def test_timeout_no_retry(prepared):
         p.actions.append(("click",x,y))
         return True
     p.click=click
+    epoch=rt.epochs.current("dev")
     r=rt.run(b["binding_id"],RID)
     assert r["status"]=="needs_agent" and r["reason"]["code"]=="POSTCONDITION_TIMEOUT"
     assert r["action_outcome"]=="executed_unverified"
     assert len(p.actions)==before+1
-    assert rt.inspect(RID)["last_frame_id"]
+    journal=rt.inspect(RID)
+    step=journal["steps"][0]
+    observed=step["post_observations"][-1]["frame_id"]
+    assert step["post_frame_id"] is None and observed==journal["last_frame_id"]
+    assert observed!=step["pre_frame_id"]
+    np.testing.assert_array_equal(server.store.load_image(observed),p.images[0])
+    assert rt.epochs.ref_epoch(step["target"]["ref_id"]).epoch==epoch
+    assert rt.epochs.frame_epoch(observed,"dev")==rt.epochs.current("dev")==epoch+1
     assert rt.run(b["binding_id"],RID)["duplicate_request"]
     assert len(p.actions)==before+1
 
@@ -109,13 +119,58 @@ def test_crash_pending_never_replays(prepared):
         raise KeyboardInterrupt()
     p.click=click
     with pytest.raises(KeyboardInterrupt):rt.run(b["binding_id"],RID)
-    pending=rt.inspect(RID)
+    pending=rt._load("runs",RID)
     assert pending["status"]=="running" and pending["steps"][-1]["status"]=="action_pending"
     assert pending["action_outcome"]=="unknown"
     restored=WorkflowRuntime(server.store,observation=server.obs,actions=server.actions,probe=lambda d,p:PROFILE)
     r=restored.run(b["binding_id"],RID)
     assert r["status"]=="interrupted" and r["duplicate_request"]
     assert len(p.actions)==before+1
+
+
+def test_live_owner_then_process_death_inside_input(prepared):
+    rt,b,server,p,*_=prepared
+    epoch=rt.epochs.current("dev")
+    before=len(p.actions)
+    recovery=RecoveryService(server.store)
+    with worker(server.store.store_dir, """
+import json
+from vision_app.mcp_server import VisionMcpServer
+from vision_app.runtime import WorkflowRuntime
+from vision_app.test.test_workflow import Platform
+
+class PausedPlatform(Platform):
+    def click(self, x, y):
+        print("ready")
+        sys.stdin.readline()
+        return True
+
+platform = PausedPlatform()
+server = VisionMcpServer(sys.argv[1], platform_factory=lambda _: platform)
+runtime = WorkflowRuntime(server.store, observation=server.obs, actions=server.actions,
+                          probe=lambda *_: json.loads(sys.argv[4]))
+runtime.run(sys.argv[2], sys.argv[3])
+""", b["binding_id"], RID, json.dumps(PROFILE)):
+        journal_path=rt._path("runs",RID)
+        raw=journal_path.read_bytes()
+        live=rt.inspect(RID)
+        assert live["status"]=="running" and live["action_outcome"]=="unknown"
+        assert live["steps"][0]["status"]=="action_pending"
+        assert live["last_frame_id"]==live["steps"][0]["pre_frame_id"]
+        assert rt.epochs.current("dev")==epoch+1
+        with rt.epochs.device_owner("dev",timeout=0) as owner:
+            assert owner is None
+        with pytest.raises(RuntimeFault,match="still active"):
+            recovery.open(RID)
+        assert journal_path.read_bytes()==raw
+
+    dead=rt.inspect(RID)
+    assert dead["status"]=="interrupted" and dead["action_outcome"]=="unknown"
+    assert dead["last_frame_id"]==live["last_frame_id"]
+    assert recovery.open(RID)["handoff"]["action_outcome"]=="unknown"
+    duplicate=rt.run(b["binding_id"],RID)
+    assert duplicate["duplicate_request"] and duplicate["status"]=="interrupted"
+    assert len(p.actions)==before and rt.epochs.current("dev")==epoch+1
 
 
 def test_app_change_after_action(prepared):

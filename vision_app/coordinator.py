@@ -254,6 +254,28 @@ class RequestLedger(OwnerCoordinator):
             )
             return result.rowcount == 1
 
+    def close_nested(self, owner, receipt):
+        """Finalize unused reservations for a completed or abandoned standalone task."""
+        self._require_owner(owner, owner.key, "request")
+        with self.transaction() as db:
+            db.execute(
+                "UPDATE request_claim SET state = 'terminal', receipt_json = ?, updated_at = ? "
+                "WHERE parent_id = ? AND owner_id = ? AND state = 'reserved'",
+                (canonical_json(receipt), time.time(), owner.key, owner.key),
+            )
+
+    def abandon_unpublished_child(self, owner, request_id):
+        """Close an owned run whose journal was never created, before any intent."""
+        self._require_owner(owner, owner.key, "request")
+        with self.transaction() as db:
+            row = self._row(db, request_id)
+            if (row is not None and row["parent_id"] == owner.key and row["owner_id"] == owner.key
+                    and row["state"] == "running"):
+                receipt = self._receipt(row)
+                if receipt.get("action_outcome") != "not_attempted":
+                    raise RuntimeError("Unpublished child has a possible effect")
+                self._write(db, request_id, "terminal", receipt)
+
     def close_admission(self, owner, not_attempted):
         """Close the batch and finalize unclaimed children in one transaction."""
         self._require_owner(owner, getattr(owner, "key", None), "parent")

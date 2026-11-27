@@ -5,7 +5,7 @@ import json
 import time
 
 from vision_app.recorder import Recorder, workspace_lock
-from vision_app.runtime import WorkflowRuntime
+from vision_app.runtime import WorkflowRuntime, check
 from vision_app.workflow import WorkflowBuilder, canonical, digest, require, fields, label, source_frame, decode
 
 KINDS = ("recovery_route", "replacement")
@@ -75,15 +75,11 @@ class RecoveryService:
 
     def open(self, run_id):
         """Atomically link one new exploration session to a failed or interrupted run."""
+        observed=self.runtime._observe_run(run_id)
+        check(observed["status"]!="running","DEVICE_BUSY","Runtime request is still active")
         with workspace_lock(self.store):
             run=self.runtime._load("runs",run_id)
-            require(run["status"] in ("running","needs_agent","interrupted"),"Completed run is not recoverable")
-            if run["status"]=="running":
-                # Exclusive adapter lock means there is no active Runtime writer.
-                run["status"]="interrupted"
-                run["reason"]={"code":"INTERRUPTED","message":"Writer ended without terminal receipt; actual state must be observed."}
-                run["finished_at"]=time.time()
-                self.runtime._persist(run)
+            require(run["status"] in ("needs_agent","interrupted"),"Completed run is not recoverable")
             binding=self.runtime._binding(run["binding_id"])
             require(binding["workflow_id"]==run["workflow_id"] and binding["device"]==run["device"]
                     and binding["profile"]==run["profile"],"Runtime binding mismatch")
