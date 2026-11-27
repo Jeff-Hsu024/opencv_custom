@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from vision_app.actions import ActionService
+from vision_app.portable import PortableDefinitions, SCHEMAS as PORTABLE_SCHEMAS
 from vision_app.primitives import PrimitiveService, SCHEMAS as PRIMITIVE_SCHEMAS
 from vision_app.assets import (
     AssetNotFoundError,
@@ -82,7 +83,7 @@ def _build_parser() -> _CliParser:
     phase9 = sub.add_parser("phase9", help="Phase 9 request-file API")
     phase9.add_argument("phase9_operation", choices=["android-devices", "asset-revision-register",
                                                      "asset-revision-resolve", "scoped-transition",
-                                                     *(op.replace("_", "-") for op in PRIMITIVE_SCHEMAS)])
+                                                     *(op.replace("_", "-") for op in (*PRIMITIVE_SCHEMAS,*PORTABLE_SCHEMAS))])
     phase9.add_argument("--request", required=True, help="UTF-8 JSON request file")
     transition = sub.add_parser('transition', help='Recorded one-click transition')
     transition.add_argument('transition_action',choices=['execute','inspect'])
@@ -578,6 +579,8 @@ def run_cli(argv=None, *, service=None):
                 operation = args.phase9_operation.replace('-', '_')
                 if operation == "scoped_transition":
                     payload, exit_code = TransitionService(store, observation=service).invoke_scoped(request)
+                elif operation in PORTABLE_SCHEMAS:
+                    payload, exit_code = PortableDefinitions(store).invoke(operation, request)
                 elif operation in PRIMITIVE_SCHEMAS:
                     primitive = PrimitiveService(service or ObservationService(store=store))
                     payload, exit_code = primitive.invoke(operation, request)

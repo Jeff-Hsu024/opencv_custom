@@ -98,45 +98,8 @@ class LifecycleService:
         return img,sha
 
     def _proof(self,wid,run_id):
-        run=self.rt._load("runs",run_id)
-        require(run["status"]=="completed" and run["workflow_id"]==wid,"Need completed matching runtime run")
-        binding=self.rt._binding(run["binding_id"])
-        require(all(binding[k]==run[k] for k in ("workflow_id","device","profile")),"Proof binding mismatch")
-        d,t=self.rt._definition(wid,run["device"],run["profile"])
-        require(run["completed_steps"]==len(d["steps"])==len(run["steps"]) and
-                run["last_confirmed_state"]==d["final_state"] and run["action_outcome"]=="verified",
-                "Incomplete proof run")
-        hashes={}
-        refs=set()
-        historical_refs={step["provenance"]["source_ref_id"] for step in d["steps"]}
-        for s,step in zip(run["steps"],d["steps"]):
-            require(s["step_id"]==step["id"] and s["status"]=="verified","Invalid verified step")
-            pre,ph=self._frame(s["pre_frame_id"],run["device"],d["geometry"])
-            post,qh=self._frame(s["post_frame_id"],run["device"],d["geometry"])
-            for image,expected in ((pre,step["from"]),(post,step["to"])):
-                state=self.rt._classify(image,d,t)
-                require(not state["ambiguous"] and state["state"]==expected,"Proof state guard mismatch")
-            m=self.rt._matches(pre,step["action"],t)
-            target=s["target"];receipt=s["action_receipt"]
-            require(len(m)==1 and list(m[0].bbox)==target["device_bbox"] and
-                    target["frame_id"]==s["pre_frame_id"] and target["ref_id"] not in refs and target["ref_id"] not in historical_refs and
-                    target["template_sha256"]==step["action"]["template"]["sha256"],"Proof target mismatch")
-            ref=self.rt.refs.get(target["ref_id"])
-            require(ref.frame_id==s["pre_frame_id"] and ref.device_id==run["device"] and
-                    list(ref.device_bbox)==target["device_bbox"] and
-                    receipt["source"]["ref_id"]==ref.ref_id and receipt["source"]["frame_id"]==ref.frame_id and
-                    receipt["status"]=="executed" and receipt["verified"] is False and receipt["device_id"]==run["device"] and
-                    [receipt["target"]["x"],receipt["target"]["y"]]==list(ref.device_center),"Proof receipt mismatch")
-            before=self.store.get_frame(s["pre_frame_id"])
-            after=self.store.get_frame(s["post_frame_id"])
-            require(before.timestamp<=ref.created_at<=receipt["executed_at"]<=after.timestamp
-                    and receipt["executed_at"]-before.timestamp<=step["action"]["max_ref_age_seconds"],"Proof action chronology mismatch")
-            refs.add(ref.ref_id)
-            hashes[s["pre_frame_id"]]=ph;hashes[s["post_frame_id"]]=qh
-            hashes[ref.ref_id]=seal(ref.to_dict())
-        require(run["last_frame_id"]==run["steps"][-1]["post_frame_id"],"Proof endpoint mismatch")
-        return {"run_id":run_id,"run_sha256":seal(run),"evidence_sha256":hashes,
-                "device":run["device"],"profile":run["profile"]},run,d
+        from vision_app.definition_core import legacy_proof
+        return legacy_proof(self.rt,wid,run_id)
 
     def _check_version(self,v):
         proof,run,d=self._proof(v["workflow_id"],v["proof"]["run_id"])

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, TextIO, Tuple
 
 from vision_app.actions import ActionService
+from vision_app.portable import PortableDefinitions, SCHEMAS as PORTABLE_SCHEMAS
 from vision_app.primitives import PrimitiveService, SCHEMAS as PRIMITIVE_SCHEMAS
 from vision_app.assets import (
     AssetNotFoundError,
@@ -334,6 +335,8 @@ def _tool_definitions() -> List[Dict[str, Any]]:
     definitions.append({"name": "vision_scoped_transition",
                         "description": "Record an epoch-checked transition using exact asset revisions.",
                         "inputSchema": SCOPED_TRANSITION_SCHEMA})
+    definitions.extend({"name":f"vision_{op}","description":desc,"inputSchema":PORTABLE_SCHEMAS[op]}
+                       for op,desc in {"portable_publish":"Publish a verified immutable source workflow.","portable_inspect":"Inspect historical portable definition.","portable_list":"List portable definitions."}.items())
     return definitions
 
 
@@ -393,6 +396,11 @@ class VisionMcpServer:
 
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         operation = name.removeprefix("vision_")
+        if name.startswith("vision_") and operation in PORTABLE_SCHEMAS:
+            payload, _ = PortableDefinitions(self.store).invoke(operation, {} if arguments is None else arguments)
+            result = self._text_tool_result(payload)
+            result["isError"] = not payload["ok"]
+            return result
         if name == "vision_scoped_transition":
             svc = TransitionService(self.store, observation=self.obs, matcher=self.matcher,
                                     actions=self.actions, waits=self.waits)
