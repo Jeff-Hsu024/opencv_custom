@@ -111,5 +111,9 @@ Phase 7 baseline: 258 regression tests passed; MuMu controlled settings navigati
 - [Builder plan](skills/agent-vision/references/builder.md): exact plan fields and evidence collection.
 - [Core README](core/README.md): legacy core library context, not the current agent entry point.
 
+## Agent Vision 0.3.0 (Phase 9)
+
+Learn once, qualify per explicit Android device, execute many. Immutable portable definitions, independent qualification slots, family generation CAS and bounded batch execution share the existing CLI/MCP Store. 90 MCP tools preserve the 61 legacy definitions. See [portable playbook](skills/agent-vision/references/portable.md) and [release notes](specs/agent-vision-phase9/RELEASE.md). Same-profile Android devices on one host were qualified with two live Settings campaigns; CZN-specific, heterogeneous-profile and cross-host readiness are not established.
+
 ## Agent Vision 0.2.0 (Phase 8 + 8.1)
 The release adds recorded one-click transitions, explicit annotation fields/errors, opt-in response projections, metadata-only screenshots, CLI/MCP parity improvements, asset pagination, task-local sealed offline validation reuse, retained failure observations, and read-only runtime profile discovery. Existing workflow format and legacy full response defaults remain compatible. See [interface](skills/agent-vision/references/interface.md) and [release notes](specs/agent-vision-phase8/RELEASE.md). The NB official deployment uses the main checkout and shared .vision_store; independent qualification stores remain separate. Controlled settings navigation is qualified; generalized unattended game automation is not.

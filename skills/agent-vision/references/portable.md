@@ -1,6 +1,6 @@
-# Phase 9 portable workflows (candidate)
+# Phase 9 portable workflows (0.3.0)
 
-Use only when the deployed tool discovery includes the Phase 9 operations. The legacy device-bound workflow and recovery APIs remain available unchanged. The candidate is not a live-qualified release.
+Use only when the deployed tool discovery includes the Phase 9 operations. The legacy device-bound workflow and recovery APIs remain available unchanged. Release 0.3.0 passed same-profile, same-host two-device platform qualification. Each application/device still requires its own qualification.
 
 ## Transport
 
@@ -16,4 +16,4 @@ For every additive operation, call MCP `vision_<operation>` with the correspondi
 
 Use portable_inspect/list, portable_preflight_inspect, portable_qualification_inspect/list/record, portable_family_inspect/list, portable_task_list and portable_batch_list for read-only inspection. Use portable_qualification_revoke for explicit revocation with CAS. Operation status and semantic PASS are distinct from transport success.
 
-One workspace Store and OS owner locks coordinate CLI and MCP, including parallel child execution. Never mix separate Store copies as a shared registry. Back up with all writers quiescent; restore into a separate directory and verify retained hashes before migration. Never overwrite frozen evidence or an existing terminal receipt. A live two-device acceptance run remains mandatory before asserting multi-device production readiness.
+One workspace Store and OS owner locks coordinate CLI and MCP, including parallel child execution. Never mix separate Store copies as a shared registry. Back up with all writers quiescent; restore into a separate directory and verify retained hashes before migration. Never overwrite frozen evidence or an existing terminal receipt. The release qualification does not establish arbitrary unattended automation or heterogeneous profile portability.
