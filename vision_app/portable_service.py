@@ -148,6 +148,12 @@ class PortableService:
                         geometry={"width":frame["width"],"height":frame["height"],
                                   "rotation":observed["rotation"] if frame["rotation"] is None else frame["rotation"]}
                         receipt["geometry"]=geometry
+                        # Fail closed on the captured evidence before another
+                        # profile probe can obscure a confirmed mismatch.
+                        if frame["device_id"]!=device or geometry!=record["geometry"]:
+                            raise RuntimeFault("GEOMETRY_MISMATCH","Live geometry differs",
+                                               {"expected":record["geometry"],"observed":geometry,
+                                                "frame_id":fid})
                         latest=self.rt.probe(device,record["profile"]["package"])
                         try:
                             profile_shape(latest)
@@ -155,8 +161,6 @@ class PortableService:
                             raise RuntimeFault("PROFILE_UNKNOWN","Cannot establish Android profile") from exc
                         if latest!=record["profile"]:
                             raise RuntimeFault("PROFILE_MISMATCH","Android profile differs",{"expected":record["profile"],"observed":latest})
-                        if geometry!=record["geometry"]:
-                            raise RuntimeFault("GEOMETRY_MISMATCH","Live geometry differs",{"expected":record["geometry"],"observed":geometry})
                         d,templates=resolved.definition,resolved.templates()
                         image=self.store.load_image(fid,device_id=device)
                         state=self.rt._classify(image,d,templates)

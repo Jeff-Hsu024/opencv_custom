@@ -131,7 +131,8 @@ class WorkflowRuntime:
         fid=f["frame_id"]
         # Journal actual frame even if the subsequent profile/geometry check fails.
         observe(fid)
-        self._profile(device,profile,portable=portable)
+        # A confirmed capture mismatch must take precedence over any later
+        # transient focus failure. Keep the actual frame in the journal.
         geometry=definition["geometry"]
         check(f["device_id"]==device and f["width"]==geometry["width"] and f["height"]==geometry["height"],
               "GEOMETRY_MISMATCH","Live frame geometry differs from workflow",
@@ -139,6 +140,7 @@ class WorkflowRuntime:
         if portable:
             check(f["rotation"] is None or f["rotation"]==geometry["rotation"],"GEOMETRY_MISMATCH",
                   "Live frame rotation differs",{"frame_id":fid,"rotation":f["rotation"]})
+        self._profile(device,profile,portable=portable)
         return self.store.get_frame(fid,device_id=device),self.store.load_image(fid,device_id=device)
 
     def _matches(self,image,spec,templates):
