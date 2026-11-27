@@ -1,4 +1,4 @@
-"""Phase 9 owner and claim primitives, inside the compatibility outer gate."""
+"""Phase 9 owner and claim primitives."""
 
 from contextlib import closing, contextmanager, nullcontext
 from dataclasses import dataclass, replace
@@ -94,6 +94,9 @@ class OwnerCoordinator:
 
     @contextmanager
     def device_owner(self, serial, *, legacy=False, timeout=None, owner=None):
+        recorded = getattr(_local, "recorded_device", None)
+        if owner is None and recorded is not None and (recorded.store, recorded.key) == (self.root, serial):
+            owner = recorded
         if owner is not None:
             self._require_owner(owner, serial, "device")
             yield owner
@@ -103,6 +106,17 @@ class OwnerCoordinator:
             raise ValueError("Device owner timeout exceeds admission limit")
         with self._lock("device", serial, limit if timeout is None else timeout) as acquired:
             yield acquired
+
+    @contextmanager
+    def recorded_device(self, owner):
+        """Allow adapter calls inside one recorded operation to reuse its owner."""
+        self._require_owner(owner, owner.key, "device")
+        previous = getattr(_local, "recorded_device", None)
+        _local.recorded_device = owner
+        try:
+            yield
+        finally:
+            _local.recorded_device = previous
 
     def _require_owner(self, owner, key, role):
         if owner is None or not owner.active or (owner.store, owner.key, owner.role) != (self.root, key, role):

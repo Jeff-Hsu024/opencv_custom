@@ -15,7 +15,7 @@ import numpy as np
 
 from service.core.opencv.open_cv_service import OpenCvService
 from vision_app.assets import RefRegistry
-from vision_app.recorder import Recorder, workspace_lock, _decode
+from vision_app.recorder import Recorder, _decode
 from vision_app.store import FrameStore, _atomic_write_bytes, _atomic_write_json
 
 ACTIONS = ("click", "swipe", "type", "key")
@@ -359,8 +359,7 @@ class WorkflowBuilder:
         return definition,blobs
 
     def build(self, session_id, plan):
-        with workspace_lock(self.store):
-            return self._build_locked(session_id, plan)
+        return self._build_locked(session_id, plan)
 
     def _build_locked(self, session_id, plan):
         from vision_app.validation_context import evidence_snapshot
@@ -431,8 +430,7 @@ class WorkflowBuilder:
                 "live_runtime_qualified":False}
 
     def validate(self,workflow_id):
-        with workspace_lock(self.store):
-            return self._validate(workflow_id)
+        return self._validate(workflow_id)
 
     def list(self,limit=20,after=None):
         require(type(limit)==int and 1<=limit<=50,"Invalid limit")

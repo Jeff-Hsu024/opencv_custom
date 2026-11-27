@@ -8,7 +8,6 @@ import time
 from vision_app.lifecycle import LifecycleService
 from vision_app.coordinator import Claim, ClaimError
 from vision_app.metadata import metadata_transaction
-from vision_app.recorder import workspace_lock
 from vision_app.validation_context import validation_scope
 from vision_app.runtime import WorkflowRuntime
 from vision_app.store import _atomic_write_json
@@ -75,9 +74,13 @@ class ExecutionOrchestrator:
         except ClaimError as exc:
             if exc.code!="NOT_FOUND":
                 raise
-            # Pre-ledger journals still use the compatibility gate.
-            if t["status"]=="running" and self._reconcile_children(t):
-                finish_interrupted()
+            # Historical tasks have no ledger row, but still use the same owner file.
+            with self.rt.epochs.request_owner(task_id,parent=True,legacy=True) as owner:
+                if owner is not None:
+                    if self._path(task_id).exists():
+                        t=self._load(task_id)
+                    if t["status"]=="running" and self._reconcile_children(t):
+                        finish_interrupted()
         return self._load(task_id) if self._path(task_id).exists() else t
 
     def _reconcile_children(self,t,owner=None):
@@ -150,9 +153,9 @@ class ExecutionOrchestrator:
         require(type(auto_recover) is bool,"auto_recover must be boolean")
         request={"family_id":family_id,"expected_generation":expected_generation,"auto_recover":auto_recover}
         self._path(task_id)
-        with workspace_lock(self.store), validation_scope(self.store):
-            duplicate=self._duplicate(task_id,request)
-            if duplicate is not None:
+        with validation_scope(self.store):
+            duplicate=self._duplicate(task_id,request,reconcile=False)
+            if duplicate is not None and duplicate["status"]!="running":
                 return duplicate
             ids=[self._run_id(task_id,role) for role in ("primary","recovery","restart")]
             with self.rt.epochs.request_owner(task_id,legacy=True,timeout=120) as request_owner:

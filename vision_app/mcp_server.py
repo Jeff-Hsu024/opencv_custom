@@ -43,7 +43,7 @@ from vision_app.store import (
     StoreError,
 )
 from vision_app.waits import WaitService, WaitFailure
-from vision_app.recorder import Recorder, RecorderError, OPERATIONS, workspace_lock, record_tool_definitions
+from vision_app.recorder import Recorder, RecorderError, OPERATIONS, record_tool_definitions
 from vision_app.workflow import WorkflowBuilder, WorkflowError, workflow_tool_definitions
 from vision_app.runtime import WorkflowRuntime, RuntimeFault, runtime_tool_definitions
 from vision_app.recovery import RecoveryService, recovery_tool_definitions
@@ -477,8 +477,7 @@ class VisionMcpServer:
                 if not result['isError'] and original:
                     result['content'] = [c for c in original[0]['content'] if c['type']=='image'] + result['content']
                 return result
-            with workspace_lock(self.store):
-                return self._call_tool(name,args)
+            return self._call_tool(name,args)
         except Exception as exc:
             return {'content':[{'type':'text','text':json.dumps({'ok':False,'error':_error_payload(exc)})}],'isError':True}
 

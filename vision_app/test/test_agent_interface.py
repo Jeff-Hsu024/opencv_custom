@@ -6,7 +6,6 @@ from test_workflow import recorded,call
 from test_transition import env,T
 from vision_app.workflow import WorkflowBuilder,WorkflowError
 from vision_app.validation_context import validation_scope
-from vision_app.recorder import workspace_lock
 from vision_app.transition import TransitionService
 from vision_app.cli import run_cli
 
@@ -109,7 +108,7 @@ def test_task_validation_tamper(recorded,tamper,monkeypatch):
     orig=WorkflowBuilder._validate_uncached
     def wrapped(self,w):n[0]+=1;return orig(self,w)
     monkeypatch.setattr(WorkflowBuilder,"_validate_uncached",wrapped)
-    with workspace_lock(s.store),validation_scope(s.store):
+    with validation_scope(s.store):
         assert b._validate(wid)["status"]=="offline_pass"
         assert b._validate(wid)["status"]=="offline_pass" and n[0]==1
         if tamper=="annotation":
@@ -136,6 +135,6 @@ def test_task_validation_not_cross_scope(recorded,monkeypatch):
     def wrapped(self,w):n[0]+=1;return orig(self,w)
     monkeypatch.setattr(WorkflowBuilder,"_validate_uncached",wrapped)
     for _ in range(2):
-        with workspace_lock(s.store),validation_scope(s.store):
+        with validation_scope(s.store):
             b._validate(wid);b._validate(wid)
     assert n[0]==2

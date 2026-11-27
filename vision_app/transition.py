@@ -10,7 +10,7 @@ from pathlib import Path
 import time
 
 from vision_app.actions import ActionService
-from vision_app.assets import AssetRegistry, MatchingService
+from vision_app.assets import AssetRegistry, MatchingService, recorded_asset_snapshots
 from vision_app.asset_revisions import AssetRevisionStore, _DEVICE, _SESSION
 from vision_app.coordinator import Claim, ClaimError
 from vision_app.discovery import DiscoveryService
@@ -18,7 +18,7 @@ from vision_app.epochs import ActionIntent, DeviceEpochs
 from vision_app.metadata import metadata_transaction
 from vision_app.primitives import _failure, _reason, _string
 from vision_app.observation import ObservationService, OperationError, _artifact_for_record
-from vision_app.recorder import Recorder, RecorderError, workspace_lock
+from vision_app.recorder import Recorder, RecorderError
 from vision_app.store import _atomic_write_json, StoreError
 from vision_app.waits import WaitService, WaitFailure
 
@@ -238,27 +238,34 @@ class TransitionService:
         return t
 
     def _reconcile(self, t):
+        transition_id = t["transition_id"]
+
         def finish(pending=None):
-            self._restore_observations(t, pending=pending)
+            nonlocal t
+            t = self.inspect(transition_id)
+            if t["status"] != "running":
+                return t
+            if pending is not None:
+                t["action_outcome"] = pending
+            self._restore_observations(t, pending=t["action_outcome"] != "not_attempted")
             return self._finish(t, "interrupted", {
                 "code": "TRANSITION_INTERRUPTED",
                 "message": "Previous writer ended; inspect receipts and fresh state. Do not replay.",
             })
 
         def abandoned(owner, claim):
-            t["action_outcome"] = claim["action_outcome"]
-            finish(pending=claim["action_outcome"] != "not_attempted")
+            finish(pending=claim["action_outcome"])
             return {"action_outcome": t["action_outcome"]}
 
         try:
-            self.epochs.inspect(t["transition_id"], abandoned)
+            self.epochs.inspect(transition_id, abandoned)
         except ClaimError as exc:
             if exc.code != "NOT_FOUND":
                 raise
-            with self.epochs.request_owner(t["transition_id"], legacy=True) as owner:
+            with self.epochs.request_owner(transition_id, legacy=True) as owner:
                 if owner is not None:
                     return finish()
-        return t
+        return self.inspect(transition_id)
 
     def inspect(self,transition_id):
         p=self._path(transition_id)
@@ -301,21 +308,20 @@ class TransitionService:
         path=self._path(transition_id)
         request={"device":device,"session_id":session_id,"target":target,"postcondition":postcondition,"threshold":threshold,
                  "max_ref_age_seconds":max_ref_age_seconds,"return_image":return_image,"pre_state":pre_state}
-        with workspace_lock(self.store):
-            if path.exists():
-                t=self.inspect(transition_id)
-                check(t["request"]==request,"Transition ID already bound to different request")
-                if t["status"] == "running":
-                    t = self._reconcile(t)
-
-                return {**t,"duplicate_request":True}
-            with self.epochs.request_owner(transition_id, legacy=True) as request_owner:
-                if request_owner is None:
-                    raise RecorderError("Transition request is busy", code="DEVICE_BUSY")
-                with self.epochs.device_owner(device, legacy=True) as owner:
-                    if owner is None:
-                        raise RecorderError("Transition device is busy", code="DEVICE_BUSY")
-                    return self._legacy(request, transition_id, request_owner, owner)
+        if not path.exists() or self.inspect(transition_id)["status"] == "running":
+            with self.epochs.request_owner(transition_id, legacy=True, timeout=120) as request_owner:
+                if not path.exists():
+                    if request_owner is None:
+                        raise RecorderError("Transition request is busy", code="DEVICE_BUSY")
+                    with self.epochs.device_owner(device, legacy=True) as owner, recorded_asset_snapshots(self.store):
+                        if owner is None:
+                            raise RecorderError("Transition device is busy", code="DEVICE_BUSY")
+                        return self._legacy(request, transition_id, request_owner, owner)
+        t=self.inspect(transition_id)
+        check(t["request"]==request,"Transition ID already bound to different request")
+        if t["status"] == "running":
+            t = self._reconcile(t)
+        return {**t,"duplicate_request":True}
 
     def _legacy(self, request, transition_id, request_owner, owner):
         device, session_id = request["device"], request["session_id"]
@@ -327,9 +333,9 @@ class TransitionService:
             raise RecorderError("Operation device differs from session",code="SESSION_SCOPE_MISMATCH")
         for name in (target,pre_state,postcondition.get("target")):
             if name:
-                a=self.assets.get(name)
+                a,data,_=self.assets.snapshot(name)
                 check(a.device_id in (None,device),"Asset device mismatch")
-                self.assets.load_image(name)
+                self.assets.decode(data,name)
         t={"transition_id":transition_id,"request":request,"status":"running","action_outcome":"not_attempted",
            "events":{},"last_frame_id":None,"last_observed_frame_id":None,"pre_frame_id":None,
            "post_frame_id":None,"observation_phase":"none","last_capture_timestamp":None,
@@ -354,8 +360,7 @@ class TransitionService:
     def invoke_scoped(self, request):
         try:
             req = _scoped_request(request)
-            with workspace_lock(self.store):
-                result = self._execute_scoped(req)
+            result = self._execute_scoped(req)
             return {"ok": True, "result": result}, 0 if result["status"] in ("completed", "in_progress") else 3
         except Exception as exc:
             reason, code = _failure(exc)
@@ -508,7 +513,7 @@ class TransitionService:
         def digest(key):
             if pins:
                 return pins[key].revision["png_sha256"]
-            return hashlib.sha256(Path(self.assets.get(key).image_path).read_bytes()).hexdigest()
+            return hashlib.sha256(self.assets.snapshot(key)[1]).hexdigest()
 
         def op(role,operation,inputs,invoke,pinned=None):
             r=self.rec._execute_locked(session_id,operation,{**inputs,"transition_id":transition_id},invoke,pinned_asset=pinned)

@@ -7,7 +7,7 @@ import time
 from contextlib import contextmanager
 
 from vision_app.metadata import metadata_transaction
-from vision_app.recorder import Recorder, workspace_lock
+from vision_app.recorder import Recorder
 from vision_app.recovery import RecoveryService, seal
 from vision_app.runtime import WorkflowRuntime, RuntimeFault
 from vision_app.workflow import require, label
@@ -21,7 +21,7 @@ class LifecycleService:
         self.rec=Recorder(store)
         self.rt=runtime or WorkflowRuntime(store)
         self.recovery=RecoveryService(store)
-        with self.rec.db() as db:
+        with metadata_transaction(self.store), self.rec.db() as db:
             db.executescript("""
             CREATE TABLE IF NOT EXISTS workflow_families(
                 family_id TEXT PRIMARY KEY, device TEXT NOT NULL, profile TEXT NOT NULL,
@@ -151,10 +151,9 @@ class LifecycleService:
 
     def register(self,family_id,workflow_id,run_id,expected_generation,reason,parent_version=None):
         self._slug(family_id);label(reason,"reason")
-        with workspace_lock(self.store):
-            device=self.rt._load("runs",run_id)["device"]
-            with self._mutation_owner(family_id,device) as owned_device:
-                self._register_owned(family_id,workflow_id,run_id,expected_generation,reason,parent_version,owned_device)
+        device=self.rt._load("runs",run_id)["device"]
+        with self._mutation_owner(family_id,device) as owned_device:
+            self._register_owned(family_id,workflow_id,run_id,expected_generation,reason,parent_version,owned_device)
         return self.inspect(family_id)
 
     def _register_owned(self,family_id,workflow_id,run_id,expected_generation,reason,parent_version,device):
@@ -196,7 +195,7 @@ class LifecycleService:
 
     def _switch(self,family_id,version,expected_generation,reason,op):
         label(reason,"reason")
-        with workspace_lock(self.store),self._mutation_owner(family_id) as device:
+        with self._mutation_owner(family_id) as device:
             with self.rec.db() as db:
                 f=self._mutation_family(db,family_id,device,expected_generation)
                 v=self._version(db,family_id,version) if op!="disable" and version!=f["active_version"] else None
@@ -236,7 +235,7 @@ class LifecycleService:
 
     def link(self,family_id,parent_version,proposal_id,qualification_id,expected_generation,reason):
         label(reason,"reason")
-        with workspace_lock(self.store),self._mutation_owner(family_id) as device:
+        with self._mutation_owner(family_id) as device:
             with self.rec.db() as db:
                 f=self._mutation_family(db,family_id,device,expected_generation)
                 v=self._version(db,family_id,parent_version)
@@ -263,7 +262,7 @@ class LifecycleService:
 
     def route_status(self,family_id,route_id,enabled,expected_generation,reason):
         require(type(enabled) is bool,"enabled must be boolean");label(reason,"reason")
-        with workspace_lock(self.store),self._mutation_owner(family_id) as device:
+        with self._mutation_owner(family_id) as device:
             with self.rec.db() as db:
                 self._mutation_family(db,family_id,device,expected_generation)
                 route=self._dict(db.execute("SELECT * FROM workflow_routes WHERE family_id=? AND route_id=?",(family_id,route_id)).fetchone())
@@ -290,13 +289,12 @@ class LifecycleService:
 
     def select(self,family_id,run_id):
         """Read-only recommendation from a fresh frame. Never clicks or resumes."""
-        with workspace_lock(self.store):
-            with self.rec.db() as db:
-                device=self._family(db,family_id)["device"]
-            with self.rt.epochs.device_owner(device,legacy=True) as owner:
-                if owner is None:
-                    raise RuntimeFault("DEVICE_BUSY","Recovery selector device is busy")
-                return self._select_locked(family_id,run_id,owner)
+        with self.rec.db() as db:
+            device=self._family(db,family_id)["device"]
+        with self.rt.epochs.device_owner(device,legacy=True) as owner:
+            if owner is None:
+                raise RuntimeFault("DEVICE_BUSY","Recovery selector device is busy")
+            return self._select_locked(family_id,run_id,owner)
 
     def _select_locked(self,family_id,run_id,owner):
         with self.rec.db() as db:

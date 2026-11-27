@@ -1,7 +1,7 @@
 """Orchestrator tests over real Runtime, lifecycle and recovery fixtures."""
 import json,subprocess,sys,os
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager, nullcontext
+from contextlib import contextmanager
 from threading import Event
 import pytest
 from test_workflow import recorded
@@ -166,8 +166,6 @@ def test_interrupted_after_recovery_before_restart(linked,monkeypatch):
 def test_legacy_mutation_waits_through_recovery_and_restart(linked,monkeypatch,mutation):
     o,p=engine(linked)
     p.state=1
-    # Exercise the inner owners independently of C10's retained outer gate.
-    monkeypatch.setattr("vision_app.lifecycle.workspace_lock",lambda _:nullcontext())
     parked=Event()
     release=Event()
     waiting=Event()
@@ -214,7 +212,6 @@ def test_legacy_mutation_waits_through_recovery_and_restart(linked,monkeypatch,m
 @pytest.mark.parametrize("mutation",["route","activation"])
 def test_generation_is_checked_after_device_acquisition(linked,monkeypatch,mutation):
     o,p=engine(linked)
-    monkeypatch.setattr("vision_app.orchestrator.workspace_lock",lambda _:nullcontext())
     waiting=Event()
     release=Event()
     registry=type(o.lc)(o.store)

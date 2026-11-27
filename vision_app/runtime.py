@@ -13,7 +13,6 @@ from vision_app.coordinator import Claim, ClaimError
 from vision_app.epochs import ActionIntent, DeviceEpochs
 from vision_app.metadata import metadata_transaction
 from vision_app.observation import ObservationService
-from vision_app.recorder import workspace_lock
 from vision_app.store import FrameStore, _atomic_write_json, protect_new_frames
 from vision_app.workflow import WorkflowBuilder, canonical, digest, decode, require, fields
 
@@ -167,11 +166,10 @@ class WorkflowRuntime:
 
     def qualify(self,workflow_id,device,profile):
         """Read-only live preflight. Does not assert runtime completion."""
-        with workspace_lock(self.store):
-            d,templates=self._definition(workflow_id,device,profile)
-            with self.epochs.device_owner(device,legacy=True) as owner:
-                check(owner is not None,"DEVICE_BUSY","Runtime device is busy")
-                return self._qualify_owned(workflow_id,device,profile,d,templates,owner)
+        d,templates=self._definition(workflow_id,device,profile)
+        with self.epochs.device_owner(device,legacy=True) as owner:
+            check(owner is not None,"DEVICE_BUSY","Runtime device is busy")
+            return self._qualify_owned(workflow_id,device,profile,d,templates,owner)
 
     def _qualify_owned(self,workflow_id,device,profile,d,templates,owner):
         f,img=self._capture(device,profile,d,lambda _:None,owner)
@@ -210,17 +208,17 @@ class WorkflowRuntime:
 
     def run(self,binding_id,run_id):
         path=self._path("runs",run_id)
-        with workspace_lock(self.store):
-            if path.exists():
-                old=self._load("runs",run_id)
-                require(old["binding_id"]==binding_id,"Run ID already bound to another request")
-                return {**self._summary(self._observe_run(run_id)),"duplicate_request":True}
-            b=self._binding(binding_id)
-            with self.epochs.request_owner(run_id,legacy=True) as request_owner:
-                check(request_owner is not None,"DEVICE_BUSY","Runtime request is busy")
-                with self.epochs.device_owner(b["device"],legacy=True) as owner:
-                    check(owner is not None,"DEVICE_BUSY","Runtime device is busy")
-                    return self._run_locked(binding_id,run_id,request_owner,owner)
+        if not path.exists() or self._load("runs",run_id)["status"]=="running":
+            with self.epochs.request_owner(run_id,legacy=True,timeout=120) as request_owner:
+                if not path.exists():
+                    check(request_owner is not None,"DEVICE_BUSY","Runtime request is busy")
+                    b=self._binding(binding_id)
+                    with self.epochs.device_owner(b["device"],legacy=True) as owner:
+                        check(owner is not None,"DEVICE_BUSY","Runtime device is busy")
+                        return self._run_locked(binding_id,run_id,request_owner,owner)
+        old=self._load("runs",run_id)
+        require(old["binding_id"]==binding_id,"Run ID already bound to another request")
+        return {**self._summary(self._observe_run(run_id)),"duplicate_request":True}
 
     def _run_locked(self,binding_id,run_id,request_owner,owner):
         require(not self._path("runs",run_id).exists(),"Run ID collision")
@@ -391,13 +389,12 @@ class WorkflowRuntime:
               "INVALID_DEVICE","Explicit Android device serial required")
         check(isinstance(package,str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+",package),
               "INVALID_PACKAGE","Valid Android package required")
-        with workspace_lock(self.store):
-            with self.epochs.device_owner(device,legacy=True) as owner:
-                check(owner is not None,"DEVICE_BUSY","Runtime device is busy")
-                observed=self.probe(device,package)
-                profile_shape(observed)
-                check(observed["package"]==package,"APP_MISMATCH","Observed app does not match expected package")
-                return observed
+        with self.epochs.device_owner(device,legacy=True) as owner:
+            check(owner is not None,"DEVICE_BUSY","Runtime device is busy")
+            observed=self.probe(device,package)
+            profile_shape(observed)
+            check(observed["package"]==package,"APP_MISMATCH","Observed app does not match expected package")
+            return observed
 
     def query(self,action,**args):
         require(action in ("qualify","run","inspect","list","probe_profile"),"Unknown runtime action")

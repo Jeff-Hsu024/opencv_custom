@@ -8,6 +8,8 @@ import os
 import re
 import time
 import uuid
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -20,7 +22,7 @@ from service.core.opencv.mat_utility import MatUtility
 from service.core.opencv.open_cv_service import OpenCvService
 from vision_app.asset_revisions import AssetRevisionStore, canonical, revision_id_for
 from vision_app.epochs import DeviceEpochs
-from vision_app.metadata import metadata_transaction
+from vision_app.metadata import canonical_store, metadata_transaction
 from vision_app.store import (
     DeviceMismatchError,
     FrameRecord,
@@ -31,6 +33,23 @@ from vision_app.store import (
 )
 
 _SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_recorded_assets = ContextVar("recorded_assets", default=None)
+
+
+@contextmanager
+def recorded_asset_snapshots(store):
+    """Share exact alias reads and publications within a single Recorder event."""
+    root = canonical_store(store)
+    current = _recorded_assets.get()
+    if current is not None and current[0] == root:
+        yield
+        return
+    snapshots = {}
+    token = _recorded_assets.set((root, snapshots))
+    try:
+        yield
+    finally:
+        _recorded_assets.reset(token)
 
 
 class InvalidAssetNameError(StoreError, ValueError):
@@ -217,7 +236,14 @@ class AssetRegistry:
             )
             self.revisions.legacy_commit(name, rid, content, record.to_dict(), png_bytes,
                                          img_path, self._meta_path(name))
+            snapshots = self._recorded_snapshots()
+            if snapshots is not None:
+                snapshots[os.path.normcase(name)] = (record, png_bytes, rid)
             return record
+
+    def _recorded_snapshots(self):
+        scope = _recorded_assets.get()
+        return scope[1] if scope is not None and scope[0] == canonical_store(self.root_dir) else None
 
     def _project_if_pending(self, row, record, data):
         if row["projection"] == "pending":
@@ -246,6 +272,21 @@ class AssetRegistry:
 
     def snapshot(self, name: str) -> Tuple[AssetRecord, bytes, Optional[str]]:
         """Coherent (record, PNG bytes, revision ID or None) for one committed alias."""
+        snapshots = self._recorded_snapshots()
+        if snapshots is None:
+            return self._snapshot(name)
+        key = os.path.normcase(name)
+        if key not in snapshots:
+            try:
+                snapshots[key] = self._snapshot(name)
+            except AssetNotFoundError as exc:
+                snapshots[key] = exc
+        snapshot = snapshots[key]
+        if isinstance(snapshot, AssetNotFoundError):
+            raise snapshot
+        return snapshot
+
+    def _snapshot(self, name):
         meta_path = self._meta_path(name)
         with metadata_transaction(self.root_dir), self.revisions._db() as db:
             row = self.revisions.legacy_row(db, name)

@@ -31,7 +31,7 @@ from vision_app.store import (
     OutOfBoundsError,
 )
 from vision_app.waits import WaitService, WaitFailure
-from vision_app.recorder import Recorder, RecorderError, OPERATIONS, workspace_lock
+from vision_app.recorder import Recorder, RecorderError, OPERATIONS
 from vision_app.workflow import WorkflowBuilder, WorkflowError
 from vision_app.runtime import WorkflowRuntime, RuntimeFault
 from vision_app.recovery import RecoveryService
@@ -656,8 +656,7 @@ def run_cli(argv=None, *, service=None):
             result = Recorder(store).execute(args.session, operation, inputs, invoke)
             _emit_json(result)
             return codes[0] if result.get('ok') and codes else (codes[0] if codes and codes[0] else 3)
-        with workspace_lock(store):
-            return _run_cli(argv, service=service, parsed=args)
+        return _run_cli(argv, service=service, parsed=args)
     except RecorderError as exc:
         _emit_json({"ok":False,"error":{"code":exc.code,"message":str(exc),"details":exc.details,"retryable":False}})
         return 3

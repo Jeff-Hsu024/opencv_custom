@@ -13,6 +13,7 @@ from contextlib import contextmanager, closing
 from pathlib import Path
 from typing import Any
 
+from vision_app.coordinator import OwnerCoordinator
 from vision_app.metadata import metadata_transaction
 from vision_app.store import FrameStore, StoreError, protect_new_frames
 
@@ -91,22 +92,11 @@ def _decode(row):
     return result
 
 
-@contextmanager
-def workspace_lock(store):
-    """Cross-process lock for the shared application store; released on process death."""
-    with closing(sqlite3.connect(store.store_dir / "operations.lock.sqlite", timeout=120)) as db:
-        db.execute("BEGIN IMMEDIATE")
-        try:
-            yield
-        finally:
-            db.rollback()
-
-
 class Recorder:
     def __init__(self, store: FrameStore):
         self.store = store
         self.path = store.store_dir / "recorder.sqlite"
-        with self.db() as db:
+        with metadata_transaction(self.store), self.db() as db:
             db.executescript("""
             CREATE TABLE IF NOT EXISTS sessions(
                 session_id TEXT PRIMARY KEY, name TEXT NOT NULL, goal TEXT NOT NULL,
@@ -162,7 +152,7 @@ class Recorder:
         return self._session(db, sid)
 
     def start(self, name, goal, device):
-        with self.db() as db:
+        with metadata_transaction(self.store), self.db() as db:
             return self._create_session(db, name, goal, device)
 
     def status(self, sid):
@@ -179,7 +169,7 @@ class Recorder:
         allowed = {"pause": ("active", "paused"), "resume": ("paused", "active"),
                    "stop": (("active", "paused"), "stopped")}
         before, after = allowed[action]
-        with workspace_lock(self.store), metadata_transaction(self.store), self.db() as db:
+        with self._session_device(sid), metadata_transaction(self.store), self.db() as db:
             session = self._session(db, sid)
             if session["status"] not in ((before,) if isinstance(before, str) else before):
                 raise RecorderError("Invalid session transition")
@@ -207,15 +197,16 @@ class Recorder:
     def _pin(self, fid, device, evidence):
         if not fid or not isinstance(fid, str):
             return
-        try:
-            frame = self.store.get_frame(fid)
-        except StoreError:
-            return  # Original service reports missing/invalid reference.
-        if frame.device_id != device:
-            raise RecorderError("Frame device differs from session",code="SESSION_SCOPE_MISMATCH")
-        if not self.store.resolve_image_path(frame.image_path).is_file():
-            return
-        self.store.set_protected(fid)
+        with metadata_transaction(self.store):
+            try:
+                frame = self.store.get_frame(fid)
+            except StoreError:
+                return  # Original service reports missing/invalid reference.
+            if frame.device_id != device:
+                raise RecorderError("Frame device differs from session",code="SESSION_SCOPE_MISMATCH")
+            if not self.store.resolve_image_path(frame.image_path).is_file():
+                return
+            self.store.set_protected(fid)
         if fid not in evidence["frames"]:
             evidence["frames"].append(fid)
 
@@ -307,11 +298,26 @@ class Recorder:
 
     def execute(self, sid, operation, inputs, invoke):
         """Invoke once; payload is normalized adapter JSON, never MCP image content."""
-        with workspace_lock(self.store):
+        with self._session_device(sid):
             return self._execute_locked(sid, operation, inputs, invoke, check_ref_session=True)
+
+    @contextmanager
+    def _session_device(self, sid, *, legacy=True):
+        device = self.status(sid)["device_id"]
+        coordinator = OwnerCoordinator(self.store)
+        with coordinator.device_owner(device, legacy=legacy) as owner:
+            if owner is None:
+                raise RecorderError("Session device is busy", code="DEVICE_BUSY")
+            with coordinator.recorded_device(owner):
+                yield
 
     def _execute_locked(self, sid, operation, inputs, invoke, *,
                         pinned_asset=None, check_ref_session=False):
+        from vision_app.assets import recorded_asset_snapshots
+        with recorded_asset_snapshots(self.store):
+            return self._execute_event(sid, operation, inputs, invoke, pinned_asset, check_ref_session)
+
+    def _execute_event(self, sid, operation, inputs, invoke, pinned_asset, check_ref_session):
         eid, now = _id("evt"), time.time()
         evidence = {"frames": [], "assets": [], "references": []}
         with metadata_transaction(self.store), self.db() as db:

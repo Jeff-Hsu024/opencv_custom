@@ -13,7 +13,7 @@ from vision_app.coordinator import Claim, ClaimError
 from vision_app.discovery import DiscoveryService
 from vision_app.epochs import ActionIntent, DeviceEpochs
 from vision_app.observation import OperationError
-from vision_app.recorder import Recorder, RecorderError, workspace_lock
+from vision_app.recorder import Recorder, RecorderError
 from vision_app.store import DeviceMismatchError, FrameNotFoundError, StoreError
 
 
@@ -117,8 +117,7 @@ class PrimitiveService:
     def invoke(self, operation, request):
         try:
             req = _validate(operation, request)
-            with workspace_lock(self.store):
-                result = self.scoped_find(req) if operation == "scoped_find" else self.guarded_click(req)
+            result = self.scoped_find(req) if operation == "scoped_find" else self.guarded_click(req)
             return {"ok": True, "result": result}, (
                 0 if result.get("status") in (None, "completed", "in_progress") else 3
             )
@@ -137,9 +136,12 @@ class PrimitiveService:
                 error, _ = _failure(exc)
                 return {"ok": False, "error": error}
 
-        result = Recorder(self.store)._execute_locked(
-            sid, operation, inputs, normalized, pinned_asset=pinned_asset,
-        )
+        recorder = Recorder(self.store)
+        if operation == "find":
+            with recorder._session_device(sid, legacy=False):
+                result = recorder._execute_locked(sid, operation, inputs, normalized, pinned_asset=pinned_asset)
+        else:
+            result = recorder._execute_locked(sid, operation, inputs, normalized, pinned_asset=pinned_asset)
         if not result["ok"]:
             error = result["error"]
             if error["code"].startswith("SESSION_"):
