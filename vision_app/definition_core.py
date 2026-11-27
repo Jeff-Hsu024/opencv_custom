@@ -192,7 +192,12 @@ def verify_proof(runtime,resolved,context,run):
             require(before.frame_id not in source_frames and after.frame_id not in source_frames
                     and before.frame_id not in used_frames and after.frame_id not in used_frames
                     and before.frame_id!=after.frame_id,"Proof frame reuse")
-            require(previous is None or previous<=before.timestamp,"Proof step chronology mismatch")
+            require(run["created_at"]<=before.timestamp<=after.timestamp<=run["finished_at"]
+                    and (previous is None or previous<=before.timestamp),"Proof step chronology mismatch")
+            require(s.get("pre_state")==runtime._classify(pre,d,t) and
+                    abs(ref.score-m[0].score)<=1e-6 and abs(target["score"]-m[0].score)<=1e-6
+                    and ref.target=="workflow_"+step["id"] and receipt["source"].get("device_bbox")==target["device_bbox"],
+                    "Proof target evidence mismatch")
             with runtime.epochs.transaction() as db:
                 intent=db.execute("SELECT epoch FROM action_intent WHERE request_id=? AND step_id=?",
                                   (context.admission_id,step["id"])).fetchone()
@@ -223,7 +228,8 @@ def verify_proof(runtime,resolved,context,run):
     require(run["last_frame_id"]==run["steps"][-1]["post_frame_id"],"Proof endpoint mismatch")
 
     if strict:
-        require(run.get("finished_at") is not None and run.get("observation_phase")=="post_action",
+        require(run.get("finished_at") is not None and run.get("observation_phase")=="post_action"
+                and run.get("action_receipt")==run["steps"][-1]["action_receipt"],
                 "Proof incomplete terminal observation")
         return {"context":context.to_dict(),"run_sha256":digest(canonical(run)),
                 "evidence_sha256":hashes,"template_sha256":[sha for sha,_ in resolved.template_bytes]}

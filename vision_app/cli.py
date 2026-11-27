@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from vision_app.actions import ActionService
-from vision_app.portable import PortableDefinitions, SCHEMAS as PORTABLE_SCHEMAS
+from vision_app.portable_service import PortableService, SCHEMAS as PORTABLE_SCHEMAS
 from vision_app.primitives import PrimitiveService, SCHEMAS as PRIMITIVE_SCHEMAS
 from vision_app.assets import (
     AssetNotFoundError,
@@ -580,7 +580,7 @@ def run_cli(argv=None, *, service=None):
                 if operation == "scoped_transition":
                     payload, exit_code = TransitionService(store, observation=service).invoke_scoped(request)
                 elif operation in PORTABLE_SCHEMAS:
-                    payload, exit_code = PortableDefinitions(store).invoke(operation, request)
+                    payload, exit_code = PortableService(store,observation=service).invoke(operation, request)
                 elif operation in PRIMITIVE_SCHEMAS:
                     primitive = PrimitiveService(service or ObservationService(store=store))
                     payload, exit_code = primitive.invoke(operation, request)

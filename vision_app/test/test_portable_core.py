@@ -1,5 +1,6 @@
 """Grouped portable core tests, using real evidence and injected fixture devices."""
 import copy
+import time
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -91,7 +92,7 @@ def test_portable_context_uses_shared_interpreter_and_proof(published):
     receipt={"id":rid,"kind":"trial","context":ctx.to_dict(),"device":"device-B",
              "status":"in_progress","request":{},"steps":[],"action_outcome":"not_attempted",
              "completed_steps":0,"last_frame_id":None,"last_confirmed_state":None,
-             "observation_phase":"none","reason":None,"created_at":1,"finished_at":None,
+             "observation_phase":"none","reason":None,"created_at":time.time(),"finished_at":None,
              "duplicate_request":False,"action_receipt":None}
     with target_rt.epochs.request_owner(rid) as owner:
         with target_rt.epochs.device_owner("device-B") as device_owner:
@@ -102,7 +103,7 @@ def test_portable_context_uses_shared_interpreter_and_proof(published):
                 receipt["last_frame_id"]=fid
                 persist(receipt)
             target_rt._interpret(resolved,ctx,owner,device_owner,receipt,persist,observe)
-            receipt.update(status="completed",finished_at=2)
+            receipt.update(status="completed",finished_at=time.time())
             target_rt.epochs.record(owner,rid,receipt,terminal=True)
     assert len(target.actions)==1 and receipt["completed_steps"]==1
     proof=verify_proof(target_rt,resolved,ctx,receipt)

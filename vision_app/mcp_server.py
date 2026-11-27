@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, TextIO, Tuple
 
 from vision_app.actions import ActionService
-from vision_app.portable import PortableDefinitions, SCHEMAS as PORTABLE_SCHEMAS
+from vision_app.portable_service import PortableService, SCHEMAS as PORTABLE_SCHEMAS
 from vision_app.primitives import PrimitiveService, SCHEMAS as PRIMITIVE_SCHEMAS
 from vision_app.assets import (
     AssetNotFoundError,
@@ -335,8 +335,8 @@ def _tool_definitions() -> List[Dict[str, Any]]:
     definitions.append({"name": "vision_scoped_transition",
                         "description": "Record an epoch-checked transition using exact asset revisions.",
                         "inputSchema": SCOPED_TRANSITION_SCHEMA})
-    definitions.extend({"name":f"vision_{op}","description":desc,"inputSchema":PORTABLE_SCHEMAS[op]}
-                       for op,desc in {"portable_publish":"Publish a verified immutable source workflow.","portable_inspect":"Inspect historical portable definition.","portable_list":"List portable definitions."}.items())
+    definitions.extend({"name":f"vision_{op}","description":op.replace("_"," ").capitalize()+".","inputSchema":schema}
+                       for op,schema in PORTABLE_SCHEMAS.items())
     return definitions
 
 
@@ -397,9 +397,18 @@ class VisionMcpServer:
     def call_tool(self, name: str, arguments: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         operation = name.removeprefix("vision_")
         if name.startswith("vision_") and operation in PORTABLE_SCHEMAS:
-            payload, _ = PortableDefinitions(self.store).invoke(operation, {} if arguments is None else arguments)
+            payload, _ = PortableService(self.store,observation=self.obs,actions=self.actions).invoke(operation, {} if arguments is None else arguments)
             result = self._text_tool_result(payload)
             result["isError"] = not payload["ok"]
+            receipt=payload.get("result",{})
+            fid=receipt.get("last_frame_id") or receipt.get("frame_id")
+            if fid and isinstance(arguments,dict) and arguments.get("return_image") is True:
+                try:
+                    with self.store.pin_frames([fid],device_id=receipt["device"]) as (frame,):
+                        artifact=_artifact_for_record(self.store,frame)
+                        result["content"].append(self._image_tool_result({"artifact":artifact})["content"][0])
+                except (OSError,StoreError,OperationError):
+                    pass
             return result
         if name == "vision_scoped_transition":
             svc = TransitionService(self.store, observation=self.obs, matcher=self.matcher,

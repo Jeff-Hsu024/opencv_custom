@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
 import re
 import time
 from pathlib import Path
@@ -109,13 +110,18 @@ class WorkflowRuntime:
         resolved=self._resolve(wid,device,profile)
         return resolved.definition,resolved.templates()
 
-    def _profile(self,device,expected):
+    def _profile(self,device,expected,*,portable=False):
         observed=self.probe(device,expected["package"])
+        if portable:
+            try:
+                profile_shape(observed)
+            except Exception as exc:
+                raise RuntimeFault("PROFILE_UNKNOWN","Cannot establish Android profile") from exc
         check(observed==expected,"PROFILE_MISMATCH","Android profile changed",{"expected":expected,"observed":observed})
         return observed
 
-    def _capture(self,device,profile,definition,observe,owner):
-        self._profile(device,profile)
+    def _capture(self,device,profile,definition,observe,owner,*,portable=False):
+        self._profile(device,profile,portable=portable)
         token=protect_new_frames.set(True)
         try:
             snap=self.obs.snapshot(device,device_owner=owner)
@@ -125,11 +131,14 @@ class WorkflowRuntime:
         fid=f["frame_id"]
         # Journal actual frame even if the subsequent profile/geometry check fails.
         observe(fid)
-        self._profile(device,profile)
+        self._profile(device,profile,portable=portable)
         geometry=definition["geometry"]
         check(f["device_id"]==device and f["width"]==geometry["width"] and f["height"]==geometry["height"],
               "GEOMETRY_MISMATCH","Live frame geometry differs from workflow",
               {"frame_id":fid,"width":f["width"],"height":f["height"]})
+        if portable:
+            check(f["rotation"] is None or f["rotation"]==geometry["rotation"],"GEOMETRY_MISMATCH",
+                  "Live frame rotation differs",{"frame_id":fid,"rotation":f["rotation"]})
         return self.store.get_frame(fid,device_id=device),self.store.load_image(fid,device_id=device)
 
     def _matches(self,image,spec,templates):
@@ -254,7 +263,7 @@ class WorkflowRuntime:
         self.epochs.record(request_owner,run_id,{"action_outcome":run["action_outcome"]},terminal=True)
         return self._summary(run)
 
-    def _interpret(self,resolved,context,request_owner,owner,run,persist,observe):
+    def _interpret(self,resolved,context,request_owner,owner,run,persist,observe,*,guard=nullcontext):
         """One deterministic interpreter; admission and journal policy stay with callers."""
         context.verify(resolved)
         self.epochs._require_owner(owner,context.device,"device")
@@ -280,7 +289,8 @@ class WorkflowRuntime:
             def pre_observe(fid):
                 if portable: run["observation_phase"]="pre_action"
                 observe(fid)
-            f,img=self._capture(device,profile,d,pre_observe,owner)
+            with guard():
+                f,img=self._capture(device,profile,d,pre_observe,owner,portable=portable)
             rec["pre_frame_id"]=f.frame_id
             classification=self._classify(img,d,templates)
             rec["pre_state"]=classification
@@ -296,7 +306,8 @@ class WorkflowRuntime:
                 check(stamp is not None and stamp.device==device and stamp.session_id is None,
                       "REF_UNVERSIONED","Runtime reference lacks target epoch")
                 rec["target"]["epoch"]=stamp.epoch
-            self._profile(device,profile)
+            with guard():
+                self._profile(device,profile,portable=portable)
             age=step["action"]["max_ref_age_seconds"]
             check(0<=time.time()-f.timestamp<=age,"FRAME_STALE","Live pre-frame expired before click")
             persist(run)
@@ -333,7 +344,8 @@ class WorkflowRuntime:
                 def post_observe(fid):
                     if portable: run["observation_phase"]="post_action"
                     observe(fid)
-                post,pimg=self._capture(device,profile,d,post_observe,owner)
+                with guard():
+                    post,pimg=self._capture(device,profile,d,post_observe,owner,portable=portable)
                 state=self._classify(pimg,d,templates)
                 rec["post_observations"].append({"frame_id":post.frame_id,**state})
                 persist(run)

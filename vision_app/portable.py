@@ -17,36 +17,9 @@ from vision_app.store import _atomic_write_bytes
 from vision_app.validation_context import EvidenceChanged, evidence_snapshot, _identity
 from vision_app.workflow import WorkflowError, canonical, digest, require
 
-def _string(prefix,length):
-    return {"type":"string","pattern":rf"^{prefix}_[0-9a-f]{{{length}}}$(?![\s\S])"}
+from vision_app.portable_contract import CATALOG, normalize
 
-def _schema(properties,required):
-    return {"type":"object","properties":properties,"required":required,"additionalProperties":False}
-
-SCHEMAS={
-    "portable_publish":_schema({"source_workflow_id":_string("wf",64),
-                                "source_run_id":_string("run",32)},["source_workflow_id","source_run_id"]),
-    "portable_inspect":_schema({"portable_id":_string("portable",64)},["portable_id"]),
-    "portable_list":_schema({"limit":{"type":"integer","minimum":1,"maximum":50,"default":20},
-                             "after":{"type":"integer","minimum":0,"default":0}},[]),
-}
-
-def normalize(operation,request):
-    schema=SCHEMAS[operation]
-    props=schema["properties"]
-    if type(request) is not dict or set(request)-props.keys() or set(schema["required"])-request.keys():
-        raise OperationError("INVALID_ARGUMENT","Invalid request fields",exit_code=2)
-    result={}
-    for key,rule in props.items():
-        value=request.get(key,rule.get("default"))
-        if rule["type"]=="string":
-            ok=isinstance(value,str) and re.fullmatch(rule["pattern"],value)
-        else:
-            ok=type(value) is int and rule["minimum"]<=value<=rule.get("maximum",2**63-1)
-        if not ok:
-            raise OperationError("INVALID_ARGUMENT",f"Invalid {key}",exit_code=2)
-        result[key]=value
-    return result
+SCHEMAS={op:CATALOG[op] for op in ("portable_publish","portable_inspect","portable_list")}
 
 def _hash(value):
     return digest(canonical_json(value).encode("utf-8"))
