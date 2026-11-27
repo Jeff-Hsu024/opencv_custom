@@ -24,7 +24,7 @@ def recovery(prepared):
     case=svc.open(RID)
     return rt,b,server,p,rec,sid,wid,svc,case
 
-def record_route(recovery, *, late_anchor=False):
+def record_route(recovery, *, late_anchor=False, separate_anchor=False):
     rt,b,server,p,rec,sid,wid,svc,case=recovery
     csid=case["session_id"]
     def op(tool,**args):
@@ -37,9 +37,12 @@ def record_route(recovery, *, late_anchor=False):
     fid=first["frame"]["frame_id"]
     if not late_anchor:
         ann=rec.annotate(csid,anchor,{"state":"B","observation":"Actual page B","verification":"PASS"})
-    op("assets_register",name="recover_target",frame_id=fid,region=[80,60,100,80])
+    if not separate_anchor:
+        op("assets_register",name="recover_target",frame_id=fid,region=[80,60,100,80])
     pre=op("snapshot",device="dev")
     fid=pre["frame"]["frame_id"]
+    if separate_anchor:
+        op("assets_register",name="recover_target",frame_id=fid,region=[80,60,100,80])
     found=op("find",frame_id=fid,target="recover_target",all=True,threshold=.98)
     click=op("click",device="dev",ref=found["matches"][0]["ref_id"],max_age_seconds=15)
     wait=op("wait",device="dev",mode="changed",baseline_frame_id=fid,timeout=5)
@@ -56,6 +59,29 @@ def record_route(recovery, *, late_anchor=False):
                   "post_event_id":post["event_id"],"annotation_id":end["annotation_id"]}],"excluded_actions":[]}
     reconciliation={"anchor_event_id":anchor,"annotation_id":ann["annotation_id"],"outcome":"not_attempted","note":"No original action."}
     return plan,reconciliation
+
+
+def test_proposal_rejects_changed_anchor_outside_plan(recovery, monkeypatch):
+    from vision_app.validation_context import EvidenceChanged, evidence_snapshot
+
+    _, _, server, _, rec, _, _, svc, case = recovery
+    plan, reconciliation = record_route(recovery, separate_anchor=True)
+    sid = case["session_id"]
+    anchor = rec.event(sid, reconciliation["anchor_event_id"])["result"]["frame"]["frame_id"]
+    with evidence_snapshot(svc.builder, sid, plan) as snapshot:
+        assert anchor not in snapshot.frames
+
+    publish = svc.builder._publish_locked
+
+    def change_anchor(*args, **kwargs):
+        server.store.set_protected(anchor, False)
+        server.store.set_protected(anchor, True)
+        return publish(*args, **kwargs)
+
+    monkeypatch.setattr(svc.builder, "_publish_locked", change_anchor)
+    with pytest.raises(EvidenceChanged):
+        svc.propose(case["case_id"], "recovery_route", "a", reconciliation, plan)
+    assert not svc.inspect(case["case_id"])["proposals"]["items"]
 
 def test_case_open_idempotent_and_persistent(recovery):
     rt,b,server,p,rec,sid,wid,svc,case=recovery

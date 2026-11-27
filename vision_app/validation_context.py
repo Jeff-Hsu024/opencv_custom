@@ -34,7 +34,7 @@ def _identity(path):
 
 
 class EvidenceSnapshot:
-    def __init__(self, builder, sid, plan, bundle, pins):
+    def __init__(self, builder, sid, plan, bundle, pins, extra_events):
         self.builder = builder
         self.sid = sid
         self.bundle = bundle
@@ -43,7 +43,7 @@ class EvidenceSnapshot:
         self.events, self.annotations = builder._events(sid)
         self.seal_path = bundle / "source-seal.json" if bundle is not None else None
 
-        selected = set()
+        selected = set(extra_events)
         for section in ("states", "steps"):
             for entry in plan.get(section, []) if isinstance(plan.get(section), list) else []:
                 if isinstance(entry, dict):
@@ -115,27 +115,30 @@ class EvidenceSnapshot:
             raise EvidenceChanged("Source or workflow dependency changed")
 
     @contextmanager
-    def commit(self, seals):
+    def commit(self, seals, *, additional=()):
+        dependencies = ((self, seals), *additional)
         try:
-            current = self.seals()
+            current = [snapshot.seals() for snapshot, _ in dependencies]
         except OSError as exc:
             raise EvidenceChanged("Evidence changed before commit") from exc
         with metadata_transaction(self.builder.store):
-            self.compare()
-            if current != seals:
-                raise EvidenceChanged("Evidence seal changed before commit")
+            for (snapshot, expected), observed in zip(dependencies, current):
+                snapshot.compare()
+                if observed != expected:
+                    raise EvidenceChanged("Evidence seal changed before commit")
             yield
 
 
 @contextmanager
-def evidence_snapshot(builder, sid, plan, *, wid=None):
+def evidence_snapshot(builder, sid, plan, *, wid=None, extra_events=()):
     with ExitStack() as pins:
         with metadata_transaction(builder.store):
             bundle = builder._directory(wid) if wid is not None else None
             if bundle is not None:
                 plan = json.loads((bundle / "plan.json").read_text(encoding="utf-8"))
                 sid = builder.inspect(wid)["definition"]["source"]["session_id"]
-            snapshot = EvidenceSnapshot(builder, sid, plan if isinstance(plan, dict) else {}, bundle, pins)
+            snapshot = EvidenceSnapshot(builder, sid, plan if isinstance(plan, dict) else {},
+                                        bundle, pins, extra_events)
         yield snapshot
 
 

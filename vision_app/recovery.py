@@ -161,10 +161,16 @@ class RecoveryService:
         label(reconciliation["note"],"reconciliation note")
         with workspace_lock(self.store), ExitStack() as pins:
             case=self._case(case_id)
+            parent_snapshot = pins.enter_context(evidence_snapshot(
+                self.builder, None, None, wid=case["payload"]["parent_workflow_id"]))
+            parent_seals = parent_snapshot.seals()
             run,parent,templates=self._parent(case)
             sid=case["session_id"]
             snapshot = pins.enter_context(evidence_snapshot(self.builder, sid, plan))
             seals = snapshot.seals()
+            anchor_snapshot = pins.enter_context(evidence_snapshot(
+                self.builder, sid, {}, extra_events=(reconciliation["anchor_event_id"],)))
+            anchor_seals = anchor_snapshot.seals()
             require(self.rec.status(sid)["status"]=="stopped","Stop recovery session before proposal")
             events,anns=self.builder._events(sid)
             anchor=events.get(reconciliation["anchor_event_id"])
@@ -232,7 +238,10 @@ class RecoveryService:
                                (pid,case_id,time.time(),canonical(payload).decode()))
                     return self._row(db,"recovery_proposals","proposal_id",pid)
 
-            return self.builder._publish_locked(definition, blobs, plan, snapshot, seals, publish_proposal)
+            return self.builder._publish_locked(
+                definition, blobs, plan, snapshot, seals, publish_proposal,
+                additional=((anchor_snapshot, anchor_seals), (parent_snapshot, parent_seals)),
+            )
 
     def proposal(self, proposal_id, limit=10, after=0):
         self.rec._page(limit,after)

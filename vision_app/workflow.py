@@ -373,13 +373,13 @@ class WorkflowBuilder:
                     raise
             return self._publish_locked(definition, blobs, plan, snapshot, seals)
 
-    def _publish_locked(self, definition, blobs, plan, snapshot, seals, finalize=None):
+    def _publish_locked(self, definition, blobs, plan, snapshot, seals, finalize=None, *, additional=()):
         workflow_id="wf_"+digest(canonical({"definition":definition,"plan":plan}))
         target=self.root/workflow_id
         self.root.mkdir(parents=True,exist_ok=True)
         if target.exists():
             self._validate(workflow_id)
-            with snapshot.commit(seals):
+            with snapshot.commit(seals, additional=additional):
                 return finalize() if finalize else self.inspect(workflow_id)
         staging=Path(tempfile.mkdtemp(prefix=".building_",dir=self.root))
         try:
@@ -388,7 +388,7 @@ class WorkflowBuilder:
             _atomic_write_json(staging/"plan.json",plan)
             _atomic_write_json(staging/"definition.json",{"workflow_id":workflow_id,**definition})
             _atomic_write_json(staging/"source-seal.json", {"source_seal": seals[0]})
-            with snapshot.commit(seals):
+            with snapshot.commit(seals, additional=additional):
                 os.replace(staging,target)
                 if finalize:
                     return finalize()
