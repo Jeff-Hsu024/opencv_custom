@@ -1,89 +1,166 @@
-"""Task-local memoization of offline validation, guarded by complete dependency seals.
-
-No device observations, profile probes, actions or lifecycle decisions are cached.
-The context is created only inside the Orchestrator workspace lock.
-"""
-from contextlib import contextmanager
+"""Pinned source dependencies and short publication compare-and-swap."""
+from contextlib import contextmanager, ExitStack
 from contextvars import ContextVar
 from copy import deepcopy
 import json
 
 from vision_app.assets import RefRegistry
+from vision_app.metadata import canonical_store, metadata_transaction
+from vision_app.workflow import WorkflowError, canonical, digest, require
 
-_context=ContextVar("task_validation_context",default=None)
+_context = ContextVar("task_validation_context", default=None)
+
+
+class EvidenceChanged(WorkflowError):
+    code = "EVIDENCE_CHANGED"
 
 
 @contextmanager
 def validation_scope(store):
-    token=_context.set((str(store.store_dir.resolve()),{}))
+    token = _context.set((canonical_store(store), {}))
     try:
         yield
     finally:
         _context.reset(token)
 
 
-def _seal(builder,wid):
-    from vision_app.workflow import canonical,digest
-    directory=builder._directory(wid)
-    def file(path):
-        return {"sha256":digest(path.read_bytes()),"symlink":path.is_symlink(),
-                "resolved":str(path.resolve()),"is_file":path.is_file()}
-    definition=directory/"definition.json"
-    d=json.loads(definition.read_text(encoding="utf-8"))
-    source=d["source"];sid=source["session_id"]
-    session=builder.rec.status(sid)
-    events,anns=builder._events(sid) # all rows, including later disputes/excluded/unsupported actions
-    index=builder.store._load_index()
-    frames={}
-    for fid in source["frame_sha256"]:
-        f=index[fid]
-        frames[fid]={"record":f.to_dict(),"image":file(builder.store.resolve_image_path(f.image_path))}
-    refs={}
-    registry=RefRegistry(builder.store.store_dir)
-    for rid in source["ref_sha256"]:
-        ref=registry.get(rid)
-        # Reference validation also uses the associated frame metadata.
-        refs[rid]={"file":file(registry._ref_path(rid)),"frame":index[ref.frame_id].to_dict()}
-    revisions={}
-    for step in d["steps"]:
-        event=events[step["provenance"]["find_event_id"]]
-        for asset in event["evidence"]["assets"]:
-            if asset["name"]==step["provenance"]["source_asset_name"]:
-                p=builder.store.store_dir/asset["retained_path"]
-                if not p.resolve().is_relative_to((builder.store.store_dir/"recorded_assets").resolve()):
-                    raise ValueError("Asset path outside retained store")
-                revisions[asset["retained_path"]]=file(p)
-    templates=directory/"templates"
-    payload={"definition":file(definition),"plan":file(directory/"plan.json"),"session":session,
-             "events":events,"annotations":anns,"frames":frames,"refs":refs,"revisions":revisions,
-             "templates_path":str(templates.resolve()),"templates_symlink":templates.is_symlink(),
-             "templates":{p.name:file(p) for p in sorted(templates.iterdir())}}
-    return digest(canonical(payload))
+def _identity(path):
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return None
+    return (str(path.resolve()), path.is_symlink(), stat.st_dev, stat.st_ino,
+            stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
 
 
-def validate_cached(builder,wid,validate):
-    ctx=_context.get()
-    if ctx is None or ctx[0]!=str(builder.store.store_dir.resolve()):
-        return validate(wid)
-    cache=ctx[1]
-    try:
-        before=_seal(builder,wid)
-    except Exception:
-        # A seal that cannot be established is NEVER a cache hit.
-        return validate(wid)
-    saved=cache.get(wid)
-    if saved is not None and saved[0]==before:
-        return deepcopy(saved[1])
-    result=validate(wid)
-    try:
-        after=_seal(builder,wid)
-    except Exception as exc:
-        cache.pop(wid,None)
-        from vision_app.workflow import WorkflowError
-        raise WorkflowError("Evidence seal changed during validation") from exc
-    if before!=after:
-        cache.pop(wid,None)
-        from vision_app.workflow import WorkflowError
-        raise WorkflowError("Evidence changed during validation")
-    cache[wid]=(after,deepcopy(result))
-    return result
+class EvidenceSnapshot:
+    def __init__(self, builder, sid, plan, bundle, pins):
+        self.builder = builder
+        self.sid = sid
+        self.bundle = bundle
+        self.revision = builder.rec.evidence_revision(sid)
+        self.session = builder.rec.status(sid)
+        self.events, self.annotations = builder._events(sid)
+        self.seal_path = bundle / "source-seal.json" if bundle is not None else None
+
+        selected = set()
+        for section in ("states", "steps"):
+            for entry in plan.get(section, []) if isinstance(plan.get(section), list) else []:
+                if isinstance(entry, dict):
+                    selected.update(value for key, value in entry.items()
+                                    if key.endswith("event_id") and isinstance(value, str))
+
+        frames, refs, retained = set(), set(), set()
+        for eid in selected & self.events.keys():
+            evidence = self.events[eid]["evidence"]
+            frames.update(evidence["frames"])
+            refs.update(evidence["references"])
+            retained.update(asset["retained_path"] for asset in evidence["assets"])
+
+        store = builder.store
+        registry = RefRegistry(store.store_dir)
+        for rid in refs:
+            frames.add(registry.get(rid).frame_id)
+        index, revisions = store._indexed_evidence()
+        self.frames = {fid: index[fid] for fid in sorted(frames) if fid in index}
+        self.frame_revisions = {fid: revisions.get(fid, 0) for fid in self.frames}
+        if self.frames:
+            pins.enter_context(store.pin_frames(self.frames))
+        self.source_paths = [store.store_dir / f.image_path for f in self.frames.values()]
+        self.source_paths.extend(registry._ref_path(rid) for rid in sorted(refs))
+        root = (store.store_dir / "recorded_assets").resolve()
+        for relative in sorted(retained):
+            path = store.store_dir / relative
+            require(path.resolve().parent == root, "Invalid retained asset path")
+            self.source_paths.append(path)
+        self.source_identities = [_identity(path) for path in self.source_paths]
+        self.bundle_identities = self._bundle_identities()
+
+    def _bundle_identities(self):
+        if self.bundle is None:
+            return {}
+        templates = self.bundle / "templates"
+        paths = [self.bundle, templates, self.bundle / "definition.json",
+                 self.bundle / "plan.json", self.seal_path]
+        if templates.is_dir():
+            paths.extend(sorted(templates.iterdir()))
+        return {path: _identity(path) for path in paths}
+
+    def _hashes(self, paths):
+        root = self.builder.store.store_dir
+        return {path.relative_to(root).as_posix(): digest(path.read_bytes())
+                for path in paths if path.is_file()}
+
+    def seals(self):
+        source = digest(canonical({
+            "revision": self.revision, "session": self.session, "events": self.events,
+            "annotations": self.annotations,
+            "frames": {fid: frame.to_dict() for fid, frame in self.frames.items()},
+            "frame_revisions": self.frame_revisions,
+            "files": self._hashes(self.source_paths),
+        }))
+        bundle = digest(canonical(self._hashes(self.bundle_identities)))
+        return source, bundle
+
+    def compare(self):
+        """Call under metadata immediately before any dependent write."""
+        builder = self.builder
+        if builder.rec.evidence_revision(self.sid) != self.revision:
+            raise EvidenceChanged("Source session evidence changed")
+        index, revisions = builder.store._indexed_evidence()
+        if (any(index.get(fid) != frame for fid, frame in self.frames.items())
+                or any(revisions.get(fid, 0) != rev for fid, rev in self.frame_revisions.items())
+                or [_identity(path) for path in self.source_paths] != self.source_identities
+                or self._bundle_identities() != self.bundle_identities):
+            raise EvidenceChanged("Source or workflow dependency changed")
+
+    @contextmanager
+    def commit(self, seals):
+        try:
+            current = self.seals()
+        except OSError as exc:
+            raise EvidenceChanged("Evidence changed before commit") from exc
+        with metadata_transaction(self.builder.store):
+            self.compare()
+            if current != seals:
+                raise EvidenceChanged("Evidence seal changed before commit")
+            yield
+
+
+@contextmanager
+def evidence_snapshot(builder, sid, plan, *, wid=None):
+    with ExitStack() as pins:
+        with metadata_transaction(builder.store):
+            bundle = builder._directory(wid) if wid is not None else None
+            if bundle is not None:
+                plan = json.loads((bundle / "plan.json").read_text(encoding="utf-8"))
+                sid = builder.inspect(wid)["definition"]["source"]["session_id"]
+            snapshot = EvidenceSnapshot(builder, sid, plan if isinstance(plan, dict) else {}, bundle, pins)
+        yield snapshot
+
+
+def validate_cached(builder, wid, validate):
+    ctx = _context.get()
+    cache = ctx[1] if ctx is not None and ctx[0] == canonical_store(builder.store) else {}
+    with evidence_snapshot(builder, None, None, wid=wid) as snapshot:
+        before = snapshot.seals()
+        saved = cache.get(wid)
+        if saved is not None and saved[0] == before:
+            with snapshot.commit(before):
+                return deepcopy(saved[1])
+        cache.pop(wid, None)
+        expected = (json.loads(snapshot.seal_path.read_text(encoding="utf-8"))
+                    if snapshot.seal_path.is_file() else None)
+        source_changed = expected is not None and expected != {"source_seal": before[0]}
+        try:
+            result = validate(wid)
+        except Exception as exc:
+            with snapshot.commit(before):
+                if source_changed:
+                    raise EvidenceChanged(str(exc)) from exc
+                raise
+        with snapshot.commit(before):
+            if source_changed:
+                raise EvidenceChanged("Published source evidence changed")
+            cache[wid] = (before, deepcopy(result))
+        return result

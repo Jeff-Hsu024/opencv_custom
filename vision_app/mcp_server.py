@@ -63,7 +63,7 @@ def _error_payload(exc: Exception) -> Dict[str, Any]:
     if isinstance(exc, RuntimeFault):
         return {'code':exc.code,'message':str(exc),'details':exc.details,'retryable':False}
     if isinstance(exc, WorkflowError):
-        return {"code":"WORKFLOW_ERROR","message":str(exc),"retryable":False}
+        return {"code":getattr(exc,"code","WORKFLOW_ERROR"),"message":str(exc),"retryable":False}
     if isinstance(exc, UsageError):
         return {"code": exc.code, "message": exc.message, "retryable": False}
     if isinstance(exc, OperationError):

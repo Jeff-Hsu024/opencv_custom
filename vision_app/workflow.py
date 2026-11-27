@@ -363,23 +363,35 @@ class WorkflowBuilder:
             return self._build_locked(session_id, plan)
 
     def _build_locked(self, session_id, plan):
-        definition,blobs=self._compile(session_id,plan)
-        return self._publish_locked(definition,blobs,plan)
+        from vision_app.validation_context import evidence_snapshot
+        with evidence_snapshot(self, session_id, plan) as snapshot:
+            seals = snapshot.seals()
+            try:
+                definition, blobs = self._compile(session_id, plan)
+            except Exception:
+                with snapshot.commit(seals):
+                    raise
+            return self._publish_locked(definition, blobs, plan, snapshot, seals)
 
-    def _publish_locked(self, definition, blobs, plan):
+    def _publish_locked(self, definition, blobs, plan, snapshot, seals, finalize=None):
         workflow_id="wf_"+digest(canonical({"definition":definition,"plan":plan}))
         target=self.root/workflow_id
         self.root.mkdir(parents=True,exist_ok=True)
         if target.exists():
             self._validate(workflow_id)
-            return self.inspect(workflow_id)
+            with snapshot.commit(seals):
+                return finalize() if finalize else self.inspect(workflow_id)
         staging=Path(tempfile.mkdtemp(prefix=".building_",dir=self.root))
         try:
             for sha,data in blobs.items():
                 _atomic_write_bytes(staging/"templates"/(sha+".png"),data)
             _atomic_write_json(staging/"plan.json",plan)
             _atomic_write_json(staging/"definition.json",{"workflow_id":workflow_id,**definition})
-            os.replace(staging,target)
+            _atomic_write_json(staging/"source-seal.json", {"source_seal": seals[0]})
+            with snapshot.commit(seals):
+                os.replace(staging,target)
+                if finalize:
+                    return finalize()
         finally:
             if staging.exists(): shutil.rmtree(staging)
         return self.inspect(workflow_id)

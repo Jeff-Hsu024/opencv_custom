@@ -666,7 +666,7 @@ def run_cli(argv=None, *, service=None):
         return 3
     except WorkflowError as exc:
         code={"task":"TASK_ERROR","lifecycle":"LIFECYCLE_ERROR","recovery":"RECOVERY_ERROR","workflow":"WORKFLOW_ERROR","runtime":"RUNTIME_ERROR"}.get(args.command,"WORKFLOW_ERROR")
-        _emit_json({"ok":False,"error":{"code":code,"message":str(exc),"retryable":False}})
+        _emit_json({"ok":False,"error":{"code":getattr(exc,"code",code),"message":str(exc),"retryable":False}})
         return 3
     except AssetNotFoundError as exc:
         _emit_json({"ok":False,"error":{"code":"ASSET_NOT_FOUND","message":str(exc),"retryable":False}})

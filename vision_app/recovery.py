@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import time
+from contextlib import ExitStack
 
 from vision_app.recorder import Recorder, workspace_lock
 from vision_app.runtime import WorkflowRuntime, check
@@ -153,14 +154,17 @@ class RecoveryService:
 
     def propose(self, case_id, kind, destination_state, reconciliation, plan):
         """Compile an explicit child proposal without changing parent, failed run or device."""
+        from vision_app.validation_context import evidence_snapshot
         require(kind in KINDS,"Invalid proposal kind")
         fields(reconciliation,("anchor_event_id","annotation_id","outcome","note"),"reconciliation")
         require(reconciliation["outcome"] in OUTCOMES,"Invalid reconciliation outcome")
         label(reconciliation["note"],"reconciliation note")
-        with workspace_lock(self.store):
+        with workspace_lock(self.store), ExitStack() as pins:
             case=self._case(case_id)
             run,parent,templates=self._parent(case)
             sid=case["session_id"]
+            snapshot = pins.enter_context(evidence_snapshot(self.builder, sid, plan))
+            seals = snapshot.seals()
             require(self.rec.status(sid)["status"]=="stopped","Stop recovery session before proposal")
             events,anns=self.builder._events(sid)
             anchor=events.get(reconciliation["anchor_event_id"])
@@ -222,11 +226,13 @@ class RecoveryService:
                                  "frame_sha256":end_sha,"parent_classification":end},
                      "status":"offline_pass","automatic_resume":False,"automatic_promotion":False}
             pid="rp_"+seal(payload)
-            self.builder._publish_locked(definition,blobs,plan)
-            with self.rec.db() as db:
-                db.execute("INSERT OR IGNORE INTO recovery_proposals VALUES (?,?,?,?)",
-                           (pid,case_id,time.time(),canonical(payload).decode()))
-                return self._row(db,"recovery_proposals","proposal_id",pid)
+            def publish_proposal():
+                with self.rec.db() as db:
+                    db.execute("INSERT OR IGNORE INTO recovery_proposals VALUES (?,?,?,?)",
+                               (pid,case_id,time.time(),canonical(payload).decode()))
+                    return self._row(db,"recovery_proposals","proposal_id",pid)
+
+            return self.builder._publish_locked(definition, blobs, plan, snapshot, seals, publish_proposal)
 
     def proposal(self, proposal_id, limit=10, after=0):
         self.rec._page(limit,after)

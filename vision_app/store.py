@@ -217,8 +217,10 @@ class FrameStore:
         if not self.index_path.exists():
             return {}
         raw = json.loads(self.index_path.read_text(encoding="utf-8"))
-        frames_raw = raw.get("frames", {})
-        return {fid: FrameRecord.from_dict(fdata) for fid, fdata in frames_raw.items()}
+        return {fid: FrameRecord.from_dict(data) for fid, data in raw.get("frames", {}).items()}
+
+    def _indexed_evidence(self):
+        return self._load_index(), self._lifetimes().get("protection_revisions", {})
 
     def _save_index(self, records: Dict[str, FrameRecord]) -> None:
         payload = {"frames": {fid: rec.to_dict() for fid, rec in records.items()}}
@@ -352,6 +354,13 @@ class FrameStore:
         old = records[fid]
         if not self.resolve_image_path(old.image_path).is_file():
             raise FrameNotFoundError(f"Image file missing for frame {fid}")
+        if old.protected != protected:
+            # Publish the fence first. A crash may invalidate a seal conservatively
+            # but cannot expose changed protection with the previous revision.
+            state = self._lifetimes()
+            revisions = state.setdefault("protection_revisions", {})
+            revisions[fid] = revisions.get(fid, 0) + 1
+            self._write_lifetimes(state)
         updated = FrameRecord(
             frame_id=old.frame_id,
             device_id=old.device_id,

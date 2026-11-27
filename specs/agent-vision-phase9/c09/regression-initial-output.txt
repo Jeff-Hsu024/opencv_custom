@@ -1,0 +1,201 @@
+........................................................................ [ 17%]
+........................................................................ [ 34%]
+........................................................................ [ 52%]
+..............................F......................................... [ 69%]
+..................................F..................................... [ 87%]
+.............................................F.......                    [100%]
+================================== FAILURES ===================================
+___________ test_codec_outside_metadata_and_legacy_bytes_unchanged ____________
+
+tmp_path = WindowsPath('C:/Users/jeffh/AppData/Local/Temp/pytest-of-jeffh/pytest-253/test_codec_outside_metadata_an0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000208DFBA4C20>
+
+    def test_codec_outside_metadata_and_legacy_bytes_unchanged(tmp_path, monkeypatch):
+        store = FrameStore(tmp_path)
+        def check_available():
+            acquired = []
+            def probe():
+                lock = FileLock(tmp_path, "metadata", "shared")
+                acquired.append(lock.acquire(blocking=False))
+                if acquired[-1]:
+                    lock.release()
+            t = threading.Thread(target=probe)
+            t.start()
+            t.join(5)
+            assert acquired == [True]
+        encode, decode = cv2.imencode, cv2.imread
+        def encode_checked(*args):
+            check_available()
+            return encode(*args)
+        def decode_checked(*args):
+            check_available()
+            store.cleanup(now=10**12)  # active image reader cannot lose its PNG
+            return decode(*args)
+        monkeypatch.setattr(cv2, "imencode", encode_checked)
+        monkeypatch.setattr(cv2, "imread", decode_checked)
+        rec = store.save_frame(image(7), "A", frame_id="legacy", protected=True)
+        expected = encode(".png", image(7))[1].tobytes()
+        assert hashlib.sha256((store.frames_dir / "legacy.png").read_bytes()).digest() == hashlib.sha256(expected).digest()
+>       assert json.loads(store.index_path.read_text()) == {"frames": {"legacy": rec.to_dict()}}
+E       AssertionError: assert {'evidence_re...y.png', ...}}} == {'frames': {'...h': 16, ...}}}
+E
+E         Omitting 1 identical items, use -vv to show
+E         Left contains 1 more item:
+E         {'evidence_revisions': {'legacy': 1}}
+E         Use -v to get more diff
+
+vision_app\test\test_frame_transactions.py:212: AssertionError
+_______________ test_live_owner_then_process_death_inside_input _______________
+
+prepared = (<vision_app.runtime.WorkflowRuntime object at 0x00000208DEE138B0>, {'binding_id': 'bind_1fc4fb3e2fd5066a032811314a598...208DFC6ADD0>, <vision_app.recorder.Recorder object at 0x00000208DF59D8B0>, 'ses_2c8d0f3e0d144447bf8ade1af0043724', ...)
+
+    def test_live_owner_then_process_death_inside_input(prepared):
+        rt,b,server,p,*_=prepared
+        epoch=rt.epochs.current("dev")
+        before=len(p.actions)
+        recovery=RecoveryService(server.store)
+>       with worker(server.store.store_dir, """
+    import json
+    from vision_app.mcp_server import VisionMcpServer
+    from vision_app.runtime import WorkflowRuntime
+    from vision_app.test.test_workflow import Platform
+
+    class PausedPlatform(Platform):
+        def click(self, x, y):
+            print("ready")
+            sys.stdin.readline()
+            return True
+
+    platform = PausedPlatform()
+    server = VisionMcpServer(sys.argv[1], platform_factory=lambda _: platform)
+    runtime = WorkflowRuntime(server.store, observation=server.obs, actions=server.actions,
+                              probe=lambda *_: json.loads(sys.argv[4]))
+    runtime.run(sys.argv[2], sys.argv[3])
+    """, b["binding_id"], RID, json.dumps(PROFILE)):
+
+vision_app\test\test_runtime.py:136:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Python314\Lib\contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+root = WindowsPath('C:/Users/jeffh/AppData/Local/Temp/pytest-of-jeffh/pytest-253/test_live_owner_then_process_d0')
+body = '\nimport json\nfrom vision_app.mcp_server import VisionMcpServer\nfrom vision_app.runtime import WorkflowRuntime\nfro...actions,\n                          probe=lambda *_: json.loads(sys.argv[4]))\nruntime.run(sys.argv[2], sys.argv[3])\n'
+args = ('bind_1fc4fb3e2fd5066a032811314a5989247ade84a5690a97dc5c0affc28d4c31c6', 'run_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', '{"package": "com.example.app", "version_code": 1, "rotation": 1, "locale": "zh-Hant-TW", "ui_mode": "0x21"}')
+
+    @contextmanager
+    def worker(root, body, *args):
+        script = (
+            "import sys\n"
+            "from vision_app.coordinator import RequestLedger, Claim\n"
+            "ledger = RequestLedger(sys.argv[1])\n"
+            + body
+        )
+        with subprocess.Popen([sys.executable, "-u", "-c", script, str(root), *args],
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True) as process:
+            ready = queue.Queue()
+            threading.Thread(target=lambda: ready.put(process.stdout.readline()), daemon=True).start()
+            try:
+>               assert ready.get(timeout=15).strip() == "ready"
+E               AssertionError: assert '' == 'ready'
+E
+E                 - ready
+
+vision_app\test\test_coordinator.py:48: AssertionError
+________________________ test_mcp_cli_process_restart _________________________
+
+recorded = (<vision_app.mcp_server.VisionMcpServer object at 0x00000208DEE33550>, <vision_app.recorder.Recorder object at 0x00000..._event_id': 'evt_1a0792288908459fbbb036ca35ce5690', ...}], ...}, <test_workflow.Platform object at 0x00000208DFA1BF50>)
+tmp_path = WindowsPath('C:/Users/jeffh/AppData/Local/Temp/pytest-of-jeffh/pytest-253/test_mcp_cli_process_restart0')
+
+    def test_mcp_cli_process_restart(recorded,tmp_path):
+        server,rec,sid,plan,_=recorded
+        r=call(server,"workflow_build",session_id=sid,plan=plan)
+        assert r["ok"],r
+        wid=r["result"]["workflow_id"]
+        cli=[sys.executable,"-m","vision_app","--store-dir",str(server.store.store_dir),"workflow","validate","--workflow",wid]
+>       proc=subprocess.run(cli,capture_output=True,text=True,check=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+vision_app\test\test_workflow.py:154:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+input = None, capture_output = True, timeout = None, check = True
+popenargs = (['C:\\Users\\jeffh\\orca\\workspaces\\clean-working\\agent-vision-multi-device\\.scratch\\c00-env\\Scripts\\python.ex...C:\\Users\\jeffh\\AppData\\Local\\Temp\\pytest-of-jeffh\\pytest-253\\test_mcp_cli_process_restart0', 'workflow', ...],)
+kwargs = {'text': True, 'stdout': -1, 'stderr': -1}
+
+    def run(*popenargs,
+            input=None, capture_output=False, timeout=None, check=False, **kwargs):
+        """Run command with arguments and return a CompletedProcess instance.
+
+        The returned instance will have attributes args, returncode, stdout and
+        stderr. By default, stdout and stderr are not captured, and those attributes
+        will be None. Pass stdout=PIPE and/or stderr=PIPE in order to capture them,
+        or pass capture_output=True to capture both.
+
+        If check is True and the exit code was non-zero, it raises a
+        CalledProcessError. The CalledProcessError object will have the return code
+        in the returncode attribute, and output & stderr attributes if those streams
+        were captured.
+
+        If timeout (seconds) is given and the process takes too long,
+         a TimeoutExpired exception will be raised.
+
+        There is an optional argument "input", allowing you to
+        pass bytes or a string to the subprocess's stdin.  If you use this argument
+        you may not also use the Popen constructor's "stdin" argument, as
+        it will be used internally.
+
+        By default, all communication is in bytes, and therefore any "input" should
+        be bytes, and the stdout and stderr will be bytes. If in text mode, any
+        "input" should be a string, and stdout and stderr will be strings decoded
+        according to locale encoding, or by "encoding" if set. Text mode is
+        triggered by setting any of text, encoding, errors or universal_newlines.
+
+        The other arguments are the same as for the Popen constructor.
+        """
+        if input is not None:
+            if kwargs.get('stdin') is not None:
+                raise ValueError('stdin and input arguments may not both be used.')
+            kwargs['stdin'] = PIPE
+
+        if capture_output:
+            if kwargs.get('stdout') is not None or kwargs.get('stderr') is not None:
+                raise ValueError('stdout and stderr arguments may not be used '
+                                 'with capture_output.')
+            kwargs['stdout'] = PIPE
+            kwargs['stderr'] = PIPE
+
+        with Popen(*popenargs, **kwargs) as process:
+            try:
+                stdout, stderr = process.communicate(input, timeout=timeout)
+            except TimeoutExpired as exc:
+                process.kill()
+                if _mswindows:
+                    # Windows accumulates the output in a single blocking
+                    # read() call run on child threads, with the timeout
+                    # being done in a join() on those threads.  communicate()
+                    # _after_ kill() is required to collect that and add it
+                    # to the exception.
+                    exc.stdout, exc.stderr = process.communicate()
+                else:
+                    # POSIX _communicate already populated the output so
+                    # far into the TimeoutExpired exception.
+                    process.wait()
+                raise
+            except:  # Including KeyboardInterrupt, communicate handled that.
+                process.kill()
+                # We don't call process.wait() as .__exit__ does that for us.
+                raise
+            retcode = process.poll()
+            if check and retcode:
+>               raise CalledProcessError(retcode, process.args,
+                                         output=stdout, stderr=stderr)
+E               subprocess.CalledProcessError: Command '['C:\\Users\\jeffh\\orca\\workspaces\\clean-working\\agent-vision-multi-device\\.scratch\\c00-env\\Scripts\\python.exe', '-m', 'vision_app', '--store-dir', 'C:\\Users\\jeffh\\AppData\\Local\\Temp\\pytest-of-jeffh\\pytest-253\\test_mcp_cli_process_restart0', 'workflow', 'validate', '--workflow', 'wf_bbeb24b98a82793d6a3e8e54cf0a83a821cbaacff2a91dcdcda0217d199c79a4']' returned non-zero exit status 3.
+
+C:\Python314\Lib\subprocess.py:577: CalledProcessError
+=========================== short test summary info ===========================
+FAILED vision_app/test/test_frame_transactions.py::test_codec_outside_metadata_and_legacy_bytes_unchanged
+FAILED vision_app/test/test_runtime.py::test_live_owner_then_process_death_inside_input
+FAILED vision_app/test/test_workflow.py::test_mcp_cli_process_restart - subpr...
+3 failed, 410 passed in 450.71s (0:07:30)

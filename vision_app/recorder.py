@@ -4,7 +4,9 @@ from __future__ import annotations
 import hashlib
 import math
 import json
+import os
 import sqlite3
+import tempfile
 import time
 import uuid
 from contextlib import contextmanager, closing
@@ -122,7 +124,19 @@ class Recorder:
                 kind TEXT NOT NULL, annotation TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS event_filter ON events(session_id,operation,status,sequence);
             CREATE INDEX IF NOT EXISTS annotation_filter ON annotations(session_id,timestamp);
+            CREATE TABLE IF NOT EXISTS evidence_revision(
+                session_id TEXT PRIMARY KEY, generation INTEGER NOT NULL);
             """)
+            for table, operation in (("sessions", "UPDATE"), ("events", "INSERT"),
+                                     ("events", "UPDATE"), ("annotations", "INSERT")):
+                db.execute(f"""
+                    CREATE TRIGGER IF NOT EXISTS evidence_{table}_{operation}
+                    AFTER {operation} ON {table}
+                    BEGIN
+                        INSERT INTO evidence_revision VALUES (NEW.session_id, 1)
+                        ON CONFLICT(session_id) DO UPDATE SET generation=generation+1;
+                    END
+                """)
 
     @contextmanager
     def db(self):
@@ -154,6 +168,12 @@ class Recorder:
     def status(self, sid):
         with self.db() as db:
             return self._session(db, sid)
+
+    def evidence_revision(self, sid):
+        with self.db() as db:
+            row = db.execute("SELECT generation FROM evidence_revision WHERE session_id=?",
+                             (sid,)).fetchone()
+        return row[0] if row else 0
 
     def transition(self, sid, action):
         allowed = {"pause": ("active", "paused"), "resume": ("paused", "active"),
@@ -226,16 +246,16 @@ class Recorder:
     def _retain_bytes(self, digest, data):
         dest = self.store.store_dir / "recorded_assets" / (digest + ".png")
         dest.parent.mkdir(exist_ok=True)
-        if dest.exists():
-            if hashlib.sha256(dest.read_bytes()).hexdigest() != digest:
-                raise RecorderError("Retained asset bytes do not match digest",code="STORE_ERROR")
-        else:
-            from vision_app.store import _atomic_write_bytes
-            try:
-                _atomic_write_bytes(dest, data)
-            except OSError:
-                if not dest.exists() or hashlib.sha256(dest.read_bytes()).hexdigest() != digest:
-                    raise
+        if not dest.exists():
+            with tempfile.TemporaryDirectory(prefix=".retaining_", dir=dest.parent) as staging:
+                from vision_app.store import _atomic_write_bytes
+                candidate = Path(staging) / dest.name
+                _atomic_write_bytes(candidate, data)
+                with metadata_transaction(self.store):
+                    if not dest.exists():
+                        os.replace(candidate, dest)
+        if hashlib.sha256(dest.read_bytes()).hexdigest() != digest:
+            raise RecorderError("Retained asset bytes do not match digest",code="STORE_ERROR")
         return str(dest.relative_to(self.store.store_dir))
 
     def retain_asset_revision(self, revision_id, device, evidence, *, session_id=None):
@@ -392,9 +412,9 @@ class Recorder:
 
     def annotate(self, sid, event_id, annotation, kind="annotation"):
         validate_annotation(annotation)
-        self.event(sid, event_id)
         aid = _id("ann")
-        with self.db() as db:
+        with metadata_transaction(self.store), self.db() as db:
+            self.event(sid, event_id)
             db.execute("INSERT INTO annotations VALUES (?,?,?,?,?,?)",
                        (aid,sid,event_id,time.time(),kind,_json(_clean(annotation))))
         return {"annotation_id": aid, "event_id": event_id, "kind": kind}
